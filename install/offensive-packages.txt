@@ -21,7 +21,7 @@ coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/Sh
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
 evil-winrm
-certipy-ad           # AD CS abuse (ESC1–ESC16, +ESC17 proposed, since Certipy v5.1.0)
+certipy-ad           # AD CS abuse (ESC1–ESC17, since Certipy v5.1.0)
 python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindump' isn't packaged)
 enum4linux-ng
 smbmap
