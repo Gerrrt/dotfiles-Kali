@@ -20,6 +20,17 @@ GitHub Release; `sync-fanout.yml` then opens the Kali sync PR.
 
 ## [Unreleased]
 
+## [v2.6.0] - 2026-07-24
+
+### Fixed
+
+- **`printerbug.py` → `printerbug` in two red entries** (`coerce-petitpotam`,
+  `unconstrained-deleg-tgt`). Kali ships the tool via the apt `krbrelayx`
+  package, which installs it as `printerbug` (no `.py`) — the git-clone-era
+  `.py` invocation no longer resolves. This is the source-of-truth fix for the
+  stale name that renders into `dotfiles-Kali`'s `hacktheplanet` generated
+  block on the next companion sync.
+
 ## [v2.5.0] - 2026-07-23
 
 ### Added
