@@ -57,6 +57,7 @@ tree-sitter-cli         # generate/build/test tree-sitter parsers (nvim-treesitt
 curl
 wget
 jq
+w3m            # terminal web browser (text-mode; renders tables + inline images)
 gawk
 direnv
 unzip
