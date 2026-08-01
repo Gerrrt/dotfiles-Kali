@@ -27,7 +27,7 @@ _have nxc          && HAVE_NXC=1            # NetExec — CrackMapExec's success
 _have nmap         && HAVE_NMAP=1
 _have responder    && HAVE_RESPONDER=1
 _have evil-winrm   && HAVE_EVILWINRM=1
-_have certipy-ad   && HAVE_CERTIPY=1        # AD CS abuse (ESC1-ESC17, since Certipy v5.1.0)
+_have certipy-ad   && HAVE_CERTIPY=1        # AD CS abuse (ESC1-ESC17: ESC13/15/16 in v5.0, ESC17 in v5.1.0)
 # Impacket ships ~60 scripts; probe one canonical entrypoint.
 _have impacket-secretsdump && HAVE_IMPACKET=1
 # BloodHound CE collectors (python collector is the cross-platform one)

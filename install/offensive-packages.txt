@@ -21,13 +21,13 @@ coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/Sh
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
 evil-winrm
-certipy-ad           # AD CS abuse (ESC1–ESC17, since Certipy v5.1.0)
+certipy-ad           # AD CS abuse (ESC1–ESC17: ESC13/15/16 landed in v5.0, ESC17 in v5.1.0)
 python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindump' isn't packaged)
 enum4linux-ng
 smbmap
 bloodyad             # raw-LDAP shadow-creds / DACL / RBCD / attribute writes (+ autobloody to auto-exploit a BloodHound-graphed path)
 gpp-decrypt          # decrypt the GPP cpassword blob from SYSVOL Groups.xml (the decrypt step of the GPP attack); ships in kali-linux-default, list it for slim installs
-freerdp3-x11         # xfreerdp — the RDP client for the 3389 connect line (pkg is freerdp2-x11 on older Kali); ships in kali-linux-default, list it for slim installs
+freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NAME CHURN: FreeRDP 2 was freerdp2-x11/xfreerdp; FreeRDP 3 shipped as freerdp3-x11/xfreerdp3 so both could coexist; Debian then dropped the suffix again (Jan 2026) — the source pkg is now `freerdp`, freerdp-x11 provides `xfreerdp`, and freerdp3-x11 is a transitional shim. On an older snapshot install freerdp3-x11 and run xfreerdp3. Ships in kali-linux-default, list it for slim installs
 # kerbrute          → UPSTREAM: not in apt — grab the release binary or `go install`
 #                     github.com/ropnop/kerbrute (see ~/hacktheplanet).
 #                     NOTE: upstream FROZEN (last release v1.0.3, Dec 2019). Keep it for the
@@ -108,6 +108,26 @@ hashcat
 john                 # john-the-ripper
 hydra
 seclists             # /usr/share/seclists — wordlists the helpers expect
+cupp                 # OSINT-driven wordlist from a target profile (`cupp -i`) — hacktheplanet's targeted-wordlist block
+# The rest of that block is doc-only — targeted-wordlist generators that beat raw
+# rockyou on corporate password policy, but that apt does not carry:
+# exrex             → UPSTREAM (pip install exrex): regex → every matching string.
+#                     Season+Year lists in hacktheplanet's targeted-wordlist block.
+# PACK (kwp,        → UPSTREAM (github.com/iphelix/pack): keyboard-walk generator +
+#  statsgen,          mask profiler. statsgen/maskgen profile a real dump's masks so
+#  maskgen)           you crack within THIS org's policy. Python 2 era — run from the
+#                     clone, no apt package.
+# hate_crack        → UPSTREAM (github.com/trustedsec/hate_crack): chains dict → rules
+#                     → mask automatically. Referenced as a comment in hacktheplanet.
+
+# ── Target-dropped enumeration (nothing to install HERE) ──────────────────────
+# These run ON the target, not on the attacker box, so they're per-engagement
+# downloads rather than apt packages. Listed only so the manifest accounts for
+# every tool hacktheplanet names:
+# linpeas.sh        → UPSTREAM (github.com/peass-ng/PEASS-ng, release artifact):
+#  / winPEAS          the automated privesc enumerators in hacktheplanet's Linux
+#                     and Windows privesc folds. Fetch the release build per
+#                     engagement — don't vendor a stale copy.
 
 # ── Pivoting / tunneling ──────────────────────────────────────────────────────
 proxychains4

