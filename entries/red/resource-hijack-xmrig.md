@@ -5,9 +5,9 @@ section: Impact
 phase: Impact
 attack:
   tactic: TA0040
-  techniques: [T1496]
+  techniques: [T1496.001]
 platform: [linux]
-source: MITRE ATT&CK T1496; xmrig / cryptojacking payloads
+source: MITRE ATT&CK T1496.001; xmrig / cryptojacking payloads
 pair: cryptomine-pool-detect
 ---
 
