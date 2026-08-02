@@ -18,7 +18,53 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Kali sync PR.
 
-## [Unreleased]
+## [v2.7.0] - 2026-08-01
+
+### Added
+
+- **Cloud-IdP escalation parity — 2 new red↔blue pairs** closing the two gaps that
+  were the most visible _relative to what the corpus already claimed to cover_
+  (#62): each is the direct analogue of a pair that already existed for the
+  neighbouring platform.
+  - **Entra privileged directory-role grant (`T1098.003`)** —
+    `entra-directory-role` ↔ `entra-role-assign-audit`. Google Workspace
+    super-admin was covered end-to-end while its Entra twin was not; Entra was
+    well covered on the **app** plane (`consent-grant`, `device-code`,
+    `sp-cred-backdoor`) but had nothing on the **directory-role** plane. Red
+    covers the Graph role-assignment call and flags **Privileged Authentication
+    Administrator** as the quiet choice (it can reset a Global Admin's
+    credentials). Blue keys on the `Add member to role` audit operation, reading
+    the role from the `Role.DisplayName` modified property rather than the
+    top-level event, and covers the PIM `Add eligible member to role` variant —
+    without which a standing backdoor is invisible until it is activated.
+  - **AWS IAM privilege escalation (`T1098.003`)** — `aws-iam-privesc-policy` ↔
+    `aws-iam-privesc-cloudtrail`. GCP had `gcp-iam-policy-backdoor`; AWS covered
+    console / access-key / S3 / destroy but not the escalation itself. Red covers
+    both shapes — the `AttachUserPolicy` self-grant and the `iam:PassRole` path
+    that never touches the actor's own identity. Blue carries a query for each,
+    since one cannot cover both: the self-grant query also catches
+    `CreatePolicyVersion --set-as-default` (the same escalation wearing an
+    update's clothes) and `PowerUserAccess` alongside `AdministratorAccess`,
+    while the PassRole query keys on the launching call's `requestParameters` —
+    **there is no `PassRole` CloudTrail event**, it being an authorization check
+    rather than an API call, which is why that half is so often missed.
+
+### Changed
+
+- **Cryptomining pair retagged `T1496` → `T1496.001` (Compute Hijacking)**
+  (`resource-hijack-xmrig`, `cryptomine-pool-detect`). ATT&CK gained
+  sub-techniques under T1496 Resource Hijacking, and MITRE places cryptocurrency
+  mining under `.001` Compute Hijacking (XMRig-using actors are listed on that
+  page). The parent tag is not deprecated, so this is a sharpening rather than a
+  correction — both halves of the pair move together to stay in sync.
+- **`web-service-c2-beacon` gained a host-role tuning caveat.** The entry's prose
+  promises process-context discipline, but the deployable SPL excludes only a
+  hardcoded Windows _desktop_ image list. On servers and CI/build agents,
+  `python.exe`/`node.exe`/`curl.exe` and agents under `\ProgramData\` clear the
+  `conns>3 AND active_hours>2` floor doing ordinary work — and the query's own
+  `user_writable` heuristic (whose regex matches `\ProgramData\` as a proxy for
+  drop-site paths, not as an ACL claim) then ranks that legitimate tooling like a
+  dropper. Documented the split-by-role tuning the query needs.
 
 ## [v2.6.0] - 2026-07-24
 

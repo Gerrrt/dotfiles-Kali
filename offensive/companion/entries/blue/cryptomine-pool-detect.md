@@ -5,7 +5,7 @@ detection: splunk-spl
 event_ids: []
 attack:
   tactic: TA0040
-  techniques: [T1496]
+  techniques: [T1496.001]
 source: Zeek conn.log / EDR process telemetry; Stratum pool indicators
 pair: resource-hijack-xmrig
 ---
