@@ -31,12 +31,12 @@ on **written authorization and a defined scope**.
 |-------|------------------|--------------------------|----------------|
 | **Recon** | Reconnaissance (TA0043) | amass, subfinder, dnsx, bbot, theharvester, masscan | `recon/` |
 | **Scanning / enum** | Discovery (TA0007) | `nmapsweep`, nxc (smb/ldap/winrm), enum4linux-ng, ldapdomaindump (apt: python3-ldapdomaindump) | `scans/` |
-| **Initial access** | Initial Access (TA0001) | nuclei/httpx/katana, ffuf/feroxbuster, sqlmap, Burp, responder | `web/`, `exploit/` |
+| **Initial access** | Initial Access (TA0001) | nuclei/httpx-toolkit/katana, ffuf/feroxbuster, sqlmap, Burp, responder | `web/`, `exploit/` |
 | **Cred access** | Credential Access (TA0006) | nxc, impacket (secretsdump), responder, hashcat/john, certipy-ad | `loot/creds`, `loot/hashes` |
 | **AD attack-path mapping** | Discovery / PrivEsc | **`bhce`** → BloodHound CE, bloodhound-python (apt: bloodhound-ce-python), SharpHound | `loot/bloodhound` |
 | **Lateral movement** | Lateral Movement (TA0008) | nxc (exec over smb/winrm/mssql), impacket-psexec, evil-winrm | `notes.md` |
 | **Privilege escalation** | Privilege Escalation (TA0004) | certipy-ad (AD CS), BloodHound paths, impacket | — |
-| **C2 / persistence** | Command & Control (TA0011) | Sliver, Havoc, Metasploit, Caldera (emulation) | — |
+| **C2 / persistence** | Command & Control (TA0011) | Sliver, AdaptixC2, Metasploit, Caldera (emulation); Havoc only if you already run it — upstream is archived | — |
 | **Pivoting** | Lateral Movement | ligolo-ng, chisel, proxychains4, socat | — |
 | **Reporting** | — | your notes + `logshell` transcript | `report/`, `notes.md` |
 
@@ -82,8 +82,11 @@ apt package).
 - No payloads, implants, shellcode, or exploit code. Those are generated
   per-engagement, live in `exploit/` under `~/engagements`, and never sync.
 - No target lists, creds, or loot. Same reason.
-- Sliver / Havoc / Caldera are install *pointers*, not vendored — they move fast
-  and carry their own update cadence.
+- No C2 server is vendored. Sliver and AdaptixC2 are now apt packages (so `up`
+  carries them); Caldera stays an install *pointer* — it moves fast and carries
+  its own update cadence. Configuring any of them is per-engagement work, and
+  AdaptixC2's shipped defaults are fingerprinted, so treat "installed" as the
+  starting line.
 
 The dotfiles job is to make the **toolset and workspace** reproducible across
 boxes. The tradecraft stays in your head and in the (private, out-of-repo)
