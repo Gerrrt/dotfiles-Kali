@@ -97,6 +97,34 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 #                     hacktheplanet's M365 flow)
 # onedrive_enum.py  → UPSTREAM (github.com/nyxgeek/onedrive_user_enum): M365 user validation
 #                     via OneDrive (hacktheplanet's M365 enum line). Not in apt — git clone.
+# AADInternals      → UPSTREAM (PowerShell Gallery: `Install-Module AADInternals`): the Entra ID
+#                     toolkit behind hacktheplanet's `Invoke-AADIntReconAsOutsider` line and the
+#                     corpus' device-code-phish entry. Not apt — pwsh module, same class as the
+#                     two above.
+
+# ── Cloud / SaaS / CI-CD ──────────────────────────────────────────────────────
+# This block exists for the COMPANION CORPUS, not for hacktheplanet. ~55 of the corpus'
+# red entries are cloud/SaaS/CI-CD, and the flat views deliberately don't mirror them
+# (hacktheplanet is per-service/per-port; cloud has no port). But ~/companion is
+# symlinked and `htpx` is a first-class alias — pick `aws-iam-backdoor-key`, hit `clip`,
+# and you need the CLI in PATH. These are the vendor CLIs those entries actually invoke.
+awscli               # `aws` — Kali ships AWS CLI **v2** (2.34.x), not the old v1
+azure-cli            # `az` — Entra/Azure. In Kali apt (2.88.x); no Microsoft repo needed
+kubectl              # from the `kubernetes` source pkg (also builds kubernetes-client)
+pacu                 # Rhino Security Labs' AWS exploitation framework — the corpus' AWS privesc/persistence entries
+peirates             # Kubernetes privesc + pivot (the k8s-* entries)
+npm                  # `npm` — the npm-* supply-chain entries (owner-add, 2FA-disable, malicious-publish)
+twine                # PyPI upload — the pypi-* supply-chain entries
+docker.io            # `docker` — harbor-* image/artifact entries; also how caldera below runs
+# google-cloud-cli  → UPSTREAM (Google's own apt repo / the install script): `gcloud` is not in
+#                     Debian or Kali. Backs the gcp-* entries.
+# gh                → UPSTREAM: WAS apt — gh 2.46.0-3 was REMOVED from kali-rolling 2025-12-10,
+#                     so it's the GitHub apt repo or the release binary now. Backs the gh-*
+#                     entries (deploy-key backdoor, branch-protection off, self-hosted runner).
+# vault             → UPSTREAM (HashiCorp's apt repo): BUSL-licensed, so not in Debian/Kali.
+#                     Backs the vault-* entries (approle backdoor, audit-disable, secret exfil).
+# Okta / Snowflake / Slack / GitLab / Terraform Cloud entries are pure REST — curl + a token,
+# nothing to install. The corpus commands say so.
 
 # ── C2 / adversary emulation ──────────────────────────────────────────────────
 metasploit-framework
@@ -119,6 +147,15 @@ adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver
 #                     APACHE (apache/caldera; donated to the Incubator May 2026, mitre/caldera
 #                     redirects). Active — the slow release cadence is that transition, not EOL.
 
+# Covert-channel egress — the corpus' dns-tunnel-c2 / icmp-tunnel-c2 entries. Test them
+# against your OWN infrastructure; a real egress path out of a client network is a finding,
+# not a toy. All apt except icmpsh:
+iodine               # IP-over-DNS to a zone you delegate (you run the authoritative NS)
+dnscat2              # DNS C2 — provides dnscat2-client + dnscat2-server
+ptunnel              # proxy a TCP session inside ICMP echo
+# icmpsh            → UPSTREAM (github.com/bdamele/icmpsh): the ICMP reverse shell paired with
+#                     ptunnel in the corpus entry. Not packaged in Kali — git clone.
+
 # ── Credential attacks ────────────────────────────────────────────────────────
 hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in kali-linux-default
 hashcat
@@ -126,6 +163,10 @@ john                 # john-the-ripper
 hydra
 seclists             # /usr/share/seclists — wordlists the helpers expect
 cupp                 # OSINT-driven wordlist from a target profile (`cupp -i`) — hacktheplanet's targeted-wordlist block
+mimikatz             # IS an apt package on Kali, but what it installs is WINDOWS binaries under
+#                    # /usr/share/windows-resources/mimikatz — you drop them on the target, you
+#                    # don't run them here. Backs hacktheplanet's DCShadow block (lsadump::dcshadow)
+#                    # and the corpus' dcshadow / golden-ticket / silver-ticket / dpapi entries.
 # The rest of that block is doc-only — targeted-wordlist generators that beat raw
 # rockyou on corporate password policy, but that apt does not carry:
 # exrex             → UPSTREAM (pip install exrex): regex → every matching string.
@@ -140,11 +181,17 @@ cupp                 # OSINT-driven wordlist from a target profile (`cupp -i`) �
 # ── Target-dropped enumeration (nothing to install HERE) ──────────────────────
 # These run ON the target, not on the attacker box, so they're per-engagement
 # downloads rather than apt packages. Listed only so the manifest accounts for
-# every tool hacktheplanet names:
+# every tool the DOCS *and* the COMPANION CORPUS name — ~/companion is symlinked
+# and `htpx` is a first-class alias, so a corpus command an operator can `clip`
+# is as load-bearing as a line in hacktheplanet:
 # linpeas.sh        → UPSTREAM (github.com/peass-ng/PEASS-ng, release artifact):
 #  / winPEAS          the automated privesc enumerators in hacktheplanet's Linux
 #                     and Windows privesc folds. Fetch the release build per
 #                     engagement — don't vendor a stale copy.
+# The corpus' Impact entries (inhibit-recovery-vssadmin, service-stop-preransom,
+# ransomware-encrypt-files, resource-hijack-xmrig) drive Windows BUILT-INS on the
+# target — vssadmin, wbadmin, bcdedit, sc, taskkill. Nothing to install, and the
+# one third-party binary they name (xmrig) is deliberately not shipped here.
 
 # ── Pivoting / tunneling ──────────────────────────────────────────────────────
 proxychains4

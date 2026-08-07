@@ -40,6 +40,16 @@ on **written authorization and a defined scope**.
 | **Pivoting** | Lateral Movement | ligolo-ng, chisel, proxychains4, socat | — |
 | **Reporting** | — | your notes + `logshell` transcript | `report/`, `notes.md` |
 
+> **This table maps the on-prem network/AD engagement — that's the whole scope it
+> claims.** Cloud/SaaS/identity (AWS, Entra, GCP, Okta, Snowflake), Kubernetes, and
+> CI-CD supply chain (Jenkins, GitHub/GitLab runners, npm/PyPI, Terraform Cloud,
+> Vault), plus the Impact tactic and the C2 tradecraft past the one row above, live in
+> the **companion corpus** — `htpx` (`~/companion`), where each attack is paired with
+> its detection. Roughly two-thirds of the corpus is that material and none of it is
+> projected into `hacktheplanet` or `PURPLE-TEAM.md`; the corpus is the map for it.
+> The CLIs those entries invoke are accounted for in
+> [`install/offensive-packages.txt`](install/offensive-packages.txt).
+
 ### The one naming change that bites people
 **CrackMapExec is gone — it's `nxc` (NetExec) now.** CME was archived in 2023; the
 community fork NetExec is the maintained successor and the single highest-leverage
@@ -50,9 +60,10 @@ scriptable interface. The old `crackmapexec`/`cme` muscle memory just becomes `n
 ### BloodHound is now BloodHound CE
 The legacy BloodHound 4.x collectors don't cleanly ingest into Community Edition.
 Use a **CE-compatible collector** — the `bhce` helper drives nxc's `--bloodhound`
-module, which packages a CE-ready zip into `loot/bloodhound/`. Run BloodHound CE
-itself from its official docker-compose (it's a Postgres-backed web app, not an
-apt package).
+module, which packages a CE-ready zip into `loot/bloodhound/`. BloodHound CE itself
+is a Postgres-backed web app, not an apt package — stand it up with SpecterOps'
+official `bloodhound-cli` (a Go binary you curl from the releases or `go install`),
+which now owns the compose file under an XDG config dir.
 
 ---
 

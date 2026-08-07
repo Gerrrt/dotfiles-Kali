@@ -54,6 +54,15 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > those — edit the entry and run `offensive/companion/gen-views.sh`, not the block
 > here (CI rejects a hand-edit). Everything outside the markers is hand-authored.
 
+> **Scope: this map is the Windows Security / Sysmon mirror.** Every section below
+> keys off a Windows event ID, which is why only 23 of the companion's 90 blue
+> entries project here. The other 67 detect in logs this file has no section for —
+> AWS CloudTrail, GCP audit logs, Entra sign-in/audit, Okta system log, GitHub/GitLab
+> audit, Vault audit device, Snowflake account usage — plus the C2-egress and Impact
+> detections. Read those with `htpx` (`~/companion`), which shows each detection
+> beside the attack that trips it. That split is deliberate, not a backlog: a
+> cloud-audit query has nothing to do with a Sysmon feed in `index=main`.
+
 ### Recon / credential access
 
 <!-- companion:gen password-spray-4625 -->
