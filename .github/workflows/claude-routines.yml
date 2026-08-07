@@ -178,16 +178,24 @@ jobs:
         run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:?not loaded from core/scripts/tool-versions.env}"
       - name: Run /methodology-review
         run: |
-          # sonnet, not opus (the other routines' model): the account's cybersecurity
-          # safety filter blocked the *Opus* request for this routine at the API level
-          # (issue #112 — a request-level block, not a model refusal; the prompt was
-          # already heavily framed as opaque-string doc-hygiene). sonnet handles this
-          # token-diff audit fully. The real fix is the cyber-use-case exemption
-          # (https://claude.com/form/cyber-use-case); if that lands or the filter stops
-          # tripping, revert to --model opus for parity. If sonnet is blocked too, the
-          # filing helper detects the error and files a clearly-labeled advisory.
+          # opus, matching the other two routines — and the history, because reverting to
+          # the default otherwise reads as churn. The account's cybersecurity safety filter
+          # blocked the *Opus* request for this routine at the API level (issue #112 — a
+          # request-level block, not a model refusal; the prompt was already heavily framed
+          # as opaque-string doc-hygiene), so this job was pinned to sonnet as a workaround
+          # and ran fine on it for a while. The filter has since caught sonnet too, with
+          # REWORDED text (issue #177) — so the pin bought nothing and only cost this
+          # routine the model the other two get. Back to opus for parity: if the filter is
+          # going to block the work, it should block it on the model we actually want.
+          # The real fix stays account-level — the cyber-use-case exemption
+          # (https://claude.com/form/cyber-use-case) or the Cyber Verification Program
+          # (https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude).
+          # Until one lands, file-routine-issue.sh classifies ANY blocked or failed run by
+          # shape and files it as a distinctly-titled advisory instead of a fake report, so
+          # a block shows up as a block whichever model it lands on (and
+          # test/check-routine-filter.sh keeps that classifier honest across rewords).
           claude -p "/methodology-review" \
-            --model sonnet \
+            --model opus \
             --permission-mode default \
             --allowedTools "Read,Grep,Glob,Bash(git ls-files:*),Bash(ls:*)" \
             --output-format text | tee "$RUNNER_TEMP/methodology-review.md"
