@@ -34,7 +34,9 @@ _have impacket-secretsdump && HAVE_IMPACKET=1
 _have bloodhound-python && HAVE_BHPY=1
 # Web / recon (ProjectDiscovery + classics)
 _have nuclei       && HAVE_NUCLEI=1
-_have httpx        && HAVE_HTTPX=1
+# Kali packages ProjectDiscovery's httpx as `httpx-toolkit` so it can't collide with
+# python3-httpx's `/usr/bin/httpx` — probe the real binary, not the shared name.
+_have httpx-toolkit && HAVE_HTTPX=1
 _have katana       && HAVE_KATANA=1
 _have bbot         && HAVE_BBOT=1
 _have ffuf         && HAVE_FFUF=1

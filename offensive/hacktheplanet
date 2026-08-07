@@ -60,8 +60,9 @@ OSINT / external recon & user enumeration
 dig @<dns-server> <domain> NS
 dig @<dns-server> <domain> MX
 dig @<dns-server> <domain> TXT                # often leaks SPF (who may send the org's mail)
-# httpx below is ProjectDiscovery's (the `httpx-toolkit` apt pkg) — NOT the python 'httpx' lib:
-subfinder -d <domain> -silent | httpx -ip -asn -title -tech-detect -server -status-code
+# `httpx-toolkit` IS ProjectDiscovery's httpx — the bare `httpx` binary belongs to
+# python3-httpx (a different tool entirely). Kali renames PD's to keep them apart:
+subfinder -d <domain> -silent | httpx-toolkit -ip -asn -title -tech-detect -server -status-code
 nuclei -u <domain> -t dns
 # Google dorks (exploit-db.com/google-hacking-database) — one query per line:
 #   site:<domain> "internal use only"      site:<domain> filetype:xls

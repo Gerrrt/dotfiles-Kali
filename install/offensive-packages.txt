@@ -27,7 +27,7 @@ enum4linux-ng
 smbmap
 bloodyad             # raw-LDAP shadow-creds / DACL / RBCD / attribute writes (+ autobloody to auto-exploit a BloodHound-graphed path)
 gpp-decrypt          # decrypt the GPP cpassword blob from SYSVOL Groups.xml (the decrypt step of the GPP attack); ships in kali-linux-default, list it for slim installs
-freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NAME CHURN: FreeRDP 2 was freerdp2-x11/xfreerdp; FreeRDP 3 shipped as freerdp3-x11/xfreerdp3 so both could coexist; Debian then dropped the suffix again (Jan 2026) — the source pkg is now `freerdp`, freerdp-x11 provides `xfreerdp`, and freerdp3-x11 is a transitional shim. On an older snapshot install freerdp3-x11 and run xfreerdp3. Ships in kali-linux-default, list it for slim installs
+freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NAME CHURN: FreeRDP 2 was freerdp2-x11/xfreerdp; FreeRDP 3 shipped as freerdp3-x11/xfreerdp3 so both could coexist; Debian then dropped the suffix again (Jan 2026) — freerdp-x11 provides `xfreerdp` and it IS FreeRDP 3. Both binaries come out of the `freerdp3` source pkg (`freerdp` as a source pkg died in 2018), and freerdp3-x11 is NOT transitional — it still ships a real /usr/bin/xfreerdp3 alongside. On an older snapshot install freerdp3-x11 and run xfreerdp3. Ships in kali-linux-default, list it for slim installs
 # kerbrute          → UPSTREAM: not in apt — grab the release binary or `go install`
 #                     github.com/ropnop/kerbrute (see ~/hacktheplanet).
 #                     NOTE: upstream FROZEN (last release v1.0.3, Dec 2019). Keep it for the
@@ -64,7 +64,10 @@ nikto
 wpscan               # WordPress enum/scan (needs a free API token for vuln data); ships in kali-linux-default
 sqlmap
 weevely              # PHP webshell generator/manager (the exploitdev post-exploit webshell); ships in kali-linux-default, list it for slim installs
-nuclei               # ProjectDiscovery — templated scanner (AI templates in 2026)
+nuclei               # ProjectDiscovery — templated scanner. `-ai` (2026 AI templates) is NOT
+#                    # local: it needs a PD API key + outbound internet, and the template it
+#                    # generates lands in your PD cloud account. Know that before you reach
+#                    # for it mid-engagement.
 httpx-toolkit        # ProjectDiscovery httpx — bare 'httpx' apt pkg is the python lib, not this
 # katana            → UPSTREAM (Go): not in apt —
 #                     go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -97,10 +100,24 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 
 # ── C2 / adversary emulation ──────────────────────────────────────────────────
 metasploit-framework
-# sliver            → UPSTREAM: curl https://sliver.sh/install | sudo bash
-#                     (Go C2; current open-source standard, not in Kali repo)
-# havoc             → UPSTREAM build (github.com/HavocFramework/Havoc)
-# caldera           → UPSTREAM/docker (MITRE adversary emulation, ATT&CK-mapped)
+sliver               # Go C2, the open-source standard — NOW APT-PACKAGED (kali-rolling since
+#                    # Mar 2026), shipping sliver-client + sliver-server. Those are the binary
+#                    # names offensive.zsh already probes and aliases, so only this manifest
+#                    # lagged; retires the old `curl https://sliver.sh/install | sudo bash`.
+#                    # apt runs ~a patch behind upstream — fine for a C2 you re-profile anyway.
+adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver + Qt client, and
+#                    # the actively-developed slot now that havoc below is frozen. In kali apt.
+#                    # ⚠ its DEFAULT server profiles are heavily fingerprinted — publicly
+#                    # scanned/tracked and seen in real intrusions. Profile it before you use
+#                    # it; that's a reason to configure it, not a reason to skip it.
+# havoc             → UPSTREAM build (github.com/HavocFramework/Havoc).
+#                     NOTE: upstream ARCHIVED (Feb 2026; last push Dec 2025). Kali still ships
+#                     havoc 0.6~git20251218, so it's FROZEN, not gone — same honest status as
+#                     kerbrute above. Keep it for existing muscle memory; new work goes to
+#                     `adaptixc2`.
+# caldera           → UPSTREAM/docker (adversary emulation, ATT&CK-mapped). Moved MITRE →
+#                     APACHE (apache/caldera; donated to the Incubator May 2026, mitre/caldera
+#                     redirects). Active — the slow release cadence is that transition, not EOL.
 
 # ── Credential attacks ────────────────────────────────────────────────────────
 hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in kali-linux-default
