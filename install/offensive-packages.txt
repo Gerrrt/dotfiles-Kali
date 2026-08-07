@@ -108,8 +108,8 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 # (hacktheplanet is per-service/per-port; cloud has no port). But ~/companion is
 # symlinked and `htpx` is a first-class alias — pick `aws-iam-backdoor-key`, hit `clip`,
 # and you need the CLI in PATH. These are the vendor CLIs those entries actually invoke.
-awscli               # `aws` — Kali ships AWS CLI **v2** (2.34.x), not the old v1
-azure-cli            # `az` — Entra/Azure. In Kali apt (2.88.x); no Microsoft repo needed
+awscli               # `aws` — Kali ships AWS CLI v2, NOT the old v1 (different flags, different auth)
+azure-cli            # `az` — Entra/Azure. In Kali apt; no Microsoft repo needed
 kubectl              # from the `kubernetes` source pkg (also builds kubernetes-client)
 pacu                 # Rhino Security Labs' AWS exploitation framework — the corpus' AWS privesc/persistence entries
 peirates             # Kubernetes privesc + pivot (the k8s-* entries)
