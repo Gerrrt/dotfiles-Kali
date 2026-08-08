@@ -46,7 +46,8 @@ _have amass        && HAVE_AMASS=1
 # C2 / emulation
 _have sliver-client && HAVE_SLIVER=1
 _have msfconsole    && HAVE_MSF=1
-_have caldera       && HAVE_CALDERA=1
+# No HAVE_CALDERA probe: Caldera ships no `caldera` binary (it's the UPSTREAM/docker
+# entry in install/offensive-packages.txt), so `_have caldera` could never fire.
 # Cracking
 _have hashcat      && HAVE_HASHCAT=1
 _have john         && HAVE_JOHN=1
@@ -171,11 +172,22 @@ EOF
 # eng — fzf-jump between existing engagements (mirrors Core's fzf widget style)
 eng() {
   [[ -d "$ENGAGEMENTS_DIR" ]] || { echo "no $ENGAGEMENTS_DIR yet — run mkengagement" >&2; return 1; }
-  local sel
+  local sel prev
+  # fzf bakes the preview string into a subshell, so the pager binary must be RESOLVED
+  # here — Debian/Kali ship bat as `batcat`, and a literal `bat` silently fell through to
+  # the `|| ls -la` branch on every box, so this picker never showed the scope sheet it
+  # exists to show. 00-tools.zsh (Core, loaded before this file) sets $BAT_BIN to the real
+  # name; branch the WHOLE command because a `cat` fallback would choke on --color=always.
+  # Same trap Core documents in 35-fzf.zsh, and the one CLAUDE.md warns about.
+  if [[ -n ${BAT_BIN:-} ]]; then
+    prev="$BAT_BIN --color=always {}/scope/scope.txt 2>/dev/null || ls -la {}"
+  else
+    prev="cat {}/scope/scope.txt 2>/dev/null || ls -la {}"
+  fi
   sel=$(find "$ENGAGEMENTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null \
         | sort -r \
         | fzf --prompt="Engagement ❯ " \
-              --preview="bat --color=always {}/scope/scope.txt 2>/dev/null || ls -la {}")
+              --preview="$prev")
   [[ -z "$sel" ]] && return 0
   cd "$sel" || return 1
   export ENGAGEMENT="$sel"

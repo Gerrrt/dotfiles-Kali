@@ -24,12 +24,26 @@ if [[ ! -d "$ENGAGEMENTS_DIR" ]]; then
 	exit 0
 fi
 
+# Resolve the pager BEFORE baking it into fzf's preview string: fzf runs that string in a
+# subshell, so the binary name has to be real there. Debian/Kali ship bat as `batcat` (the
+# name clash CLAUDE.md warns about), and the literal `bat` this used to carry silently fell
+# through to the eza branch on every box — so the scope sheet this popup exists to show
+# never appeared. Core hits the same trap in 35-fzf.zsh and fixes it with $BAT_BIN, but
+# that's a zsh var this bash script can't see, so resolve it here with the same precedence.
+if command -v bat >/dev/null 2>&1; then
+	pager="bat --color=always --style=plain"
+elif command -v batcat >/dev/null 2>&1; then
+	pager="batcat --color=always --style=plain"
+else
+	pager="cat"
+fi
+
 # Newest first; preview the scope sheet (the thing you actually want to see).
 selected=$(find "$ENGAGEMENTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null |
 	sort -r |
 	fzf \
 		--prompt="Engagement ❯ " \
-		--preview="bat --color=always --style=plain {}/scope/scope.txt 2>/dev/null || eza --icons --tree --level=1 {}" \
+		--preview="$pager {}/scope/scope.txt 2>/dev/null || eza --icons --tree --level=1 {}" \
 		--preview-window="right:55%:wrap:border-left") || rc=$?
 
 # fzf exits 130 (ESC) or 1 (no match) on a normal operator cancel — treat those as

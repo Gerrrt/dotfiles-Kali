@@ -99,8 +99,10 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 #                     via OneDrive (hacktheplanet's M365 enum line). Not in apt — git clone.
 # AADInternals      → UPSTREAM (PowerShell Gallery: `Install-Module AADInternals`): the Entra ID
 #                     toolkit behind hacktheplanet's `Invoke-AADIntReconAsOutsider` line and the
-#                     corpus' device-code-phish entry. Not apt — pwsh module, same class as the
-#                     two above.
+#                     corpus' device-code-phish entry. Not apt — a pwsh module, and it wants a
+#                     Windows/PowerShell host rather than Kali. Operator-side external recon
+#                     (unauth, pre-access), which is why it lives here and not in the
+#                     target-dropped section.
 
 # ── Cloud / SaaS / CI-CD ──────────────────────────────────────────────────────
 # This block exists for the COMPANION CORPUS, not for hacktheplanet. ~55 of the corpus'
@@ -158,6 +160,10 @@ ptunnel              # proxy a TCP session inside ICMP echo
 
 # ── Credential attacks ────────────────────────────────────────────────────────
 hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in kali-linux-default
+# name-that-hash    → UPSTREAM (pip install name-that-hash): the alternate identifier
+#                     hacktheplanet offers beside hashid. Ranks candidate modes with
+#                     hashcat/john numbers instead of a bare list — nicer output, same
+#                     job, so it stays optional rather than a second installed default.
 hashcat
 john                 # john-the-ripper
 hydra
@@ -188,6 +194,13 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 #  / winPEAS          the automated privesc enumerators in hacktheplanet's Linux
 #                     and Windows privesc folds. Fetch the release build per
 #                     engagement — don't vendor a stale copy.
+# PowerUp.ps1       → UPSTREAM (PowerSploit, unmaintained since 2020): Invoke-AllChecks
+#                     in the Windows privesc fold. Kept because the checks still hold;
+#                     winPEAS covers the same ground on a modern box.
+# mimikatz is NOT listed here — it IS an apt package (see Credential attacks above);
+# apt just puts Windows binaries in /usr/share/windows-resources/ for you to drop.
+# AADInternals is NOT listed here either — it's operator-side external recon, not
+# target-dropped, so it sits with the other M365 tools under Recon / OSINT above.
 # The corpus' Impact entries (inhibit-recovery-vssadmin, service-stop-preransom,
 # ransomware-encrypt-files, resource-hijack-xmrig) drive Windows BUILT-INS on the
 # target — vssadmin, wbadmin, bcdedit, sc, taskkill. Nothing to install, and the
