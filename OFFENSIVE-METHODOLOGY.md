@@ -31,7 +31,7 @@ on **written authorization and a defined scope**.
 |-------|------------------|--------------------------|----------------|
 | **Recon** | Reconnaissance (TA0043) | amass, subfinder, dnsx, bbot, theharvester, masscan | `recon/` |
 | **Scanning / enum** | Discovery (TA0007) | `nmapsweep`, nxc (smb/ldap/winrm), enum4linux-ng, ldapdomaindump (apt: python3-ldapdomaindump) | `scans/` |
-| **Initial access** | Initial Access (TA0001) | nuclei/httpx-toolkit/katana, ffuf/feroxbuster, sqlmap, Burp, responder | `web/`, `exploit/` |
+| **Initial access** | Initial Access (TA0001) | nuclei/httpx-toolkit/katana (katana: `go install`, not apt), ffuf/feroxbuster, sqlmap, Burp, responder | `web/`, `exploit/` |
 | **Cred access** | Credential Access (TA0006) | nxc, impacket (secretsdump), responder, hashcat/john, certipy-ad | `loot/creds`, `loot/hashes` |
 | **AD attack-path mapping** | Discovery / PrivEsc | **`bhce`** → BloodHound CE, bloodhound-python (apt: bloodhound-ce-python), SharpHound | `loot/bloodhound` |
 | **Lateral movement** | Lateral Movement (TA0008) | nxc (exec over smb/winrm/mssql), impacket-psexec, evil-winrm | `notes.md` |
@@ -50,9 +50,10 @@ scriptable interface. The old `crackmapexec`/`cme` muscle memory just becomes `n
 ### BloodHound is now BloodHound CE
 The legacy BloodHound 4.x collectors don't cleanly ingest into Community Edition.
 Use a **CE-compatible collector** — the `bhce` helper drives nxc's `--bloodhound`
-module, which packages a CE-ready zip into `loot/bloodhound/`. Run BloodHound CE
-itself from its official docker-compose (it's a Postgres-backed web app, not an
-apt package).
+module, which packages a CE-ready zip into `loot/bloodhound/`. BloodHound CE itself
+is a Postgres-backed web app, not an apt package: stand it up with SpecterOps'
+official `bloodhound-cli` (a Go binary — curl the release or `go install`), which
+now owns the compose file under an XDG config dir.
 
 ---
 
@@ -83,8 +84,10 @@ apt package).
   per-engagement, live in `exploit/` under `~/engagements`, and never sync.
 - No target lists, creds, or loot. Same reason.
 - No C2 server is vendored. Sliver and AdaptixC2 are now apt packages (so `up`
-  carries them); Caldera stays an install *pointer* — it moves fast and carries
-  its own update cadence. Configuring any of them is per-engagement work, and
+  carries them); Caldera stays an install *pointer* — it carries its own update
+  cadence, and it moved from MITRE to the **Apache Incubator** (May 2026, now
+  `apache/caldera`; `mitre/caldera` redirects), so the slower release rhythm is
+  that transition rather than EOL. Configuring any of them is per-engagement work, and
   AdaptixC2's shipped defaults are fingerprinted, so treat "installed" as the
   starting line.
 

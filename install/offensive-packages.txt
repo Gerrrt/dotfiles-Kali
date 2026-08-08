@@ -121,6 +121,10 @@ adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver
 
 # ── Credential attacks ────────────────────────────────────────────────────────
 hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in kali-linux-default
+# name-that-hash    → UPSTREAM (pip install name-that-hash): the alternate identifier
+#                     hacktheplanet offers beside hashid. Ranks candidate modes with
+#                     hashcat/john numbers instead of a bare list — nicer output, same
+#                     job, so it stays optional rather than a second installed default.
 hashcat
 john                 # john-the-ripper
 hydra
@@ -145,6 +149,15 @@ cupp                 # OSINT-driven wordlist from a target profile (`cupp -i`) �
 #  / winPEAS          the automated privesc enumerators in hacktheplanet's Linux
 #                     and Windows privesc folds. Fetch the release build per
 #                     engagement — don't vendor a stale copy.
+# mimikatz          → UPSTREAM (github.com/gentilkiwi/mimikatz, release binary): the
+#                     Windows-side credential/ticket workhorse in hacktheplanet's DPAPI
+#                     and ticket folds. Not apt, and not an attacker-box tool.
+# PowerUp.ps1       → UPSTREAM (PowerSploit, unmaintained since 2020): Invoke-AllChecks
+#                     in the Windows privesc fold. Kept because the checks still hold;
+#                     winPEAS covers the same ground on a modern box.
+# AADInternals      → UPSTREAM (PowerShell Gallery: Install-Module AADInternals): the
+#                     Invoke-AADIntReconAsOutsider tenant recon in the M365 fold. Runs
+#                     from a Windows/PowerShell host, not from Kali.
 
 # ── Pivoting / tunneling ──────────────────────────────────────────────────────
 proxychains4
