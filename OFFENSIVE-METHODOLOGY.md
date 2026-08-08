@@ -40,6 +40,16 @@ on **written authorization and a defined scope**.
 | **Pivoting** | Lateral Movement | ligolo-ng, chisel, proxychains4, socat | — |
 | **Reporting** | — | your notes + `logshell` transcript | `report/`, `notes.md` |
 
+> **This table maps the on-prem network/AD engagement — that's the whole scope it
+> claims.** Cloud/SaaS/identity (AWS, Entra, GCP, Okta, Snowflake), Kubernetes, and
+> CI-CD supply chain (Jenkins, GitHub/GitLab runners, npm/PyPI, Terraform Cloud,
+> Vault), plus the Impact tactic and the C2 tradecraft past the one row above, live in
+> the **companion corpus** — `htpx` (`~/companion`), where each attack is paired with
+> its detection. Roughly two-thirds of the corpus is that material and none of it is
+> projected into `hacktheplanet` or `PURPLE-TEAM.md`; the corpus is the map for it.
+> The CLIs those entries invoke are accounted for in
+> [`install/offensive-packages.txt`](install/offensive-packages.txt).
+
 ### The one naming change that bites people
 **CrackMapExec is gone — it's `nxc` (NetExec) now.** CME was archived in 2023; the
 community fork NetExec is the maintained successor and the single highest-leverage
