@@ -49,8 +49,18 @@ Core alias reference (modern CLI, git, safety nets).
 
 Aliases and functions live in `offensive/offensive.zsh`. Most tool shortcuts are
 guarded by `HAVE_*` detection flags and activate only when the tool is installed;
-a few (e.g. `hethttp`) are unguarded. Engagement data lives in `$ENGAGEMENTS_DIR`
-(defaults to `~/engagements`, kept outside the repo).
+a few (e.g. `hethttp`) are unguarded.
+
+### Directories
+
+Three paths the offensive layer exports; override any of them in your host-local
+`99-local.zsh` before the offensive stage loads.
+
+| Variable | Default | What it is |
+|----------|---------|------------|
+| `$ENGAGEMENTS_DIR` | `~/engagements` | Engagement data root — deliberately **outside** the repo so client material is never committed |
+| `$SECLISTS_DIR` | `/usr/share/seclists` | SecLists install path (Kali default); the `seclists` alias `cd`s here |
+| `$WORDLISTS_DIR` | `/usr/share/wordlists` | Kali's packaged wordlist tree (rockyou et al.) |
 
 ### Tool Shortcuts
 
