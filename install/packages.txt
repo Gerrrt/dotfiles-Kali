@@ -38,6 +38,9 @@ difftastic     # structural git diff (binary: difft) — Core wires `gdft` when 
 # editor + vcs
 neovim
 git
+lazygit        # git TUI — Core ships `alias lg='lazygit'` and a `prefix + g` tmux popup
+               # unconditionally, and links lazygit/config.yml, so without this the alias
+               # and the popup are dead on Kali alone. Every other Linux repo installs it.
 openssh-client
 git-credential-manager   # optional; remove if not packaged on your box
 
