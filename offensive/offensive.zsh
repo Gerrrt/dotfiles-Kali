@@ -51,6 +51,11 @@ _have msfconsole    && HAVE_MSF=1
 # Cracking
 _have hashcat      && HAVE_HASHCAT=1
 _have john         && HAVE_JOHN=1
+# Binary / file inspection
+_have hexyl        && HAVE_HEXYL=1          # hex viewer — own command, no alias (shadows
+                                            # nothing classic). Detect-only, like Core's
+                                            # HAVE_ASTGREP / HAVE_JNV / HAVE_SHELLCHECK.
+                                            # Kali-only by decision: dotfiles-core#395.
 
 # ── Engagement workspace root (OUTSIDE the repo — keep it that way) ───────────
 : "${ENGAGEMENTS_DIR:=$HOME/engagements}"

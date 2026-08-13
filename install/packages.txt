@@ -35,6 +35,12 @@ difftastic     # structural git diff (binary: difft) — Core wires `gdft` when 
 # core-doctor also wants: doggo, carapace, sesh, op — those are go/vendor and are
 # installed by bootstrap.sh (not in apt / not reliably packaged), not listed here.
 
+# Kali-only modern CLI — deliberately NOT in Core (dotfiles-core#395 routed it here)
+hexyl          # hex viewer — the stack's only binary-inspection verb. Own command, no alias
+               # (shadows nothing classic); offensive.zsh sets HAVE_HEXYL. Core's tool scan
+               # (dotfiles-core#376) rated it adopt-if-you-want: low daily frequency and
+               # "inspect a binary" is an operator verb, not a fleet-wide one.
+
 # editor + vcs
 neovim
 git
