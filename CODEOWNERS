@@ -1,0 +1,11 @@
+# CODEOWNERS — a single catch-all owner, deliberately: this is a personal-but-public
+# showcase system with one author.
+* @gerrrt
+
+# The two vendored subtrees are copies of their upstreams and are overwritten by the
+# next sync, so a change here is almost always a mistake. They carry the same owner
+# rather than a different one — the point of listing them is that CI's
+# core-integrity / companion-integrity gates and the local core-guard pre-commit hook
+# should have caught it long before review.
+/core/                @gerrrt
+/offensive/companion/ @gerrrt

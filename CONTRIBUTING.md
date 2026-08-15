@@ -1,0 +1,89 @@
+# Contributing to dotfiles-Kali
+
+The README's three rules in full, plus how to actually run the gates.
+
+## 1. Which layer owns the change?
+
+This repo stacks **three** layers, and most mistakes here are "right change, wrong
+layer". The test:
+
+| If it… | It belongs in |
+| --- | --- |
+| is identical on every machine | **Core** — [dotfiles-core](https://github.com/dotgibson/dotfiles-core), *not here* |
+| changes with the OS (apt, paths, clipboard, WSL) | `os/kali.*`, `install/*.txt` |
+| changes with the operator (engagements, tradecraft) | `offensive/` |
+| is a paired red↔blue attack/detection entry | **htpx** — [dotgibson/htpx](https://github.com/dotgibson/htpx), *not here* |
+
+## 2. Never hand-edit a vendored subtree
+
+`core/` and `offensive/companion/` are `git subtree` copies. **They are overwritten
+on the next sync**, so an edit there is silent drift: it works until someone syncs,
+and it never reaches the source of truth.
+
+Three things enforce this, and you will meet all of them:
+
+- a local `pre-commit` hook (installed by `bootstrap.sh`, or `make hooks`)
+- `core-integrity` and `companion-integrity` in CI, comparing the vendored tree
+  hash against `core.lock` / `companion.lock`
+- `companion` in CI, asserting the generated blocks in `PURPLE-TEAM.md` and
+  `hacktheplanet` still match the entries they came from
+
+To update a subtree deliberately:
+
+```bash
+make core-sync         # or: make companion-sync
+make lint && make test
+```
+
+Both stamp their lock file from the squash commit's `git-subtree-split` trailer.
+Commit the lock together with the pull.
+
+## 3. Engagement data never enters this repo
+
+It lives in `~/engagements`, outside any git tree. Everything else is a backstop:
+
+- The helpers that write engagement data (`note`, `logshell`, `bhce`, `nmapsweep`)
+  refuse to run inside a git work tree unless `$ENGAGEMENT` is set.
+- `hethttp` refuses to serve a git work tree on `0.0.0.0`.
+- The four field references open **read-only** (`htp -w` to actually edit one) —
+  they are tracked files, and their "target fill" recipe writes a copy under
+  `$ENGAGEMENT`, never the buffer.
+- `.gitignore` blocks the directory names `mkengagement` creates, plus the usual
+  artifact types.
+- `gitleaks` scans the working tree **and** full history in CI.
+
+If you add a helper that writes files, resolve its root with `_eng_writeroot`.
+
+## Running the gates
+
+```bash
+make            # list every target
+make lint       # shellcheck + bash -n / zsh -n + markdownlint
+make test       # routine-filter classifier + companion view drift
+make bootstrap-dry
+```
+
+`make lint` skips a linter that isn't installed rather than failing; CI installs
+pinned, SHA-256-verified copies from `core/scripts/tool-versions.env`, so CI is the
+authority. `make packages-check` needs apt and is advisory — the authoritative run
+is the `packages` workflow, in a `kali-rolling` container.
+
+## Touching `bootstrap.sh`
+
+It is idempotent and must stay that way.
+
+```bash
+./bootstrap.sh --dry-run       # full plan, changes nothing
+./bootstrap.sh --links-only    # then run it twice — no new *.pre-dotfiles.* files
+```
+
+Adding a tool that isn't in apt means a pinned entry in
+`install/tool-versions.env` plus `scripts/update-tool-checksums.sh --verify`.
+`curl | sh` is not an option here; see that file's header for why, and for the
+cargo/go exceptions that verify for us.
+
+## Commits
+
+[Conventional Commits](https://www.conventionalcommits.org/) —
+`type(scope): summary`, e.g. `fix(offensive): refuse to write notes inside a repo`.
+Add a line to `CHANGELOG.md` under `[Unreleased]` for anything user-visible.

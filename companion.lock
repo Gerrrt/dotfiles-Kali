@@ -8,3 +8,9 @@
 companion_repo=dotgibson/htpx
 companion_branch=main
 companion_sha=1e10a4154336bc9553098eb28cc6923631b9999c
+# Human-readable provenance, mirroring core.lock's core_version/core_tag. Neither is
+# load-bearing — companion_sha is the only field the tooling compares — but without
+# them "which htpx is this?" needed a network round-trip. Refreshed by
+# scripts/sync-companion.sh; `unknown` just means the sync could not resolve a tag.
+companion_version=2.7.0
+companion_tag=v2.7.0
