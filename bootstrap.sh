@@ -242,14 +242,23 @@ provision() {
         grep -o "\"browser_download_url\": *\"[^\"]*linux_${_cara_arch}\.deb\"" |
         cut -d'"' -f4 | head -1)" || true
       if [[ -n "$_cara_url" ]]; then
-        _cara_tmp="$(mktemp -d)"
-        if curl -fsSL --max-time 180 -o "$_cara_tmp/carapace.deb" "$_cara_url"; then
+        # mktemp is checked, and the cleanup is guarded, because this block is supposed to
+        # be best-effort and `set -e` is on. A bare `_cara_tmp="$(mktemp -d)"` aborts the
+        # WHOLE bootstrap the moment mktemp fails (unwritable TMPDIR, full disk) — an
+        # assignment takes the exit status of its command substitution — and a bare
+        # `rm -rf "$_cara_tmp"` on an empty var exits non-zero too. Testing mktemp inside
+        # `if !` suspends `set -e` for it; the `if [[ -n ]]` cleanup can't fail the run the
+        # way `[[ -n … ]] && rm …` would when the test is false.
+        _cara_tmp=""
+        if ! _cara_tmp="$(mktemp -d 2>/dev/null)"; then
+          echo "   carapace: could not create a temp dir (unwritable TMPDIR? disk full?) — skipping; asset was $_cara_url"
+        elif curl -fsSL --max-time 180 -o "$_cara_tmp/carapace.deb" "$_cara_url"; then
           sudo apt-get install -y "$_cara_tmp/carapace.deb" >/dev/null ||
             echo "   carapace: .deb install failed — retry later: curl -fsSLO $_cara_url && sudo apt-get install -y ./${_cara_url##*/}"
         else
           echo "   carapace: download failed (offline?) — retry later: $_cara_url"
         fi
-        rm -rf "$_cara_tmp"
+        if [[ -n "$_cara_tmp" ]]; then rm -rf "$_cara_tmp"; fi
       else
         echo "   carapace: could not resolve the latest linux_${_cara_arch} .deb (offline? API rate-limited?) — see github.com/carapace-sh/carapace-bin/releases"
       fi
