@@ -181,8 +181,10 @@ provision() {
   #
   # This line used to read `_dotfiles_go_install .../carapace-bin/cmd/carapace@latest`.
   # That cannot work, and not for any version — two independent blockers, both properties
-  # of how the module is built rather than a break to wait out (core/PORTING-MATRIX.md ²⁷
-  # carries the full story and the evidence):
+  # of how the module is built rather than a break to wait out (core/PORTING-MATRIX.md's
+  # carapace footnote carries the full story and the evidence — numbered ²⁷ there, and it
+  # lands in this vendored copy with the next Core sync; until then see
+  # dotgibson/dotfiles-core#468):
   #   1. Its go.mod carries `replace` directives (spf13/pflag → carapace-pflag,
   #      kevinburke/ssh_config → carapace-sh/ssh_config), and `go install pkg@version`
   #      refuses any module that does, because a replace would make the build differ from
