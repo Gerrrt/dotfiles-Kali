@@ -82,6 +82,28 @@ Adding a tool that isn't in apt means a pinned entry in
 `curl | sh` is not an option here; see that file's header for why, and for the
 cargo/go exceptions that verify for us.
 
+## What `main` enforces
+
+`main` is covered by a ruleset, so the gates are not advisory:
+
+- **No direct pushes.** Every change lands through a PR (0 approvals required —
+  this is a single-maintainer repo, and GitHub will not let you approve your own).
+- **10 required checks**, all of which run on *every* PR: shell lint, actionlint,
+  the bootstrap test (`links-only` + `lint`), core-integrity, companion integrity,
+  companion view drift, gitleaks, markdownlint, and the routine-filer classifier.
+- **Branches must be up to date** before merging, so a PR opened before a gate
+  existed cannot merge on stale checks.
+- Force pushes and deletion of `main` are blocked.
+
+Two checks are deliberately *not* required. `package names resolve` is advisory —
+Kali is rolling and a package can vanish mid-migration, so it reports to the job
+summary rather than failing. CodeQL is GitHub-managed and may not run on every
+change, and a required check that never starts blocks a PR forever.
+
+Merge commits stay enabled alongside squash and rebase: a `git subtree` pull
+carries the `git-subtree-split` trailer that `scripts/sync-core.sh` and
+`scripts/sync-companion.sh` read back, and squashing would collapse it away.
+
 ## Commits
 
 [Conventional Commits](https://www.conventionalcommits.org/) —
