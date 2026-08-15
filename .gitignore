@@ -5,15 +5,35 @@
 # This file is defense-in-depth in case anything ever gets copied in by mistake.
 # =============================================================================
 
+# NOTE ON SYNTAX: git only treats `#` as a comment at the START of a line. An
+# inline "pattern   # why" comment makes the WHOLE line the pattern, so it matches
+# nothing — a silently dead rule. Every comment below is therefore on its own line.
+
 # ── engagement / client data — hard block ────────────────────────────────────
+# These are the directory names `mkengagement` actually creates (see
+# offensive/offensive.zsh and offensive/templates/engagement.md). Keep all three
+# in step: a name that drifts in one is a name this backstop stops covering.
 engagements/
+scope/
+recon/
+scans/
+nmap/
+web/
 loot/
 creds/
-evidence/
-exploits/
+hashes/
+bloodhound/
+screenshots/
+exploit/
 report/
+notes/
+notes.md
+scope.txt
 scope.md
 *.scope
+# Retired names, kept so an OLD engagement tree copied in is still covered.
+evidence/
+exploits/
 
 # ── captures, hashes, cred stores, scanner output ────────────────────────────
 *.pcap
@@ -26,9 +46,18 @@ hashes*
 *.nessus
 *.gnmap
 *.nmap
-*.xml          # nmap/burp/scanner exports — review before ever un-ignoring
+# nmap/burp/scanner exports — review before ever un-ignoring.
+*.xml
+# BloodHound/SharpHound collector bundles, and archives generally: the CE-ready
+# zip `bhce` produces is loot, and no archive belongs in this repo.
+*.zip
 secrets*
 *.creds
+# Kerberos + cracking artifacts.
+*.kirbi
+*.ccache
+*.potfile
+*.restore
 
 # ── secrets / env ─────────────────────────────────────────────────────────────
 .env
@@ -38,13 +67,24 @@ secrets*
 *.key
 id_rsa*
 id_ed25519*
+# Keystores / client certs / VPN + RDP profiles — each one carries a credential.
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.ovpn
+*.rdp
 
 # ── ssh: track only the sanitized config ──────────────────────────────────────
 ssh/*
 !ssh/config
 
 # ── local-only / generated ────────────────────────────────────────────────────
+# v4 renamed the host-local override fragment; the pre-v4 name is kept so a box
+# mid-migration is still covered.
+zsh/99-local.zsh
 zsh/local.zsh
+.claude/settings.local.json
 *.pre-dotfiles.*
 *.log
 *.bak
@@ -52,3 +92,5 @@ zsh/local.zsh
 # ── OS noise ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc

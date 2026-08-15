@@ -12,5 +12,8 @@
 #     helper = /mnt/c/Program\\ Files/Git/mingw64/bin/git-credential-manager.exe
 # (path varies with your Git-for-Windows install).
 
-[init]
-    defaultBranch = main
+# NOTE: [init] defaultBranch is NOT set here. It is identical on every machine, so
+# it is Core's (core/git/gitconfig sets it), and Core's own header scopes this file
+# to "credential helper, excludesfile, gpg program". A duplicate here would shadow
+# Core silently — the include order means this file wins — so a future change to the
+# fleet default would appear to have no effect on Kali alone.

@@ -1,0 +1,84 @@
+# .github/workflows/packages.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# Do the package manifests still resolve on kali-rolling?
+#
+# bootstrap.sh's apt_install degrades gracefully on a bad name — bulk install fails,
+# it retries per-package, and prints "skipped (unavailable on this box?)". Right
+# behaviour on a live box, but it means a rename or a drop never fails anything: the
+# run is green and the tool is simply missing. install/offensive-packages.txt's own
+# comments record freerdp2-x11 → freerdp3-x11 → freerdp-x11 across three years, so
+# this is the normal case, not an edge case.
+#
+# The check must run where the answer is TRUE — a maintainer's box may track
+# kali-last-snapshot, which legitimately disagrees with rolling. So it runs in the
+# same kalilinux/kali-rolling container bootstrap.yml tests against.
+#
+# ADVISORY, NOT BLOCKING. Kali is a rolling distro: a package can vanish for a few
+# days mid-migration through no fault of this repo, and a hard failure would then
+# red every unrelated PR. The job always succeeds and writes its findings to the job
+# summary; treat a non-empty list as a to-do, not a broken build. (If you later want
+# it blocking, drop the `|| true` on the final step — nothing else needs to change.)
+#
+# The logic lives in test/check-packages.sh so it is runnable by hand too:
+#   make packages-check
+# ──────────────────────────────────────────────────────────────────────────────
+name: packages
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    # Wednesdays 07:00 UTC — mid-week, away from the Monday freshness watchers, so a
+    # rename that lands upstream between PRs still surfaces within a week.
+    - cron: "0 7 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: package names resolve (kali-rolling)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Scheduled runs fire on every fork with Actions enabled; gate the cron on the
+    # owner so a fork's clock doesn't burn minutes. PRs and dispatch still run.
+    if: github.event_name != 'schedule' || github.repository_owner == 'dotgibson'
+    container:
+      image: kalilinux/kali-rolling
+    steps:
+      - name: Install the checkout + check deps
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          # git for actions/checkout, bash for the script, ca-certificates for TLS.
+          apt-get install -y -qq --no-install-recommends git bash ca-certificates
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve every manifest name against kali-rolling
+        run: |
+          set -uo pipefail
+          rc=0
+          out="$(./test/check-packages.sh 2>&1)" || rc=$?
+          printf '%s\n' "$out"
+          {
+            if [ "$rc" -eq 0 ]; then
+              echo "### ✅ every package name resolves on kali-rolling"
+            else
+              echo "### ⚠️ some package names do not resolve on kali-rolling"
+            fi
+            echo ""
+            echo '```'
+            printf '%s\n' "$out"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          # Advisory: see the header. Findings land in the summary, not in a red X.
+          exit 0

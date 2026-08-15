@@ -4,12 +4,16 @@ name: lint
 # (.github/workflows/lint-call.yml) — one definition for the whole fleet. Kali passes the
 # one per-repo input: its vendored htpx offensive/companion/ subtree is excluded (gated by
 # its own companion CI), on top of the standard core/ exclude.
+# NO PATH FILTER, deliberately. A workflow skipped by paths/paths-ignore never
+# produces a check run at all, so a required status check on it leaves every
+# non-matching PR stuck on "Expected — waiting for status". This gate is meant to be
+# required, so it always runs. The old `paths-ignore: ["**.md", "LICENSE"]` also
+# became actively wrong once checks.yml started linting markdown: a docs-only PR is
+# exactly the PR whose docs gate must run.
 on:
   push:
     branches: [main, master]
-    paths-ignore: ["**.md", "LICENSE"]
   pull_request:
-    paths-ignore: ["**.md", "LICENSE"]
 
 concurrency:
   group: lint-${{ github.ref }}

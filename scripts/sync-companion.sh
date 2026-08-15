@@ -148,12 +148,36 @@ new_sha="$(git log --format='%b' "$before..$after" \
             | head -n1)"
 [[ -n "$new_sha" ]] || die "pulled new commits but found no git-subtree-split trailer — bump companion_sha in $LOCK by hand."
 
-# Rewrite only the companion_sha line; leave the header + repo/branch untouched.
-tmp="$(mktemp)"
-awk -v sha="$new_sha" '/^companion_sha=/{print "companion_sha=" sha; next} {print}' "$LOCK" >"$tmp"
-mv -- "$tmp" "$LOCK"
+# companion_version comes from the tree we just vendored, so it can never disagree
+# with what is on disk. companion_tag needs upstream's tag objects, so it is
+# best-effort: a tagless fetch leaves the previous value rather than lying.
+new_version="$(sed -n -E 's/^##[[:space:]]*\[?v?([0-9]+\.[0-9]+\.[0-9]+)\]?.*/\1/p' \
+  "$REPO_ROOT/$PREFIX/CHANGELOG.md" 2>/dev/null | head -n1)"
+[[ -n "$new_version" ]] || new_version="$(lock_field companion_version)"
 
-echo "sync-companion: companion.lock  $old_sha -> $new_sha"
+new_tag=""
+tagtmp="$(mktemp -d)"
+trap 'rm -rf "$tagtmp"' EXIT
+if git init --quiet --bare "$tagtmp/odb" &&
+  GIT_TERMINAL_PROMPT=0 git -C "$tagtmp/odb" fetch --quiet --tags "$remote" "$REF" 2>/dev/null; then
+  new_tag="$(git -C "$tagtmp/odb" describe --tags "$new_sha" 2>/dev/null || true)"
+fi
+[[ -n "$new_tag" ]] || new_tag="$(lock_field companion_tag)"
+
+# Rewrite only the recorded fields; leave the header + repo/branch untouched. These
+# REPLACE existing lines rather than inserting, which is why the guard above requires
+# companion_sha to be present before the pull starts.
+set_field() { # set_field <key> <value>
+  local key="$1" val="$2" t
+  t="$(mktemp)"
+  awk -v k="$key" -v v="$val" '$0 ~ "^" k "=" { print k "=" v; next } { print }' "$LOCK" >"$t"
+  mv -- "$t" "$LOCK"
+}
+set_field companion_sha "$new_sha"
+set_field companion_version "$new_version"
+set_field companion_tag "$new_tag"
+
+echo "sync-companion: companion.lock  $old_sha -> $new_sha  (v$new_version, $new_tag)"
 cat <<EOF
 
 sync-companion: pulled. Next:

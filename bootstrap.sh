@@ -4,34 +4,69 @@
 # Idempotent. Stacks three layers: vendored Core + apt OS-native + OFFENSIVE role.
 # The shared symlink/loader/login-shell scaffold lives in core/lib/bootstrap-lib.sh.
 #
+# >>>USAGE
 #   ./bootstrap.sh                 # full: apt base + offensive tools + symlinks
+#   ./bootstrap.sh --dry-run       # print the whole plan, change nothing
 #   ./bootstrap.sh --links-only    # just (re)create symlinks (no apt)
 #   ./bootstrap.sh --no-offensive  # base + symlinks, skip the heavy tool install
+#   ./bootstrap.sh --no-upgrade    # skip the apt full-upgrade (still installs)
 #   ./bootstrap.sh --only zsh,nvim # link ONLY these Core module groups
 #   ./bootstrap.sh --skip tmux     # link everything EXCEPT these groups
 #
 # Module groups (for --only/--skip): zsh nvim tmux git prompt tools — Core wiring
 # only; the offensive role layer is separate (governed by --no-offensive).
+# <<<USAGE
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 LINKS_ONLY=0
 DO_OFFENSIVE=1
+DO_UPGRADE=1
+DRY=0
 # --only/--skip are validated by the shared lib (blib_select), sourced AFTER this
 # loop — capture the raw values now and apply them below.
 ONLY_RAW="" SKIP_RAW="" ONLY_SEEN=0 SKIP_SEEN=0
 
+# Print the usage block above, between its markers. Extracted by MARKER, not by a
+# line range: the old `sed -n '2,14p'` silently truncated (or leaked) the moment
+# anything was added to the header, which is exactly what happened when the flag
+# list grew. Strips the leading '# ' so the output reads as help, not as source.
+usage() { sed -n '/^# >>>USAGE$/,/^# <<<USAGE$/p' "$0" | sed '1d;$d;s/^# \{0,1\}//'; }
+
 while [[ $# -gt 0 ]]; do case "$1" in
   --links-only) LINKS_ONLY=1 ;;
   --no-offensive) DO_OFFENSIVE=0 ;;
+  --no-upgrade) DO_UPGRADE=0 ;;
+  --dry-run | -n) DRY=1 ;;
   --only) [[ $# -ge 2 ]] || { echo "--only requires module names, e.g. --only zsh,nvim" >&2; exit 1; }; ONLY_RAW="$2"; ONLY_SEEN=1; shift ;;
   --only=*) ONLY_RAW="${1#*=}"; ONLY_SEEN=1 ;;
   --skip) [[ $# -ge 2 ]] || { echo "--skip requires module names, e.g. --skip tmux" >&2; exit 1; }; SKIP_RAW="$2"; SKIP_SEEN=1; shift ;;
   --skip=*) SKIP_RAW="${1#*=}"; SKIP_SEEN=1 ;;
-  -h | --help) sed -n '2,14p' "$0"; exit 0 ;;
-  *) echo "unknown arg: $1" >&2; exit 1 ;;
+  -h | --help) usage; exit 0 ;;
+  *) echo "unknown arg: $1" >&2; usage >&2; exit 1 ;;
 esac; shift; done
+
+# BLIB_DRY is the shared lib's own dry-run switch (core/lib/bootstrap-lib.sh): every
+# mutating helper — blib_link / blib_seed / blib_write_zshrc_loader /
+# blib_set_login_shell — then PRINTS what it would do and touches nothing. The
+# apparatus was already vendored here and simply had no flag wired to it.
+((DRY)) && export BLIB_DRY=1
+
+# ── PATH prelude ──────────────────────────────────────────────────────────────
+# bootstrap runs in BASH, before any of the zsh layer exists, so the user-local
+# bindirs the installers below write into are NOT on PATH yet — os/kali.zsh and
+# core/zsh/00-tools.zsh only prepend them for the interactive shell. Without this
+# every later `command -v <tool>` is blind to what an earlier step just installed:
+# mise landed in ~/.local/bin, `command -v mise` still said no, the go-install
+# fallback never fired, and doggo/carapace/sesh were silently skipped on EVERY
+# fresh box. Same blindness re-ran the atuin installer (a possible source build)
+# on every invocation. Prepend the three bindirs once, here, and the presence
+# checks below all tell the truth.
+#   ~/.local/bin — mise, uv, ty, and our GOBIN for the go installs
+#   ~/.cargo/bin — yazi, viddy, ast-grep
+#   ~/.atuin/bin — atuin's installer hardcodes this prefix (ATUIN_BIN)
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.atuin/bin:$PATH"
 
 # ── core/ subtree present? (inline: can't source a lib out of core/ before this) ─
 # Validate the SPECIFIC paths we depend on (zsh modules + the two libs sourced
@@ -73,8 +108,88 @@ apt_install() { # resilient: bulk first, then per-package (apt aborts on one bad
   blib_say "bulk install hit a snag — retrying package-by-package"
   local p
   for p in "${pkgs[@]}"; do
-    sudo apt-get install -y "$p" || echo "   skipped (unavailable on this box?): $p"
+    # Keep --no-install-recommends on the retry too: without it the fallback path
+    # quietly pulls a much larger dependency set than the bulk path would have,
+    # so WHICH path ran changed what ended up on the box.
+    sudo apt-get install -y --no-install-recommends "$p" ||
+      echo "   skipped (unavailable on this box?): $p"
   done
+}
+
+# ── pinned + verified installs ────────────────────────────────────────────────
+# The tools that aren't in apt used to arrive as `curl … | sh`: unpinned, unverified,
+# and run as the invoking user. install/tool-versions.env now pins each one's version
+# AND the SHA-256 of its release asset; this fetches that exact asset, verifies it,
+# and unpacks the binary into ~/.local/bin. Nothing is piped into a shell.
+#
+# The pins are Linux x86_64. OUT_OF_BAND_TOOLS is also what --dry-run reports, so
+# keep it in step with the verified_install calls in provision().
+OUT_OF_BAND_TOOLS=(atuin mise uv ty yazi viddy ast-grep doggo carapace sesh op)
+TOOL_PINS="$DOTFILES/install/tool-versions.env"
+if [[ -r "$TOOL_PINS" ]]; then
+  # shellcheck source=install/tool-versions.env
+  source "$TOOL_PINS"
+else
+  echo "warning: $TOOL_PINS missing — the pinned tool installs will be skipped" >&2
+fi
+# Default every pin to empty so a missing/partial pin file degrades to "skip this
+# tool" rather than tripping `set -u` and aborting the whole bootstrap.
+: "${ATUIN_VERSION:=}" "${ATUIN_SHA256:=}"
+: "${MISE_VERSION:=}" "${MISE_SHA256:=}"
+: "${UV_VERSION:=}" "${UV_SHA256:=}"
+: "${TY_VERSION:=}" "${TY_SHA256:=}"
+
+# verified_install <binary> <asset-url> <sha256>
+# Idempotent (a binary already on PATH is a no-op — the PATH prelude above is what
+# makes that check honest), non-fatal, and FAIL-CLOSED: a missing pin, a failed
+# download, or a hash mismatch skips the tool loudly rather than installing it.
+verified_install() {
+  local bin="$1" url="$2" want="$3"
+  command -v "$bin" >/dev/null 2>&1 && return 0
+
+  local arch; arch="$(uname -m)"
+  if [[ "$arch" != x86_64 ]]; then
+    echo "   $bin: no pinned asset for $arch — install it by hand" >&2
+    return 0
+  fi
+  if [[ -z "$want" || ! "$want" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "   $bin: no valid SHA-256 pin in install/tool-versions.env — SKIPPED" >&2
+    return 0
+  fi
+
+  blib_say "$bin (pinned release asset, sha256-verified)"
+  local tmp; tmp="$(mktemp -d)" || return 0
+  # Clean up on every exit path, including the early returns below.
+  trap 'rm -rf "$tmp"' RETURN
+
+  if ! curl -fsSL --retry 3 --retry-delay 2 -o "$tmp/asset" "$url"; then
+    echo "   $bin: download failed ($url) — SKIPPED" >&2
+    return 0
+  fi
+  if ! printf '%s  %s\n' "$want" "$tmp/asset" | sha256sum -c - >/dev/null 2>&1; then
+    echo "   $bin: SHA-256 MISMATCH — refusing to install." >&2
+    echo "     expected $want" >&2
+    echo "     actual   $(sha256sum "$tmp/asset" | cut -d' ' -f1)" >&2
+    echo "     If you just bumped the version, run scripts/update-tool-checksums.sh." >&2
+    return 0
+  fi
+
+  mkdir -p "$HOME/.local/bin"
+  # Every pinned asset is a tarball containing the binary somewhere inside; find it
+  # by name rather than assuming a layout (atuin nests under a versioned dir, uv/ty
+  # under a target-triple dir, mise under bin/).
+  if ! tar -xzf "$tmp/asset" -C "$tmp" 2>/dev/null; then
+    echo "   $bin: could not unpack the asset — SKIPPED" >&2
+    return 0
+  fi
+  local found
+  found="$(find "$tmp" -type f -name "$bin" -perm -u+x -print -quit 2>/dev/null)"
+  if [[ -z "$found" ]]; then
+    echo "   $bin: no '$bin' executable inside the asset — SKIPPED" >&2
+    return 0
+  fi
+  install -m 0755 "$found" "$HOME/.local/bin/$bin"
+  blib_ok "$bin → ~/.local/bin/$bin"
 }
 
 _dotfiles_go_install() { # <import-path@version> <binary-name>
@@ -99,36 +214,80 @@ _dotfiles_go_install() { # <import-path@version> <binary-name>
 
 provision() {
   export DEBIAN_FRONTEND=noninteractive
-  blib_say "apt update + full-upgrade"
-  sudo apt-get update
-  sudo apt-get full-upgrade -y
+
+  # The base list is not optional — bootstrap without it installs NOTHING and still
+  # exits 0, which reads as success. (The offensive list below IS optional, hence the
+  # -f test there rather than here.) blib_read_pkgs does no existence check of its own.
+  local base_list="$DOTFILES/install/packages.txt"
+  [[ -f "$base_list" ]] || {
+    echo "missing $base_list — the base package list is required" >&2
+    exit 1
+  }
+
+  local -a base=() off=()
+  mapfile -t base < <(blib_read_pkgs "$base_list")
+  if ((DO_OFFENSIVE)) && [[ -f "$DOTFILES/install/offensive-packages.txt" ]]; then
+    mapfile -t off < <(blib_read_pkgs "$DOTFILES/install/offensive-packages.txt")
+  fi
+
+  if ((DRY)); then
+    blib_say "(dry run) would apt update$( ((DO_UPGRADE)) && printf ' + full-upgrade')"
+    blib_say "(dry run) would install ${#base[@]} base packages (install/packages.txt)"
+    if ((${#off[@]})); then
+      blib_say "(dry run) would install ${#off[@]} offensive packages (install/offensive-packages.txt)"
+    else
+      blib_say "(dry run) would skip the offensive tool stack"
+    fi
+    blib_say "(dry run) would ensure the out-of-band tools: $(printf '%s ' "${OUT_OF_BAND_TOOLS[@]}")"
+    ((IS_WSL)) && blib_say "(dry run) would write /etc/wsl.conf"
+    return 0
+  fi
+
+  # One password prompt up front, then keep the timestamp warm. Without this the
+  # first sudo can land many minutes into an otherwise unattended run — long after
+  # the operator walked away — and block on a prompt nobody is watching.
+  if [[ -n "${BLIB_SU-sudo}" ]] && command -v sudo >/dev/null 2>&1; then
+    sudo -v || { echo "sudo is required for the package install" >&2; exit 1; }
+  fi
+
+  if ((DO_UPGRADE)); then
+    blib_say "apt update + full-upgrade"
+    sudo apt-get update
+    sudo apt-get full-upgrade -y
+  else
+    blib_say "apt update (skipping full-upgrade: --no-upgrade)"
+    sudo apt-get update
+  fi
 
   blib_say "apt base CLI stack (install/packages.txt)"
-  local -a base=()
-  mapfile -t base < <(blib_read_pkgs "$DOTFILES/install/packages.txt")
   apt_install "${base[@]}"
   blib_ok "base packages requested: ${#base[@]}"
 
-  if ((DO_OFFENSIVE)) && [[ -f "$DOTFILES/install/offensive-packages.txt" ]]; then
+  if ((${#off[@]})); then
     blib_say "offensive tool stack (install/offensive-packages.txt) — heavy, go get coffee"
-    local -a off=()
-    mapfile -t off < <(blib_read_pkgs "$DOTFILES/install/offensive-packages.txt")
     apt_install "${off[@]}"
     blib_ok "offensive packages requested: ${#off[@]}"
   else
     blib_say "skipping offensive tool install (--no-offensive)"
   fi
 
-  # Tools not reliably in apt — upstream installers (same approach as dotfiles-Fedora).
-  # These print progress on purpose: atuin/yazi can fall back to a (silent, multi-minute)
-  # source build, and a suppressed installer looks like a hang. '|| true' keeps each one
-  # non-fatal — they're all HAVE_*-guarded, so the shell works without them.
-  command -v starship >/dev/null || { blib_say "starship (installer)"; curl -fsSL https://starship.rs/install.sh | sh -s -- -y || true; }
-  command -v atuin >/dev/null || { blib_say "atuin (installer — may compile from source, be patient)"; curl -fsSL https://setup.atuin.sh | sh || true; }
-  if ! command -v mise >/dev/null && [[ ! -x "$HOME/.local/bin/mise" ]]; then
-    blib_say "mise (installer)"
-    curl -fsSL https://mise.run | sh || true
-  fi
+  # ── pinned + verified out-of-band tools ─────────────────────────────────────
+  # Not in apt, so they come from upstream — but as VERIFIED release assets, not
+  # `curl … | sh`. See install/tool-versions.env for the pins and the rationale.
+  # Each is HAVE_*-guarded in the shell, so a failure here degrades, never aborts.
+  verified_install atuin \
+    "https://github.com/atuinsh/atuin/releases/download/v${ATUIN_VERSION}/atuin-x86_64-unknown-linux-gnu.tar.gz" \
+    "$ATUIN_SHA256"
+  verified_install mise \
+    "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64.tar.gz" \
+    "$MISE_SHA256"
+  verified_install uv \
+    "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+    "$UV_SHA256"
+
+  # The cargo/go builds below need no pin file: cargo verifies against the registry
+  # checksums in each crate's Cargo.lock (--locked), and `go install` verifies against
+  # the module checksum database. Both are stronger than a hash we maintain by hand.
   if ! command -v yazi >/dev/null && [[ ! -x "$HOME/.cargo/bin/yazi" ]] && command -v cargo >/dev/null; then
     # yazi-fm/yazi-cli can't be installed directly from crates.io (their build.rs panics);
     # upstream requires the yazi-build orchestrator, which pulls in both binaries.
@@ -150,46 +309,167 @@ provision() {
     blib_say "ast-grep (cargo — structural search; not in apt)"
     cargo install --locked ast-grep >/dev/null 2>&1 || true
   fi
-  # uv — Astral's Python package/project manager (not in apt). Installs to ~/.local/bin.
-  if ! command -v uv >/dev/null && [[ ! -x "$HOME/.local/bin/uv" ]]; then
-    blib_say "uv (installer)"
-    curl -fsSL https://astral.sh/uv/install.sh | sh || true
-  fi
-  # ty — Astral's fast type checker (not in apt). Prefer `uv tool install` when uv is
-  # present; fall back to the standalone installer otherwise.
-  if ! command -v ty >/dev/null && [[ ! -x "$HOME/.local/bin/ty" ]]; then
-    local uv_bin
-    uv_bin="$(command -v uv || echo "$HOME/.local/bin/uv")"
-    if [[ -x "$uv_bin" ]]; then
+  # ty — Astral's type checker. Prefer `uv tool install` (uv verifies its own
+  # downloads and keeps ty upgradable in place); fall back to the pinned release
+  # asset when uv didn't make it onto the box.
+  if ! command -v ty >/dev/null 2>&1; then
+    if command -v uv >/dev/null 2>&1; then
       blib_say "ty (via uv tool install)"
-      "$uv_bin" tool install ty || true
+      uv tool install ty || true
     else
-      blib_say "ty (installer)"
-      curl -fsSL https://astral.sh/ty/install.sh | sh || true
+      verified_install ty \
+        "https://github.com/astral-sh/ty/releases/download/${TY_VERSION}/ty-x86_64-unknown-linux-gnu.tar.gz" \
+        "$TY_SHA256"
     fi
   fi
 
-  # The remaining core-doctor tools that aren't reliably in apt: doggo/carapace/sesh
-  # are go binaries; op is 1Password's signed apt repo. All presence-guarded and
-  # best-effort ('|| true') — they're HAVE_*-guarded in the shell, so a failure here
-  # never aborts bootstrap (and never trips set -e).
+  # The remaining core-doctor tools that aren't reliably in apt: doggo/sesh are go
+  # binaries; carapace is an upstream .deb (see below — it CANNOT be go-installed);
+  # op is 1Password's signed apt repo. All presence-guarded and best-effort
+  # ('|| true') — they're HAVE_*-guarded in the shell, so a failure here never aborts
+  # bootstrap (and never trips set -e).
   command -v doggo >/dev/null 2>&1 || { blib_say "doggo (go install)"; _dotfiles_go_install github.com/mr-karan/doggo/cmd/doggo@latest doggo; }
-  command -v carapace >/dev/null 2>&1 || { blib_say "carapace (go install — not in Debian)"; _dotfiles_go_install github.com/carapace-sh/carapace-bin/cmd/carapace@latest carapace; }
   command -v sesh >/dev/null 2>&1 || { blib_say "sesh (go install — /v2 module path)"; _dotfiles_go_install github.com/joshmedeski/sesh/v2@latest sesh; }
 
-  # op — 1Password CLI, from 1Password's official signed apt repo. Whole block is
-  # guarded on `command -v op` and each step is best-effort so it can't abort bootstrap.
+  # carapace: upstream's official .deb, NOT `go install`.
+  #
+  # This line used to read `_dotfiles_go_install .../carapace-bin/cmd/carapace@latest`.
+  # That cannot work, and not for any version — two independent blockers, both properties
+  # of how the module is built rather than a break to wait out (core/PORTING-MATRIX.md's
+  # carapace footnote carries the full story and the evidence — numbered ²⁷ there, and it
+  # lands in this vendored copy with the next Core sync; until then see
+  # dotgibson/dotfiles-core#468):
+  #   1. Its go.mod carries `replace` directives (spf13/pflag → carapace-pflag,
+  #      kevinburke/ssh_config → carapace-sh/ssh_config), and `go install pkg@version`
+  #      refuses any module that does, because a replace would make the build differ from
+  #      building it as the main module.
+  #   2. The generated sources (pkg/{actions,conditions}/*_generated.go) are not committed;
+  #      cmd/carapace/main.go's `go:generate` lines produce them. So even a plain
+  #      `go build` on a clone fails until generation has run.
+  # Checked across the whole tag history: 184 of 184 tags (v0.0.3 2020-08-31 → v1.7.3
+  # 2026-06-30) carry a `replace`, and 0 commit the generated sources. So pinning an older
+  # @version does NOT help — that is the tempting next move, and it fails identically.
+  # The old call therefore failed on EVERY bootstrap, invisibly: _dotfiles_go_install sends
+  # the explanation to /dev/null, so the run just never produced a carapace and the only
+  # trace was one terse "go install failed" line among many.
+  #
+  # Upstream publishes an official .deb per release, which lands in /usr/bin. Notes on the
+  # shape below, in the order they will trip you up:
+  #   • `dpkg --print-architecture` is used rather than `uname -m` because Debian's arch
+  #     names (amd64/arm64) are exactly upstream's asset names — no mapping table needed.
+  #     The op block below already uses it for the same reason. Debian i386 is NOT upstream's
+  #     "386", so anything outside amd64/arm64 is refused rather than guessed at.
+  #   • `apt-get install` wants a PATH, not a URL, so this downloads first. An absolute path
+  #     is treated as a local file (the leading `./` is only needed for RELATIVE paths).
+  #     Prefer this over `dpkg -i`, which does not resolve dependencies.
+  #   • Upstream signs nothing (no `signs:` stanza in its .goreleaser.yml), which apt does
+  #     not mind for a local .deb — no --allow-unauthenticated needed. dotfiles-openSUSE has
+  #     to pass two extra flags for the same artifact because zypper is stricter here.
+  #
+  # Be exact about what this does and does not buy: installing a downloaded .deb does NOT
+  # add a repo, so NOTHING upgrades carapace afterwards. Not `apt upgrade`, not maint, and
+  # not a later bootstrap either — the `command -v carapace` guard skips the whole block
+  # once the binary exists. Upstream ships no apt repo and Debian does not package it, so
+  # there is no upgrade source to point at; updating is a deliberate manual step, and
+  # `carapace --version` is how you would know you are behind. That is the real cost, and it
+  # is still the right route: `go install` cannot work at all, so the choice is a
+  # manually-updated binary or no carapace.
+  #
+  # Resolve the newest asset for THIS arch with grep/cut (no jq dependency) rather than
+  # pinning a version that would rot. Mirrors dotfiles-Fedora and dotfiles-openSUSE — port
+  # fixes across all three. A future change wanting a real trust anchor would pin the version
+  # and verify a SHA-256 recorded in THIS tree; upstream's own checksums.txt is unsigned and
+  # same-origin, so it catches corruption, not compromise.
+  if ! command -v carapace >/dev/null 2>&1; then
+    blib_say "carapace (upstream .deb — go install is impossible, see above)"
+    local _cara_arch _cara_url _cara_tmp
+    _cara_arch="$(dpkg --print-architecture 2>/dev/null || echo unknown)"
+    case "$_cara_arch" in
+    amd64 | arm64) ;;
+    *) _cara_arch="" ;;
+    esac
+    if [[ -z "$_cara_arch" ]]; then
+      echo "   carapace: no upstream .deb for $(dpkg --print-architecture 2>/dev/null) — skipping; see github.com/carapace-sh/carapace-bin/releases"
+    else
+      _cara_url="$(curl -fsSL --max-time 30 \
+        https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest 2>/dev/null |
+        grep -o "\"browser_download_url\": *\"[^\"]*linux_${_cara_arch}\.deb\"" |
+        cut -d'"' -f4 | head -1)" || true
+      if [[ -n "$_cara_url" ]]; then
+        # mktemp is checked, and the cleanup is guarded, because this block is supposed to
+        # be best-effort and `set -e` is on. A bare `_cara_tmp="$(mktemp -d)"` aborts the
+        # WHOLE bootstrap the moment mktemp fails (unwritable TMPDIR, full disk) — an
+        # assignment takes the exit status of its command substitution — and a bare
+        # `rm -rf "$_cara_tmp"` on an empty var exits non-zero too. Testing mktemp inside
+        # `if !` suspends `set -e` for it; the `if [[ -n ]]` cleanup can't fail the run the
+        # way `[[ -n … ]] && rm …` would when the test is false.
+        _cara_tmp=""
+        if ! _cara_tmp="$(mktemp -d 2>/dev/null)"; then
+          echo "   carapace: could not create a temp dir (unwritable TMPDIR? disk full?) — skipping; asset was $_cara_url"
+        elif curl -fsSL --max-time 180 -o "$_cara_tmp/carapace.deb" "$_cara_url"; then
+          sudo apt-get install -y "$_cara_tmp/carapace.deb" >/dev/null ||
+            echo "   carapace: .deb install failed — retry later: curl -fsSLO $_cara_url && sudo apt-get install -y ./${_cara_url##*/}"
+        else
+          echo "   carapace: download failed (offline?) — retry later: $_cara_url"
+        fi
+        if [[ -n "$_cara_tmp" ]]; then rm -rf "$_cara_tmp"; fi
+      else
+        echo "   carapace: could not resolve the latest linux_${_cara_arch} .deb (offline? API rate-limited?) — see github.com/carapace-sh/carapace-bin/releases"
+      fi
+    fi
+  fi
+
+  # op — 1Password CLI, from 1Password's official signed apt repo.
+  #
+  # EVERY step here is in an `if`/`elif` CONDITION on purpose. This block used to
+  # claim in a comment that it was "best-effort so it can't abort bootstrap" while
+  # running four unguarded commands under `set -euo pipefail`. It was not
+  # theoretical: gpg is absent from a minimal Kali (the WSL rootfs included) and is
+  # not in install/packages.txt, so `curl … | sudo gpg --dearmor` exited 127, pipefail
+  # propagated it, errexit fired, and the ENTIRE bootstrap died right here — before
+  # wire_links, so the box was left with no symlinks at all and a "Failed writing
+  # body" from curl as its only explanation.
+  #
+  # set -e is suppressed inside a condition, so an elif chain is what actually makes
+  # the block optional. Each rung reports in the tool's own voice and rolls back
+  # whatever the previous rung wrote, so a partial failure never leaves a keyring or
+  # an apt source behind — a stale entry in sources.list.d wedges every future
+  # `apt-get update`, which is a far worse legacy than a missing `op`.
   if ! command -v op >/dev/null 2>&1; then
     blib_say "op (1Password CLI — official signed apt repo)"
-    sudo mkdir -p /usr/share/keyrings
-    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | sudo tee /etc/apt/sources.list.d/1password.list >/dev/null
-    # The repo file is written before `apt-get update`; if update OR install fails,
-    # a stale entry would wedge every future `apt-get update`. Roll it back on failure.
-    if ! (sudo apt-get update && sudo apt-get install -y 1password-cli); then
-      sudo rm -f /etc/apt/sources.list.d/1password.list /usr/share/keyrings/1password-archive-keyring.gpg
+    local op_key=/usr/share/keyrings/1password-archive-keyring.gpg
+    local op_list=/etc/apt/sources.list.d/1password.list
+    local op_arch; op_arch="$(dpkg --print-architecture)"
+    local op_tmp=""
+    # DEARMOR UNPRIVILEGED, then place with sudo. The obvious form —
+    # `curl … | sudo gpg --dearmor -o /usr/share/keyrings/…` — runs gpg through
+    # sudo, and sudo resolves commands against secure_path (a restricted PATH in
+    # /etc/sudoers), not yours. On a box where gpg is installed and on YOUR PATH,
+    # that still dies with `sudo: gpg: command not found`, and `command -v gpg`
+    # cannot predict it because it is testing a different PATH. Splitting the step
+    # removes the failure mode rather than handling it: gpg runs as you, and root is
+    # used only to place the finished file. Same reason GitHub's own gh instructions
+    # never pipe their keyring through sudo gpg.
+    if ! command -v gpg >/dev/null 2>&1; then
+      echo "   op: gpg not found — install gnupg and re-run; skipping (it is in install/packages.txt)"
+    elif ! op_tmp="$(mktemp)"; then
+      echo "   op: could not create a temp file — skipping"
+    elif ! curl -fsSL https://downloads.1password.com/linux/keys/1password.asc |
+      gpg --dearmor >"$op_tmp"; then
+      echo "   op: could not fetch or dearmor the signing key — skipping"
+    elif ! sudo install -D -m 0644 "$op_tmp" "$op_key"; then
+      echo "   op: could not install the keyring to $op_key — skipping"
+    elif ! echo "deb [arch=$op_arch signed-by=$op_key] https://downloads.1password.com/linux/debian/$op_arch stable main" |
+      sudo tee "$op_list" >/dev/null; then
+      sudo rm -f "$op_list" "$op_key" || true
+      echo "   op: could not write $op_list — skipping"
+    elif ! (sudo apt-get update && sudo apt-get install -y 1password-cli); then
+      sudo rm -f "$op_list" "$op_key" || true
       echo "   op install failed — repo entry rolled back; see developer.1password.com/docs/cli/get-started"
     fi
+    # The temp dearmor output is ours, not root's, so a plain rm clears it on every
+    # path — success, any failure rung, or the mktemp rung where it is still empty.
+    if [[ -n "$op_tmp" ]]; then rm -f "$op_tmp"; fi
   fi
 
   if ((IS_WSL)); then
@@ -233,19 +513,44 @@ wire_links() {
 
   # The managed .zshrc loader (v4): param-less — it globs the numbered fragments, so the
   # offensive stage rides band 85 (85-offensive.zsh) with no explicit module list.
+  #
+  # This ALSO seeds $ZDOTDIR/.zshrc (via the lib's _blib_seed_zdotdir_rc): a login zsh
+  # configured the XDG way reads $ZDOTDIR/.zshrc, not $HOME/.zshrc, and without the
+  # mirror a fresh login window fires zsh-newuser-install before our rc loads.
+  #
+  # Do NOT re-do that link by hand here. The lib's seeder carries an ELOOP guard for
+  # the INVERTED layout (~/.zshrc is itself a symlink to $ZDOTDIR/.zshrc): it compares
+  # resolved inodes with -ef, warns, and declines. A second, unguarded `blib_link
+  # "$HOME/.zshrc" "$CONFIG/zsh/.zshrc"` used to run right here and would move the
+  # target aside and create exactly the symlink cycle the guard exists to prevent —
+  # after which zsh resolves ~/.zshrc → $ZDOTDIR/.zshrc → ~/.zshrc and gives up.
   blib_write_zshrc_loader
 
-  # A login zsh configured the XDG way reads $ZDOTDIR/.zshrc, NOT $HOME/.zshrc. With
-  # the entry loader only at $HOME, a fresh login window keys its new-user check off
-  # the (absent) $ZDOTDIR/.zshrc and fires zsh-newuser-install before our rc loads.
-  # Mirror the entry into ZDOTDIR so both lookup paths resolve to the same loader.
-  # Part of the zsh group — skip it when zsh isn't being wired (--only/--skip).
-  if blib_want zsh; then blib_link "$HOME/.zshrc" "$CONFIG/zsh/.zshrc"; fi
-
   blib_set_login_shell
+
+  # Install the local pre-commit core-guard so a hand-edit to the vendored core/
+  # subtree is refused on THIS clone. .git/hooks isn't version-controlled, so a fresh
+  # clone has no guard until something installs one — sync-core.sh does it from the
+  # dotfiles-core side, which never runs on a machine that only ever consumes Core.
+  # The CI gate (core-integrity.yml) is the durable backstop; this is the fast local one.
+  #
+  # Gated on DRY by hand: blib_install_core_guard is the one helper here that does NOT
+  # honour BLIB_DRY (it writes .git/hooks/pre-commit unconditionally), so calling it
+  # from a --dry-run would break the "nothing was changed" contract.
+  if ((DRY)); then
+    blib_say "would install the core-guard pre-commit hook in ${DOTFILES##*/}"
+  else
+    blib_install_core_guard "$DOTFILES" || true
+  fi
+
   blib_ok "symlinks wired$(blib_selected_note)"
 }
 
 ((LINKS_ONLY)) || provision
 wire_links
-blib_ok "Kali bootstrap complete — open a new shell, or: exec zsh"
+blib_wire_summary
+if ((DRY)); then
+  blib_ok "dry run complete — nothing was changed."
+else
+  blib_ok "Kali bootstrap complete — open a new shell, or: exec zsh"
+fi

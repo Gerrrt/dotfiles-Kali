@@ -18,7 +18,7 @@ on **written authorization and a defined scope**.
 > scripted pseudo-shell) — is [`offensive/ippsec`](offensive/ippsec) (`ipp`),
 > distilled from IppSec's HTB catalog. The defensive mirror — what each attack
 > trips, as Splunk/Sentinel detections — is in [`PURPLE-TEAM.md`](PURPLE-TEAM.md).
-
+>
 > Rule zero: `mkengagement` writes `scope/scope.txt` *before* anything else and
 > opens it in your editor. Fill it in first. Installing a tool is not permission
 > to point it at anything.
@@ -51,6 +51,7 @@ on **written authorization and a defined scope**.
 > [`install/offensive-packages.txt`](install/offensive-packages.txt).
 
 ### The one naming change that bites people
+
 **CrackMapExec is gone — it's `nxc` (NetExec) now.** CME was archived in 2023; the
 community fork NetExec is the maintained successor and the single highest-leverage
 tool in the kit: SMB / LDAP / WinRM / MSSQL / RDP / FTP / SSH auth, enumeration,
@@ -58,6 +59,7 @@ lateral movement, credential extraction, *and* BloodHound collection — one
 scriptable interface. The old `crackmapexec`/`cme` muscle memory just becomes `nxc`.
 
 ### BloodHound is now BloodHound CE
+
 The legacy BloodHound 4.x collectors don't cleanly ingest into Community Edition.
 Use a **CE-compatible collector** — the `bhce` helper drives nxc's `--bloodhound`
 module, which packages a CE-ready zip into `loot/bloodhound/`. BloodHound CE itself
