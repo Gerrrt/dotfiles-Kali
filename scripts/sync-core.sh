@@ -90,24 +90,25 @@ echo "sync-core: prefix=$PREFIX  remote=$remote  ref=$REF"
 echo "sync-core: locked at  $old_sha"
 
 if ((CHECK)); then
-  # Anchor the DEFAULT branch to refs/heads/<branch> so a same-named tag can't match
-  # (a bare name is a ref PATTERN). An explicit --ref may be either, so match it bare.
-  if [[ -n "$REF_OPT" ]]; then
-    lsref="$REF"
-  else
-    case "$branch" in
-      refs/*) lsref="$branch" ;;
-      *) lsref="refs/heads/$branch" ;;
-    esac
-  fi
-  upstream_sha="$(GIT_TERMINAL_PROMPT=0 git ls-remote "$remote" "$lsref" 2>/dev/null | awk 'NR==1{print $1}')"
-  [[ -n "$upstream_sha" ]] || die "could not read $REF from $remote"
-  echo "sync-core: upstream ${REF} tip is $upstream_sha"
-  if [[ "$upstream_sha" == "$old_sha" ]]; then
-    echo "sync-core: up to date — nothing to pull."
-  else
-    echo "sync-core: upstream is AHEAD of the lock — run without --check to pull."
-  fi
+  # DELEGATED to test/check-core-freshness.sh rather than re-implemented here.
+  #
+  # This block used to resolve the ref itself, with `refs/heads/<core_branch>` as the
+  # default case — and core_branch is a pinned SHA after every fleet sync, so it
+  # matched nothing. Two copies of the same wrong assumption is what made that bug
+  # survive review, so there is now exactly one resolver and this calls it.
+  #
+  # Its contract: 0 current / 2 behind / 1 hard failure. Translate to this script's
+  # voice and always exit 0 — --check is informational, and a "behind" result is the
+  # expected answer most of the time, not an error.
+  checker="$REPO_ROOT/test/check-core-freshness.sh"
+  [[ -x "$checker" ]] || die "$checker not found — cannot run --check."
+  rc=0
+  CORE_UPSTREAM="$remote" CORE_BRANCH="${REF_OPT:-$branch}" "$checker" || rc=$?
+  case "$rc" in
+    0) echo "sync-core: up to date — nothing to pull." ;;
+    2) echo "sync-core: upstream is AHEAD of the lock — run without --check to pull." ;;
+    *) die "freshness check failed (exit $rc) — see above." ;;
+  esac
   exit 0
 fi
 
