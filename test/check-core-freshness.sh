@@ -62,35 +62,79 @@ branch="${CORE_BRANCH:-$(lock_field core_branch)}"
 [[ -n "$branch" ]] || branch=main
 
 upstream="${CORE_UPSTREAM:-https://github.com/$DEFAULT_REPO.git}"
-case "$branch" in
-  refs/*) lsref="$branch" ;;
-  *) lsref="refs/heads/$branch" ;;
-esac
 
 say "vendored $PREFIX at : $sha  (v${version:-?}, ${tag:-no tag})"
-say "upstream           : $upstream $branch"
 
-# --  end-of-options so a ref that looks like a flag can't be injected, and
-# GIT_TERMINAL_PROMPT=0 so a private/renamed repo fails fast instead of hanging on a
-# credential prompt. Same idiom as check-companion-freshness.sh.
-tip="$(GIT_TERMINAL_PROMPT=0 git ls-remote -- "$upstream" "$lsref" 2>/dev/null | awk 'NR==1{print $1}')"
-if [[ -z "$tip" ]]; then
-  say "could not read $branch from $upstream — skipping (network/permissions)."
+# ── what does core_branch actually hold? ──────────────────────────────────────
+# NOT always a branch name, despite the field name. Three shapes occur in practice:
+#
+#   a 40-hex SHA  — the NORMAL state after a fleet sync. sync-fanout.yml pins each
+#                   PR to the exact released commit (CORE_BRANCH=<sha>) so core.lock
+#                   records a frozen version rather than "whatever main was".
+#   a tag         — `scripts/sync-core.sh --ref v4.11.0` records the ref it pulled.
+#   a branch name — a plain `sync-core.sh` run tracking main's tip.
+#
+# The first version of this script assumed the third and built `refs/heads/<value>`
+# unconditionally. Against a pinned SHA that matches nothing, ls-remote came back
+# empty, and the empty result was treated as "upstream unreachable → skip, exit 0".
+# So the watcher reported success while checking nothing — in the state it is in
+# most of the time. Resolve all three shapes, and never let "no such ref" masquerade
+# as "no network".
+GLR() { GIT_TERMINAL_PROMPT=0 git ls-remote "$@" 2>/dev/null; }
+
+# Connectivity probe FIRST, so a genuine network/permissions failure is
+# distinguishable from a ref that legitimately does not exist upstream.
+if ! GLR --exit-code -- "$upstream" HEAD >/dev/null; then
+  say "could not reach $upstream — skipping (network/permissions)."
   exit 0
 fi
 
-say "upstream tip       : $tip"
+if [[ "$branch" =~ ^[0-9a-f]{40}$ ]]; then
+  # PINNED to a released commit. "Behind" is not about a branch tip at all — the
+  # question is whether a NEWER RELEASE exists, which is what the fleet vendors.
+  mode="pinned to a released commit"
+  newest_tag="$(GLR --tags --refs -- "$upstream" 'v*' |
+    sed -n 's#.*refs/tags/##p' | sort -V | tail -n1)"
+  if [[ -n "$newest_tag" ]]; then
+    # Peel the annotated tag to its commit (^{}); fall back to the raw object for a
+    # lightweight tag, which has no peeled line.
+    cmp_sha="$(GLR --tags -- "$upstream" "refs/tags/$newest_tag^{}" | awk 'NR==1{print $1}')"
+    [[ -n "$cmp_sha" ]] || cmp_sha="$(GLR --tags -- "$upstream" "refs/tags/$newest_tag" | awk 'NR==1{print $1}')"
+    cmp_name="$newest_tag"
+  else
+    # No release tags at all — fall back to the default branch tip.
+    cmp_sha="$(GLR -- "$upstream" HEAD | awk 'NR==1{print $1}')"
+    cmp_name="HEAD (no v* tags found)"
+  fi
+else
+  # A NAME: try a branch, then a tag. A name that resolves to neither means the lock
+  # points at something that no longer exists upstream — a hard failure, not a skip.
+  mode="tracking $branch"
+  cmp_sha="$(GLR -- "$upstream" "refs/heads/$branch" | awk 'NR==1{print $1}')"
+  cmp_name="$branch"
+  if [[ -z "$cmp_sha" ]]; then
+    cmp_sha="$(GLR --tags -- "$upstream" "refs/tags/$branch^{}" | awk 'NR==1{print $1}')"
+    [[ -n "$cmp_sha" ]] || cmp_sha="$(GLR --tags -- "$upstream" "refs/tags/$branch" | awk 'NR==1{print $1}')"
+  fi
+  [[ -n "$cmp_sha" ]] || die "core_branch '$branch' resolves to no branch OR tag in $upstream — core.lock points at something that does not exist."
+fi
 
-if [[ "$tip" == "$sha" ]]; then
-  ok "current — vendored $PREFIX matches $DEFAULT_REPO@$branch."
+say "upstream           : $upstream ($mode)"
+say "compared against   : $cmp_name = ${cmp_sha:-<unresolved>}"
+
+[[ -n "$cmp_sha" ]] || die "could not resolve $cmp_name in $upstream despite reaching it."
+
+if [[ "$cmp_sha" == "$sha" ]]; then
+  ok "current — vendored $PREFIX matches $DEFAULT_REPO@$cmp_name."
   exit 0
 fi
 
-warn "BEHIND — upstream $branch has moved past the vendored commit."
-warn "  vendored : $sha"
-warn "  upstream : $tip"
+warn "BEHIND — $DEFAULT_REPO@$cmp_name is not what is vendored here."
+warn "  vendored : $sha  (${tag:-no tag})"
+warn "  upstream : $cmp_sha  ($cmp_name)"
 warn ""
 warn "  Pull it, then re-run the gates:"
 warn "    scripts/sync-core.sh     # or: make core-sync"
 warn "    make lint && make test"
+warn "  If a core.lock-bump PR from the fleet sync is already open, merge that instead."
 exit 2
