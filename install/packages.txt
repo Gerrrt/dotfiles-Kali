@@ -74,6 +74,13 @@ tree-sitter-cli         # generate/build/test tree-sitter parsers (nvim-treesitt
 curl
 wget
 jq
+gnupg         # gpg — an UNDECLARED dependency until now: bootstrap.sh's `op` step
+              # dearmors 1Password's signing key into /usr/share/keyrings, and a
+              # minimal image (the Kali WSL rootfs among them) does not ship gpg.
+              # Declaring it does not fix the `sudo: gpg: command not found` case —
+              # that one is sudo's secure_path, not a missing package — but an
+              # undeclared hard dependency should be listed regardless, and any
+              # future signed-apt-repo step needs it too.
 w3m            # terminal web browser (text-mode; renders tables + inline images)
 gawk
 direnv

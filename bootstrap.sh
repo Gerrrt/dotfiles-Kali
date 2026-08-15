@@ -419,19 +419,57 @@ provision() {
     fi
   fi
 
-  # op — 1Password CLI, from 1Password's official signed apt repo. Whole block is
-  # guarded on `command -v op` and each step is best-effort so it can't abort bootstrap.
+  # op — 1Password CLI, from 1Password's official signed apt repo.
+  #
+  # EVERY step here is in an `if`/`elif` CONDITION on purpose. This block used to
+  # claim in a comment that it was "best-effort so it can't abort bootstrap" while
+  # running four unguarded commands under `set -euo pipefail`. It was not
+  # theoretical: gpg is absent from a minimal Kali (the WSL rootfs included) and is
+  # not in install/packages.txt, so `curl … | sudo gpg --dearmor` exited 127, pipefail
+  # propagated it, errexit fired, and the ENTIRE bootstrap died right here — before
+  # wire_links, so the box was left with no symlinks at all and a "Failed writing
+  # body" from curl as its only explanation.
+  #
+  # set -e is suppressed inside a condition, so an elif chain is what actually makes
+  # the block optional. Each rung reports in the tool's own voice and rolls back
+  # whatever the previous rung wrote, so a partial failure never leaves a keyring or
+  # an apt source behind — a stale entry in sources.list.d wedges every future
+  # `apt-get update`, which is a far worse legacy than a missing `op`.
   if ! command -v op >/dev/null 2>&1; then
     blib_say "op (1Password CLI — official signed apt repo)"
-    sudo mkdir -p /usr/share/keyrings
-    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | sudo tee /etc/apt/sources.list.d/1password.list >/dev/null
-    # The repo file is written before `apt-get update`; if update OR install fails,
-    # a stale entry would wedge every future `apt-get update`. Roll it back on failure.
-    if ! (sudo apt-get update && sudo apt-get install -y 1password-cli); then
-      sudo rm -f /etc/apt/sources.list.d/1password.list /usr/share/keyrings/1password-archive-keyring.gpg
+    local op_key=/usr/share/keyrings/1password-archive-keyring.gpg
+    local op_list=/etc/apt/sources.list.d/1password.list
+    local op_arch; op_arch="$(dpkg --print-architecture)"
+    local op_tmp=""
+    # DEARMOR UNPRIVILEGED, then place with sudo. The obvious form —
+    # `curl … | sudo gpg --dearmor -o /usr/share/keyrings/…` — runs gpg through
+    # sudo, and sudo resolves commands against secure_path (a restricted PATH in
+    # /etc/sudoers), not yours. On a box where gpg is installed and on YOUR PATH,
+    # that still dies with `sudo: gpg: command not found`, and `command -v gpg`
+    # cannot predict it because it is testing a different PATH. Splitting the step
+    # removes the failure mode rather than handling it: gpg runs as you, and root is
+    # used only to place the finished file. Same reason GitHub's own gh instructions
+    # never pipe their keyring through sudo gpg.
+    if ! command -v gpg >/dev/null 2>&1; then
+      echo "   op: gpg not found — install gnupg and re-run; skipping (it is in install/packages.txt)"
+    elif ! op_tmp="$(mktemp)"; then
+      echo "   op: could not create a temp file — skipping"
+    elif ! curl -fsSL https://downloads.1password.com/linux/keys/1password.asc |
+      gpg --dearmor >"$op_tmp"; then
+      echo "   op: could not fetch or dearmor the signing key — skipping"
+    elif ! sudo install -D -m 0644 "$op_tmp" "$op_key"; then
+      echo "   op: could not install the keyring to $op_key — skipping"
+    elif ! echo "deb [arch=$op_arch signed-by=$op_key] https://downloads.1password.com/linux/debian/$op_arch stable main" |
+      sudo tee "$op_list" >/dev/null; then
+      sudo rm -f "$op_list" "$op_key" || true
+      echo "   op: could not write $op_list — skipping"
+    elif ! (sudo apt-get update && sudo apt-get install -y 1password-cli); then
+      sudo rm -f "$op_list" "$op_key" || true
       echo "   op install failed — repo entry rolled back; see developer.1password.com/docs/cli/get-started"
     fi
+    # The temp dearmor output is ours, not root's, so a plain rm clears it on every
+    # path — success, any failure rung, or the mktemp rung where it is still empty.
+    if [[ -n "$op_tmp" ]]; then rm -f "$op_tmp"; fi
   fi
 
   if ((IS_WSL)); then
