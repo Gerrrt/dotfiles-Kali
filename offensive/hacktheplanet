@@ -38,14 +38,23 @@ this file doesn't cover (2) — not a gap in the generator.
 SCOPE: authorized engagements (written ROE + scope) or your own CTF/HTB labs ONLY.
 Engagement DATA lives in ~/engagements (`mkengagement`), never in this repo.
 
-Target fill — set your box once, then every <placeholder> is real. vim macro:
-    mx
-    :%s,<ip_address>,10.10.10.10,g
-    :%s,<hostname>,box.htb,g
-    :%s,<domain>,corp.local,g
-    'x
-  TARGET ids worth the macro:  <ip_address> <hostname> <domain> <user> <password>
+Target fill — NEVER in this buffer. `htp` opens this file READ-ONLY on purpose:
+~/hacktheplanet is a symlink to a TRACKED file in a public repo, so substituting a
+real client IP / hostname / domain here and pressing `:w` publishes engagement data.
+.gitignore cannot save you — the file is already tracked.
+
+Fill a COPY inside the engagement instead (needs $ENGAGEMENT — mkengagement/eng):
+    sed -e 's,<ip_address>,10.10.10.10,g' \
+        -e 's,<hostname>,box.htb,g'       \
+        -e 's,<domain>,corp.local,g'      \
+        ~/hacktheplanet > "$ENGAGEMENT/hacktheplanet.filled"
+    ${EDITOR:-nvim} "$ENGAGEMENT/hacktheplanet.filled"
+
+  TARGET ids worth filling:  <ip_address> <hostname> <domain> <user> <password>
   inline one-offs:  <your-ip> (YOUR listener IP, never the target) <port> <NThash> <share> <rid>/<sid>
+
+To edit the reference ITSELF — fixing a command, adding a section — open it for
+writing deliberately: `htp -w` (likewise `xdev -w`, `evade -w`, `ipp -w`).
 
 
 Scanning

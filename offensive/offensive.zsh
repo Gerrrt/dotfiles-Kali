@@ -57,11 +57,51 @@ _have hexyl        && HAVE_HEXYL=1          # hex viewer — own command, no ali
                                             # HAVE_ASTGREP / HAVE_JNV / HAVE_SHELLCHECK.
                                             # Kali-only by decision: dotfiles-core#395.
 
+# Delivery / plumbing deps that aren't offensive tools but that helpers here need.
+# python3 backs hethttp's `python3 -m http.server` — the one dependency in this file
+# that was invoked with no HAVE_* guard at all.
+_have python3      && HAVE_PYTHON3=1
+
 # ── Engagement workspace root (OUTSIDE the repo — keep it that way) ───────────
 : "${ENGAGEMENTS_DIR:=$HOME/engagements}"
 : "${SECLISTS_DIR:=/usr/share/seclists}"          # Kali default install path
 : "${WORDLISTS_DIR:=/usr/share/wordlists}"
 export ENGAGEMENTS_DIR SECLISTS_DIR WORDLISTS_DIR
+
+# _eng_writeroot — resolve the directory an engagement-data helper may write to,
+# or REFUSE. Prints the root on stdout; on refusal explains why on stderr and
+# returns 1.
+#
+# Why this exists: note/logshell/bhce all used to fall back to `$PWD` with no
+# check, so running `note "creds: svc_sql / …"` from inside a checkout wrote
+# client data into a file in that repo. .gitignore cannot save you there — the
+# file may already be tracked — so the fallback itself is the bug.
+#
+# The rule: $ENGAGEMENT (set by mkengagement/eng) always wins. With it unset, a
+# $PWD inside ANY git work tree is refused; outside one, $PWD is still fine — a
+# scratch dir is a legitimate place to work. If you genuinely mean to write into
+# a repo, say so out loud: ENGAGEMENT="$PWD" note "…".
+#
+# No `git` on the box means no work tree to protect, so a failing probe falling
+# through to the $PWD branch is correct — no HAVE_GIT guard needed (and `_have`
+# is unfunction'd at the end of this file anyway).
+_eng_writeroot() {
+  emulate -L zsh
+  if [[ -n "${ENGAGEMENT:-}" ]]; then
+    [[ -d "$ENGAGEMENT" ]] || {
+      print -ru2 -- "\$ENGAGEMENT is set but not a directory: $ENGAGEMENT"
+      return 1
+    }
+    print -r -- "$ENGAGEMENT"
+    return 0
+  fi
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    print -ru2 -- "refusing to write engagement data inside a git repo ($(git rev-parse --show-toplevel 2>/dev/null))."
+    print -ru2 -- "  run \`mkengagement <name>\` or \`eng\` first, or override: ENGAGEMENT=\"\$PWD\" <cmd>"
+    return 1
+  fi
+  print -r -- "$PWD"
+}
 
 # ── Tool ergonomics (guarded) ─────────────────────────────────────────────────
 [[ -n ${HAVE_NXC:-}    ]] && alias smb='nxc smb' && alias ldap='nxc ldap' && alias winrm='nxc winrm'
@@ -72,6 +112,7 @@ export ENGAGEMENTS_DIR SECLISTS_DIR WORDLISTS_DIR
 # REACHABLE callback URL (via lhost) instead of a bare `:8000` you'd have to resolve by hand.
 # Optional port arg (default 8000).
 hethttp() {
+  emulate -L zsh
   local port="${1:-8000}" addr
   # Validate the port before advertising a URL (mirrors Core's `serve`): a bad value
   # should fail in the tool's voice on stderr, not print "serving …" then let
@@ -79,6 +120,17 @@ hethttp() {
   if [[ "$port" != <-> ]] || ((port < 1 || port > 65535)); then
     echo "usage: hethttp [port]   (port must be 1-65535; default 8000)" >&2
     return 1
+  fi
+  [[ -n ${HAVE_PYTHON3:-} ]] || { echo "hethttp needs python3 (http.server)" >&2; return 1; }
+  # Serving $PWD on 0.0.0.0 is the whole point, which makes WHERE you run it the
+  # entire security boundary. Inside a git work tree that is almost always a mistake
+  # — publishing a source checkout (this repo included, .git and all) to every
+  # interface. Refuse, the same way the engagement-data helpers do.
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    print -ru2 -- "refusing to serve a git repo on 0.0.0.0 ($(git rev-parse --show-toplevel 2>/dev/null))."
+    print -ru2 -- "  cd to a delivery dir first (e.g. \$ENGAGEMENT/web), or override: HETHTTP_FORCE=1 hethttp"
+    [[ -n "${HETHTTP_FORCE:-}" ]] || return 1
+    print -ru2 -- "  HETHTTP_FORCE set — serving anyway."
   fi
   addr=$(lhost 2>/dev/null)
   if [[ -n "$addr" ]]; then
@@ -90,14 +142,44 @@ hethttp() {
 }
 # SecLists fast-path: jump to the wordlist tree with your fzf preview stack.
 [[ -d "$SECLISTS_DIR" ]] && alias seclists='cd "$SECLISTS_DIR"'
-# Open the CTF/HTB command cheatsheet (folds by service — `za` toggles a fold).
-[[ -f "$HOME/hacktheplanet" ]] && alias htp='${EDITOR:-nvim} "$HOME/hacktheplanet"'
+# ── the vim-folded field references (htp / xdev / evade / ipp) ────────────────
+# _ref_open <path> [-w] — open one of the four references. READ-ONLY BY DEFAULT.
+#
+# Each ~/<name> is a symlink to a file TRACKED in this public repo, so an errant
+# `:w` commits whatever is in the buffer — and hacktheplanet's own "target fill"
+# recipe used to say to :%s the real client IP/hostname/domain straight into it.
+# That is one keystroke from publishing engagement data, and .gitignore cannot
+# help with an already-tracked file. Opening -R makes editing a deliberate act:
+#
+#   htp        read-only (the daily path)
+#   htp -w     open for writing — for fixing a command or adding a section
+#
+# $EDITOR is word-split with (z) so a multi-word value (`code --wait`) resolves to
+# its real binary rather than being treated as one long filename.
+_ref_open() {
+  emulate -L zsh
+  local f="$1"; shift
+  local -a ed=("${(z)${EDITOR:-nvim}}")
+  if [[ "${1:-}" == (-w|--write) ]]; then
+    "${ed[@]}" "$f"
+    return
+  fi
+  case "${ed[1]:t}" in
+    nvim | vim | vi | view) "${ed[@]}" -R "$f" ;;
+    *)
+      print -ru2 -- "note: \$EDITOR (${ed[*]}) has no known read-only flag — $f is TRACKED, do not save target data into it"
+      "${ed[@]}" "$f"
+      ;;
+  esac
+}
+# The CTF/HTB command cheatsheet (folds by service — `za` toggles a fold).
+[[ -f "$HOME/hacktheplanet" ]] && htp()   { _ref_open "$HOME/hacktheplanet" "$@" }
 # Companion field references (same fold UX): exploit-dev and defense-evasion.
-[[ -f "$HOME/exploitdev" ]] && alias xdev='${EDITOR:-nvim} "$HOME/exploitdev"'
-[[ -f "$HOME/evasion" ]] && alias evade='${EDITOR:-nvim} "$HOME/evasion"'
+[[ -f "$HOME/exploitdev" ]]    && xdev()  { _ref_open "$HOME/exploitdev" "$@" }
+[[ -f "$HOME/evasion" ]]       && evade() { _ref_open "$HOME/evasion" "$@" }
 # The IppSec method — workflow habits + signature moves (the altitude above the
 # command refs: the recon loop, shell stabilization, the scripted pseudo-shell).
-[[ -f "$HOME/ippsec" ]] && alias ipp='${EDITOR:-nvim} "$HOME/ippsec"'
+[[ -f "$HOME/ippsec" ]]        && ipp()   { _ref_open "$HOME/ippsec" "$@" }
 # The structured companion (the experimental sibling of the flat refs above):
 # fuzzy-pick an attack, preview it beside its paired blue detection, fill the
 # {{slots}} from $RHOST/$LHOST/... and copy. A function so args pass through and
@@ -107,9 +189,14 @@ hethttp() {
 # ── nmap: a sane default sweep that writes all-formats output into the cwd ────
 # Usage: nmapsweep <target/CIDR>   → ./nmap/<target>.{nmap,gnmap,xml}
 # Intentionally conservative defaults; tune per engagement & ROE.
+# Output stays CWD-relative (that's the documented contract, and mkengagement/eng/cde
+# already leave you in the engagement root) — _eng_writeroot is called purely as a
+# GATE here, so a sweep can't drop scanner output into a checkout.
 nmapsweep() {
+  emulate -L zsh
   [[ -z "$1" ]] && { echo "Usage: nmapsweep <target|CIDR>" >&2; return 1; }
   [[ -n ${HAVE_NMAP:-} ]] || { echo "nmap not installed" >&2; return 1; }
+  _eng_writeroot >/dev/null || return 1
   local out="nmap"; mkdir -p "$out"
   local stamp; stamp=$(echo "$1" | tr '/:' '__')
   nmap -sCV -T4 -oA "$out/$stamp" "$1"
@@ -118,16 +205,53 @@ nmapsweep() {
 # ── NetExec → BloodHound CE collection wrapper ────────────────────────────────
 # Thin convenience around the documented one-liner; drops the zip into the
 # current engagement's loot/ dir so it's ready to drag into BloodHound CE.
-# Usage: bhce <dc-ip> <user> <pass-or-hash> [domain]
+#
+# Usage: bhce <dc-ip> <user> <pass|:NThash|op://vault/item/field> [domain]
+#
+# CREDENTIAL HANDLING. A password on argv is visible to every process on the box via
+# `ps`, and zsh writes the whole line to $HISTFILE. Three ways out, best first:
+#
+#   1. op://…  — pass a 1Password secret reference and it is resolved HERE, in this
+#      shell, via Core's `opsecret` (core/zsh/50-op.zsh). Nothing sensitive is ever
+#      typed, stored in history, or visible in argv. bootstrap.sh installs `op`.
+#        bhce 10.10.10.5 svc_sql op://Engagements/ACME-DA/password
+#   2. `-`     — read the secret from a prompt with echo off.
+#   3. literal — still supported, but prefix the command with a SPACE so
+#      HIST_IGNORE_SPACE keeps it out of history. It remains visible in `ps`.
 bhce() {
+  emulate -L zsh
   [[ -n ${HAVE_NXC:-} ]] || { echo "NetExec (nxc) not installed" >&2; return 1; }
   if [[ $# -lt 3 ]]; then
-    echo "Usage: bhce <dc-ip> <user> <pass|:NThash> [domain]" >&2
+    echo "Usage: bhce <dc-ip> <user> <pass|:NThash|op://path|-> [domain]" >&2
     echo "  collects All methods via LDAP and zips for BloodHound CE ingest" >&2
+    echo "  op:// resolves via 1Password; '-' prompts (echo off) — both keep it off argv" >&2
     return 1
   fi
   local dc="$1" user="$2" secret="$3" dom="${4:-}"
-  local loot="${ENGAGEMENT:-$PWD}/loot/bloodhound"; mkdir -p "$loot"
+
+  # Resolve the secret BEFORE it reaches the nxc argv.
+  case "$secret" in
+    op://*)
+      (( $+functions[opsecret] )) || {
+        echo "bhce: op:// given but opsecret is unavailable (is the 1Password CLI installed?)" >&2
+        return 1
+      }
+      # Strip the scheme: opsecret re-adds it (`op read "op://$1"`).
+      secret="$(opsecret "${secret#op://}")" || {
+        echo "bhce: could not read that 1Password secret reference" >&2
+        return 1
+      }
+      [[ -n "$secret" ]] || { echo "bhce: 1Password returned an empty secret" >&2; return 1; }
+      ;;
+    -)
+      printf 'password (or :NThash) for %s: ' "$user" >&2
+      read -rs secret; printf '\n' >&2
+      [[ -n "$secret" ]] || { echo "bhce: no secret entered" >&2; return 1; }
+      ;;
+  esac
+
+  local root; root=$(_eng_writeroot) || return 1
+  local loot="$root/loot/bloodhound"; mkdir -p "$loot"
   local creds=(-u "$user" -p "$secret")
   # `:hash` form → pass-the-hash via -H instead of -p
   [[ "$secret" == :* ]] && creds=(-u "$user" -H "${secret#:}")
@@ -143,6 +267,7 @@ bhce() {
 # Layout follows a recon→loot→report flow; scope.txt is created FIRST and opened
 # so the rules of engagement are written down before any tool runs.
 mkengagement() {
+  emulate -L zsh
   [[ -z "$1" ]] && { echo "Usage: mkengagement <client-or-codename>" >&2; return 1; }
   local name slug root
   slug=$(echo "$1" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_-')
@@ -176,6 +301,7 @@ EOF
 
 # eng — fzf-jump between existing engagements (mirrors Core's fzf widget style)
 eng() {
+  emulate -L zsh
   [[ -d "$ENGAGEMENTS_DIR" ]] || { echo "no $ENGAGEMENTS_DIR yet — run mkengagement" >&2; return 1; }
   local sel prev
   # fzf bakes the preview string into a subshell, so the pager binary must be RESOLVED
@@ -201,7 +327,9 @@ eng() {
 # logshell — record a full terminal session into the engagement's notes for the
 # audit trail (typescript + timing). Stop with Ctrl-D / `exit`.
 logshell() {
-  local dir="${ENGAGEMENT:-$PWD}/notes"; mkdir -p "$dir"
+  emulate -L zsh
+  local root; root=$(_eng_writeroot) || return 1
+  local dir="$root/notes"; mkdir -p "$dir"
   local f="$dir/session-$(date +%Y%m%d-%H%M%S).log"
   echo ":: recording shell → $f  (exit/Ctrl-D to stop)"
   script -q "$f"
@@ -213,6 +341,7 @@ logshell() {
 
 # cde — cd back to the active engagement tree ($ENGAGEMENT, set by mkengagement/eng).
 cde() {
+  emulate -L zsh
   [[ -n "${ENGAGEMENT:-}" && -d "$ENGAGEMENT" ]] || {
     echo "no active engagement — run mkengagement/eng first" >&2; return 1; }
   cd "$ENGAGEMENT"
@@ -223,7 +352,9 @@ cde() {
 # instant it happens, so the report (and your re-entry) writes itself.
 # Usage: note "got www-data via Gobox SSTI"   |   note   (opens notes.md in $EDITOR)
 note() {
-  local f="${ENGAGEMENT:-$PWD}/notes.md"; mkdir -p "$(dirname "$f")"
+  emulate -L zsh
+  local root; root=$(_eng_writeroot) || return 1
+  local f="$root/notes.md"; mkdir -p "$(dirname "$f")"
   if [[ $# -eq 0 ]]; then ${EDITOR:-nvim} "$f"; return; fi
   printf '%s  %s\n' "$(date '+%F %T')" "$*" >> "$f"
   echo ":: noted → $f"
@@ -233,6 +364,7 @@ note() {
 # servers). Prefers the VPN tun (HTB/engagement) and falls back to the primary
 # global iface. Pass an iface name to force one: lhost eth0
 lhost() {
+  emulate -L zsh
   local iface="${1:-}" ip=""
   if [[ -z "$iface" ]]; then
     for iface in tun0 tun1 tap0 wg0; do
@@ -254,6 +386,7 @@ lhost() {
 # filled in, so stabilizing a dumb shell is copy-paste. Run it on the ATTACKER
 # side (it reads your terminal size), then paste the steps in order.
 ttyup() {
+  emulate -L zsh
   local rows cols; rows=$(tput lines 2>/dev/null) cols=$(tput cols 2>/dev/null)
   cat <<EOF
 # ── stabilize a dumb shell (run these in order) ───────────────────────────────
@@ -273,6 +406,7 @@ EOF
 # tool: "I don't know how to attack X" is a search, not a wall.
 # Usage: rocks forward shell    |    rocks kerberoast
 rocks() {
+  emulate -L zsh
   [[ $# -eq 0 ]] && { echo "Usage: rocks <keyword…>   (searches ippsec.rocks)" >&2; return 1; }
   # Percent-encode the WHOLE query — the term lands in the URL fragment, so a bare
   # '#', '?', '&' or '%' would otherwise break it. Only unreserved chars pass through.
@@ -330,9 +464,22 @@ redup() {
   fi
 
   # searchsploit — exploit-DB refresh (only counted on success).
+  # The Kali package keeps its git checkout under /usr/share/exploitdb, which is
+  # root-owned: a bare `searchsploit -u` there fails on permissions. Escalate only
+  # when the tree actually isn't writable, so a user-local checkout (or a box where
+  # you own it) still updates without a password prompt.
   if command -v searchsploit >/dev/null 2>&1; then
     print -P "%F{cyan}» searchsploit — exploit-DB refresh%f"
-    if searchsploit -u; then
+    local -a ss_cmd=(searchsploit -u)
+    local ss_db
+    for ss_db in /usr/share/exploitdb /opt/exploitdb; do
+      if [[ -d "$ss_db" && ! -w "$ss_db" ]] && command -v sudo >/dev/null 2>&1; then
+        print -- "  ($ss_db is not writable — using sudo)"
+        ss_cmd=(sudo searchsploit -u)
+        break
+      fi
+    done
+    if "${ss_cmd[@]}"; then
       ((updated++))
     else
       print -P "  %F{red}✗ searchsploit -u failed%f"; ((failed++))
@@ -353,9 +500,14 @@ redup() {
   # in install/offensive-packages.txt), so redup dropping it changes nothing about how you get
   # or keep it. Keep this machinery for the next genuinely fast-moving go-only tool: add a
   # `bin=module@latest` pair to go_fast_movers.
-  if command -v go >/dev/null 2>&1; then
-    local pair bin mod
-    local -a go_fast_movers=()
+  local pair bin mod
+  local -a go_fast_movers=()
+  # Gate on the LIST, not on `go`. With the list empty (today), the old code still
+  # reached the else-branch and printed "– go not installed — skipping go tools" on
+  # every go-less box — a warning about nothing, for a step with nothing to do.
+  if ((${#go_fast_movers[@]} == 0)); then
+    :  # nothing curated right now; the machinery below is kept for the next one
+  elif command -v go >/dev/null 2>&1; then
     for pair in "${go_fast_movers[@]}"; do
       bin="${pair%%=*}"; mod="${pair#*=}"
       if ! command -v "$bin" >/dev/null 2>&1; then
@@ -370,7 +522,7 @@ redup() {
       fi
     done
   else
-    print -- "  – go not installed — skipping go tools"
+    print -- "  – go not installed — skipping ${#go_fast_movers[@]} go tool(s)"
   fi
 
   print
