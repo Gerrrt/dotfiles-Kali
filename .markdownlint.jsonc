@@ -40,4 +40,22 @@
       "a", "br", "details", "div", "h3", "img", "li", "nobr", "ol", "p", "strong", "summary", "ul"
     ]
   },
+
+  // MD060 (table-column-style): OFF. Every table in this repo is written compact
+  // (`| a | b |` with a `|---|---|` delimiter row) and has been since the first
+  // commit. The rule wants uniform padding to the widest cell, which on
+  // PURPLE-TEAM's wide detection tables means reflowing hundreds of rows to change
+  // nothing a reader sees. 58 of the 112 findings on first run were this one rule.
+  // It is a formatting preference, not a defect class — MD013 is off here for the
+  // same reason.
+  "MD060": false,
+
+  // MD036 (no-emphasis-as-heading): OFF, and this one is not a preference — it is a
+  // boundary. Every instance is a `**Detect <technique> (event IDs)**` label inside
+  // a `<!-- companion:gen -->` block in PURPLE-TEAM.md, i.e. output of
+  // offensive/companion/gen-views.sh, which is vendored from dotgibson/htpx. All 23
+  // findings were generated content. Hand-fixing them would fail the companion drift
+  // gate (companion.yml runs gen-views.sh --check); the real fix is to change the
+  // renderer upstream in htpx, at which point this line should come back out.
+  "MD036": false
 }

@@ -20,7 +20,16 @@
 #      surrounding HTML/JSON. The reliable trick: wrap output in unique markers you
 #      control (echo START; <cmd>; echo END) and grab between them.
 #
+# ── DEPENDENCY: requests ──────────────────────────────────────────────────────
+#   Current Kali is PEP 668 ("externally managed"), so `pip install requests` is
+#   REFUSED system-wide — the old advice simply does not work any more. Pick one:
+#     uv run --with requests pseudo-shell.py http://target      # no install at all
+#     sudo apt install python3-requests                         # system package
+#     uv venv && uv pip install requests && . .venv/bin/activate
+#   `uv` is installed by bootstrap.sh, so the first line works out of the box.
+#
 # Run it:  python3 pseudo-shell.py http://target:8080
+#     or:  uv run --with requests pseudo-shell.py http://target:8080
 # Quit:    Ctrl-D, or type `exit`.
 
 import os
@@ -28,19 +37,36 @@ import re
 import sys
 from cmd import Cmd
 
-import requests
-import urllib3  # ships as a requests dependency — always importable alongside it
+try:
+    import requests
+    import urllib3  # ships as a requests dependency — always importable alongside it
+except ModuleNotFoundError:
+    sys.exit(
+        "pseudo-shell: the 'requests' package is missing.\n"
+        "  Kali is PEP 668-managed, so `pip install requests` will be refused.\n"
+        "  Easiest:  uv run --with requests " + os.path.basename(__file__) + " <url>\n"
+        "  Or:       sudo apt install python3-requests"
+    )
 
 # ── Target wiring — EDIT THESE ────────────────────────────────────────────────
 BASE_URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8080"
 
-# Proxy everything through Burp by default so you have full request history to
-# debug against (start Burp, or comment this out). Mirrors IppSec's habit.
-# Override with the HTTP_PROXY / http_proxy env var for a non-default Burp port or
-# upstream; an empty or unset value falls back to the default. Burp uses one listener
-# for both schemes, so http and https share the proxy.
-_PROXY = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or "http://127.0.0.1:8080"
-PROXIES = {"http": _PROXY, "https": _PROXY}
+# Proxying through Burp gives you full request history to debug against — IppSec's
+# habit, and worth having. It is OPT-IN rather than on-by-default: when it defaulted
+# to http://127.0.0.1:8080 and Burp was not listening, every single request died with
+# a ProxyError whose text says nothing about a proxy, which reads as "the target is
+# down" instead of "you forgot to start Burp".
+#
+#   PSEUDOSHELL_PROXY=1 python3 pseudo-shell.py http://target   # default Burp listener
+#   HTTP_PROXY=http://127.0.0.1:8081 python3 pseudo-shell.py …  # explicit, also enables
+#
+# Burp uses one listener for both schemes, so http and https share it.
+_PROXY = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or ""
+if not _PROXY and os.environ.get("PSEUDOSHELL_PROXY"):
+    _PROXY = "http://127.0.0.1:8080"
+PROXIES = {"http": _PROXY, "https": _PROXY} if _PROXY else None
+if _PROXY:
+    print(f"[*] proxying via {_PROXY} — requests will fail if nothing is listening there")
 
 # Bracket your output so it's trivially grep-able out of the page. If your sink
 # already echoes cleanly, set MARKER = "" and point CAPTURE_RE at the real anchor.

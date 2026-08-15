@@ -3,8 +3,16 @@
 # Built for WSL2: clipboard rides Core's clip (clip.exe), GUI via WSLg.
 [[ $- == *i* ]] || return 0
 
-[[ -d "$HOME/.local/bin" && ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin${PATH:+:$PATH}"
+# ~/.local/bin is NOT prepended here: Core's 00-tools.zsh already does it, and Core
+# loads before this fragment (band 00 vs 80). The duplicate was a verbatim copy of
+# that line — harmless, but it made the OS layer look like the owner of a Core
+# concern. ~/.cargo/bin and ~/.atuin/bin below are genuinely not Core's today.
 [[ -d "$HOME/.cargo/bin" && ":$PATH:" != *":$HOME/.cargo/bin:"* ]] && export PATH="$HOME/.cargo/bin${PATH:+:$PATH}"
+# ~/.atuin/bin — legacy prefix. bootstrap.sh now installs the pinned atuin release
+# into ~/.local/bin, but a box bootstrapped before that change has atuin at the
+# path setup.atuin.sh hardcodes, and nothing else puts it on PATH. Without this
+# line Core's HAVE_ATUIN probe never fires there and history silently stops.
+[[ -d "$HOME/.atuin/bin" && ":$PATH:" != *":$HOME/.atuin/bin:"* ]] && export PATH="$HOME/.atuin/bin${PATH:+:$PATH}"
 
 _IS_WSL=0
 if [[ -n "${WSL_DISTRO_NAME:-}" ]]; then
@@ -37,7 +45,14 @@ else
   command -v gh >/dev/null 2>&1 && eval "$(gh completion -s zsh 2>/dev/null)"
 fi
 
-alias dotsync='cd "$HOME/dotfiles-Kali"'
+# dotsync — jump to THIS checkout, wherever it lives. `${0:A}` resolves the symlink
+# ~/.config/zsh/80-os.zsh back to <repo>/os/kali.zsh, so :h:h is the repo root. The
+# old form hardcoded ~/dotfiles-Kali, which matched the README's clone command and
+# nothing else — on any other checkout path the alias silently cd'd nowhere.
+DOTFILES_KALI="${${0:A}:h:h}"
+[[ -d "$DOTFILES_KALI" ]] || DOTFILES_KALI="$HOME/dotfiles-Kali"   # last-resort fallback
+export DOTFILES_KALI
+alias dotsync='cd "$DOTFILES_KALI"'
 command -v op >/dev/null 2>&1 && alias opsignin='eval "$(op signin)"'
 alias localip='ip -brief -4 addr show scope global'
 

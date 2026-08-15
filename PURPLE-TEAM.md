@@ -10,7 +10,7 @@ behind hunting it. Field notes from TrustedSec's *Actionable Purple Teaming*
 > event ID their action writes is a better operator. Every command in
 > `hacktheplanet` has a telemetry footprint — knowing it is OPSEC, and validating
 > it is the entire point of purple teaming.
-
+>
 > **Defender-authored capability lives across the fence in [`dotfiles-Defense`](https://github.com/dotgibson/dotfiles-Defense).**
 > This file is *attacker-authored* purple — "here's the telemetry I trip," next to the
 > attack that trips it. Portable, deployable detection content (Sigma rules, Sysmon
@@ -53,7 +53,7 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > structured companion (`offensive/companion/entries/`), which is canonical for
 > those — edit the entry and run `offensive/companion/gen-views.sh`, not the block
 > here (CI rejects a hand-edit). Everything outside the markers is hand-authored.
-
+>
 > **Scope: this map is the Windows Security / Sysmon mirror.** Every section below
 > keys off a Windows event ID, which is why only 23 of the companion's 90 blue
 > entries project here. The other 67 detect in logs this file has no section for —
@@ -187,9 +187,11 @@ index=main EventCode=5145 Share_Name="*SYSVOL*" Account_Name!="*$"
 <!-- companion:end gpp-cpassword-5145 -->
 
 **LDAP recon by one principal** — explicit-cred logons `4648` fanning out:
+
 ```spl
 index=main EventCode=4648 Network_Address!="-"
 | stats count by host, Network_Address | sort -count
+
 ```
 
 ### Poisoning, relay, coercion
@@ -261,10 +263,12 @@ index=main EventCode=4656 Object_Name=*lsass* TaskCategory="Kernel Object"
 <!-- companion:end lsass-4656 -->
 
 **Remote secrets dump (svcctl/winreg over IPC$/ADMIN$)** — `5145`:
+
 ```spl
 index=main EventCode=5145 Relative_Target_Name IN ("svcctl","winreg")
 | regex Share_Name="(?i).*(ipc|admin)\$$"
 | table _time, host, Account_Name, Source_Address, Relative_Target_Name
+
 ```
 
 <!-- companion:gen dcsync-4662 -->
@@ -321,24 +325,30 @@ index=main EventCode=4688 Creator_Process_Name="*\\WmiPrvSE.exe"
 ### Execution, persistence, AD CS
 
 **LOLBAS execution** — `4688` process creation, regex on known abuse shapes:
+
 ```spl
 index=main EventCode=4688
 | regex Process_Command_Line="(?i)(\.(hta|sct)|msbuild\.exe|^hh\s|,ShellExec_RunDLL|regasm|process\s+call\s+create|/u\s+.*\.dll|urlcache.*(http|file))"
 | table _time, host, Account_Name, New_Process_Name, Process_Command_Line
+
 ```
 
 **Obfuscated command lines** — `4688` heavy in `,` `^` `%`:
+
 ```spl
 index=main EventCode=4688 (Process_Command_Line="*,*" OR Process_Command_Line="*^*" OR Process_Command_Line="*%*")
 | eval n=len(Process_Command_Line)-len(replace(Process_Command_Line,"[,^%]",""))
 | where n > 1
+
 ```
 
 **Service creation (psexec / RDP-hijack service)** — `7045`, allowlist the known:
+
 ```spl
 index=main EventCode=7045 Service_Name!="MpKsl*"
 | regex Service_File_Name!="(?i)(SplunkUniversalForwarder|Microsoft.Net\\Framework64)"
 | table _time, host, Service_Name, Service_File_Name, Service_Account
+
 ```
 
 <!-- companion:gen rdp-hijack-4688 -->
@@ -374,10 +384,12 @@ index=main EventCode=4688 New_Process_Name IN ("*\\cmd.exe","*\\powershell.exe")
 <!-- companion:end potato-seimpersonate-4688 -->
 
 **Rogue account creation** — `4720` (created), pair with `4722` (enabled):
+
 ```spl
 index=main EventCode IN (4720,4722)
 | eval Creator=mvindex(Account_Name,0), NewAccount=mvindex(Account_Name,1)
 | table _time, host, Creator, NewAccount
+
 ```
 
 <!-- companion:gen schtask-4698 -->
@@ -559,14 +571,20 @@ index=main EventCode=5145 Relative_Target_Name="protected_storage"
 ## Honey tokens (build these before you're attacked)
 
 - **Honey user** — a never-used account; any `4625`/`4624` referencing it is real.
+
   ```spl
   index=main EventCode=4625 TERM("<honey-username>")
+
   ```
+
 - **Honey SPN** — register a fake SPN (`setspn -A MSSQLSvc/fake:1433 <acct>`); any
   `4769` for it means someone enumerated/roasted SPNs:
+
   ```spl
   index=main EventCode=4769 Service_Name="<honey-spn-account>"
+
   ```
+
 - **Responder honeypot (HoneyCreds)** — broadcast fake creds so an attacker's
   Responder/relay tooling bites a poisoned credential you can alarm on.
 

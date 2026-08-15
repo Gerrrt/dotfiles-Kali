@@ -6,6 +6,10 @@
 # shell + multiplexer
 zsh
 tmux
+starship       # prompt — Kali packages it, so take the distro build rather than
+               # piping starship.rs/install.sh into sh. The other out-of-band tools
+               # (atuin/mise/uv/ty) are NOT packaged and come from pinned, sha256-
+               # verified release assets instead: see install/tool-versions.env.
 
 # modern coreutils replacements
 eza

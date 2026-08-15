@@ -13,20 +13,15 @@
 # ──────────────────────────────────────────────────────────────────────────────
 name: companion
 
+# Unfiltered so it can be a REQUIRED check: a workflow skipped by `paths:` produces
+# no check run, which leaves a required status pending forever. The job is a single
+# script invocation of a few seconds, so running it on every PR costs nothing worth
+# optimising — and the filter was a footgun anyway, since a change to gen-views.sh's
+# own logic could shift every generated block without touching a listed path.
 on:
   push:
     branches: [main, master]
-    paths:
-      - 'offensive/companion/**'
-      - 'PURPLE-TEAM.md'
-      - 'offensive/hacktheplanet'
-      - '.github/workflows/companion.yml'
   pull_request:
-    paths:
-      - 'offensive/companion/**'
-      - 'PURPLE-TEAM.md'
-      - 'offensive/hacktheplanet'
-      - '.github/workflows/companion.yml'
   workflow_dispatch:
 
 concurrency:

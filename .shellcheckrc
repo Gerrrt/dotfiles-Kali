@@ -1,0 +1,30 @@
+# .shellcheckrc — repo-wide ShellCheck config so author-time, CI, and editor
+# (bashls / nvim) all lint identically.
+#
+# Before this, the only ShellCheck settings in play were whatever flags a given
+# caller happened to pass, and they disagreed: the fleet lint gate
+# (dotfiles-core's lint-call.yml) runs plain `shellcheck`, while the bootstrap test
+# runs `shellcheck -x bootstrap.sh`. An editor opening the same file saw neither.
+# This centralises the cross-cutting bits so all three agree.
+#
+# File-SPECIFIC suppressions stay inline, next to the code that needs them — they
+# are not global truths and must not be hidden here.
+
+# Follow `source`/`.`-d files so `-x` works from any working directory, and resolve a
+# sourced path relative to the script being checked (SCRIPTDIR). This is what lets
+# bootstrap.sh's `source "$DOTFILES/core/lib/bootstrap-lib.sh"` and the test/ scripts'
+# `source "$REPO_ROOT/core/lib/ux.sh"` resolve without an inline directive per file.
+external-sources=true
+source-path=SCRIPTDIR
+source-path=scripts
+source-path=test
+
+# Lint as bash: every runnable script outside the vendored trees is
+# `#!/usr/bin/env bash`, and the libraries it sources from core/lib/ carry no
+# shebang, so pin the dialect explicitly rather than letting it be inferred.
+shell=bash
+
+# NOTE ON THE VENDORED TREES: core/ and offensive/companion/ are git-subtree copies
+# gated by their own upstreams' CI, and the lint workflow excludes both by pathspec
+# (`:!:core/**`, `:!:offensive/companion/**`). This file does not need to — and
+# cannot — exclude them; it only shapes how the files that ARE checked get checked.

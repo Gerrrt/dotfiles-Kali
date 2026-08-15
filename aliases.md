@@ -75,15 +75,28 @@ Three paths the offensive layer exports; override any of them in your host-local
 
 ### Cheat Sheet Openers
 
-| Alias | Opens | File |
+Each `~/<name>` is a symlink to a file **tracked in this public repo**, so the four
+vim-folded references open **read-only** by default — an errant `:w` would otherwise
+commit whatever is in the buffer. Pass `-w` to edit the reference itself.
+To fill in real target values, `sed` a copy into `$ENGAGEMENT` (recipe at the top of
+`hacktheplanet`) — never substitute them into the buffer.
+
+| Command | Opens | File |
 |-------|-------|------|
-| `htp` | HackThePlanet — CTF/HTB/engagement command reference | `~/hacktheplanet` |
-| `xdev` | ExploitDev — stack/SEH overflows, shellcode, DEP/ASLR | `~/exploitdev` |
-| `evade` | Evasion — AV/AMSI/AppLocker bypass, process injection | `~/evasion` |
-| `ipp` | IppSec — engagement methodology & recon loop | `~/ippsec` |
+| `htp` / `htp -w` | HackThePlanet — CTF/HTB/engagement command reference | `~/hacktheplanet` |
+| `xdev` / `xdev -w` | ExploitDev — stack/SEH overflows, shellcode, DEP/ASLR | `~/exploitdev` |
+| `evade` / `evade -w` | Evasion — AV/AMSI/AppLocker bypass, process injection | `~/evasion` |
+| `ipp` / `ipp -w` | IppSec — engagement methodology & recon loop | `~/ippsec` |
 | `htpx` | Companion — ATT&CK-tagged red↔blue corpus (fzf: pick → preview attack beside detection → fill `{{slots}}` → clip) | `~/companion` |
 
 ### Helper Functions
+
+The four that write engagement data — `note`, `logshell`, `bhce`, `nmapsweep` —
+resolve their target via `$ENGAGEMENT` (set by `mkengagement` / `eng`). With it
+unset they **refuse to run inside a git work tree** rather than falling back to
+`$PWD`, so a stray `note` can't land client data in a checkout. Outside a repo the
+`$PWD` fallback still applies; to write into a repo deliberately, say
+`ENGAGEMENT="$PWD" note "…"`.
 
 | Function | Purpose |
 |----------|---------|
@@ -95,7 +108,7 @@ Three paths the offensive layer exports; override any of them in your host-local
 | `rocks [query]` | Open ippsec.rocks search in browser (xdg-open / wslview / explorer.exe) |
 | `nmapsweep <target>` | `nmap -sCV -T4 -oA nmap/<target>` into `./nmap/` (`/` and `:` sanitized to `__`) |
 | `bhce <dc> <user> <pass\|:NThash> [domain]` | BloodHound CE collection via `nxc ldap`, output to `loot/bloodhound/` |
-| `mkengagement <name>` | Create dated engagement workspace — creates `scope.txt` first for ROE |
+| `mkengagement <name>` | Create dated engagement workspace — creates `scope/scope.txt` first for ROE |
 | `eng` | fzf picker to jump between existing engagements; sets `$ENGAGEMENT` |
 | `logshell` | Record terminal session via `script` to `notes/session-<timestamp>.log` |
 | `redup` | Manual, opt-in refresh of fast-moving offensive tools (nuclei engine+templates, searchsploit exploit-DB, go-installed tools) — attacker box only, never mid-engagement; apt-packaged tools update via `up` |

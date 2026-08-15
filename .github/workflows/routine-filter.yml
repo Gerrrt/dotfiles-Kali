@@ -18,18 +18,13 @@
 # ──────────────────────────────────────────────────────────────────────────────
 name: routine-filter
 
+# Unfiltered so it can be a REQUIRED check — a `paths:`-skipped workflow produces no
+# check run and would leave a required status pending forever. The test stubs `gh`,
+# never touches the network, and finishes in seconds.
 on:
   push:
     branches: [main, master]
-    paths:
-      - '.github/workflows/file-routine-issue.sh'
-      - 'test/check-routine-filter.sh'
-      - '.github/workflows/routine-filter.yml'
   pull_request:
-    paths:
-      - '.github/workflows/file-routine-issue.sh'
-      - 'test/check-routine-filter.sh'
-      - '.github/workflows/routine-filter.yml'
   workflow_dispatch:
 
 concurrency:

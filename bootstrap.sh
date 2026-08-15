@@ -4,34 +4,69 @@
 # Idempotent. Stacks three layers: vendored Core + apt OS-native + OFFENSIVE role.
 # The shared symlink/loader/login-shell scaffold lives in core/lib/bootstrap-lib.sh.
 #
+# >>>USAGE
 #   ./bootstrap.sh                 # full: apt base + offensive tools + symlinks
+#   ./bootstrap.sh --dry-run       # print the whole plan, change nothing
 #   ./bootstrap.sh --links-only    # just (re)create symlinks (no apt)
 #   ./bootstrap.sh --no-offensive  # base + symlinks, skip the heavy tool install
+#   ./bootstrap.sh --no-upgrade    # skip the apt full-upgrade (still installs)
 #   ./bootstrap.sh --only zsh,nvim # link ONLY these Core module groups
 #   ./bootstrap.sh --skip tmux     # link everything EXCEPT these groups
 #
 # Module groups (for --only/--skip): zsh nvim tmux git prompt tools — Core wiring
 # only; the offensive role layer is separate (governed by --no-offensive).
+# <<<USAGE
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 LINKS_ONLY=0
 DO_OFFENSIVE=1
+DO_UPGRADE=1
+DRY=0
 # --only/--skip are validated by the shared lib (blib_select), sourced AFTER this
 # loop — capture the raw values now and apply them below.
 ONLY_RAW="" SKIP_RAW="" ONLY_SEEN=0 SKIP_SEEN=0
 
+# Print the usage block above, between its markers. Extracted by MARKER, not by a
+# line range: the old `sed -n '2,14p'` silently truncated (or leaked) the moment
+# anything was added to the header, which is exactly what happened when the flag
+# list grew. Strips the leading '# ' so the output reads as help, not as source.
+usage() { sed -n '/^# >>>USAGE$/,/^# <<<USAGE$/p' "$0" | sed '1d;$d;s/^# \{0,1\}//'; }
+
 while [[ $# -gt 0 ]]; do case "$1" in
   --links-only) LINKS_ONLY=1 ;;
   --no-offensive) DO_OFFENSIVE=0 ;;
+  --no-upgrade) DO_UPGRADE=0 ;;
+  --dry-run | -n) DRY=1 ;;
   --only) [[ $# -ge 2 ]] || { echo "--only requires module names, e.g. --only zsh,nvim" >&2; exit 1; }; ONLY_RAW="$2"; ONLY_SEEN=1; shift ;;
   --only=*) ONLY_RAW="${1#*=}"; ONLY_SEEN=1 ;;
   --skip) [[ $# -ge 2 ]] || { echo "--skip requires module names, e.g. --skip tmux" >&2; exit 1; }; SKIP_RAW="$2"; SKIP_SEEN=1; shift ;;
   --skip=*) SKIP_RAW="${1#*=}"; SKIP_SEEN=1 ;;
-  -h | --help) sed -n '2,14p' "$0"; exit 0 ;;
-  *) echo "unknown arg: $1" >&2; exit 1 ;;
+  -h | --help) usage; exit 0 ;;
+  *) echo "unknown arg: $1" >&2; usage >&2; exit 1 ;;
 esac; shift; done
+
+# BLIB_DRY is the shared lib's own dry-run switch (core/lib/bootstrap-lib.sh): every
+# mutating helper — blib_link / blib_seed / blib_write_zshrc_loader /
+# blib_set_login_shell — then PRINTS what it would do and touches nothing. The
+# apparatus was already vendored here and simply had no flag wired to it.
+((DRY)) && export BLIB_DRY=1
+
+# ── PATH prelude ──────────────────────────────────────────────────────────────
+# bootstrap runs in BASH, before any of the zsh layer exists, so the user-local
+# bindirs the installers below write into are NOT on PATH yet — os/kali.zsh and
+# core/zsh/00-tools.zsh only prepend them for the interactive shell. Without this
+# every later `command -v <tool>` is blind to what an earlier step just installed:
+# mise landed in ~/.local/bin, `command -v mise` still said no, the go-install
+# fallback never fired, and doggo/carapace/sesh were silently skipped on EVERY
+# fresh box. Same blindness re-ran the atuin installer (a possible source build)
+# on every invocation. Prepend the three bindirs once, here, and the presence
+# checks below all tell the truth.
+#   ~/.local/bin — mise, uv, ty, and our GOBIN for the go installs
+#   ~/.cargo/bin — yazi, viddy, ast-grep
+#   ~/.atuin/bin — atuin's installer hardcodes this prefix (ATUIN_BIN)
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.atuin/bin:$PATH"
 
 # ── core/ subtree present? (inline: can't source a lib out of core/ before this) ─
 # Validate the SPECIFIC paths we depend on (zsh modules + the two libs sourced
@@ -73,8 +108,88 @@ apt_install() { # resilient: bulk first, then per-package (apt aborts on one bad
   blib_say "bulk install hit a snag — retrying package-by-package"
   local p
   for p in "${pkgs[@]}"; do
-    sudo apt-get install -y "$p" || echo "   skipped (unavailable on this box?): $p"
+    # Keep --no-install-recommends on the retry too: without it the fallback path
+    # quietly pulls a much larger dependency set than the bulk path would have,
+    # so WHICH path ran changed what ended up on the box.
+    sudo apt-get install -y --no-install-recommends "$p" ||
+      echo "   skipped (unavailable on this box?): $p"
   done
+}
+
+# ── pinned + verified installs ────────────────────────────────────────────────
+# The tools that aren't in apt used to arrive as `curl … | sh`: unpinned, unverified,
+# and run as the invoking user. install/tool-versions.env now pins each one's version
+# AND the SHA-256 of its release asset; this fetches that exact asset, verifies it,
+# and unpacks the binary into ~/.local/bin. Nothing is piped into a shell.
+#
+# The pins are Linux x86_64. OUT_OF_BAND_TOOLS is also what --dry-run reports, so
+# keep it in step with the verified_install calls in provision().
+OUT_OF_BAND_TOOLS=(atuin mise uv ty yazi viddy ast-grep doggo carapace sesh op)
+TOOL_PINS="$DOTFILES/install/tool-versions.env"
+if [[ -r "$TOOL_PINS" ]]; then
+  # shellcheck source=install/tool-versions.env
+  source "$TOOL_PINS"
+else
+  echo "warning: $TOOL_PINS missing — the pinned tool installs will be skipped" >&2
+fi
+# Default every pin to empty so a missing/partial pin file degrades to "skip this
+# tool" rather than tripping `set -u` and aborting the whole bootstrap.
+: "${ATUIN_VERSION:=}" "${ATUIN_SHA256:=}"
+: "${MISE_VERSION:=}" "${MISE_SHA256:=}"
+: "${UV_VERSION:=}" "${UV_SHA256:=}"
+: "${TY_VERSION:=}" "${TY_SHA256:=}"
+
+# verified_install <binary> <asset-url> <sha256>
+# Idempotent (a binary already on PATH is a no-op — the PATH prelude above is what
+# makes that check honest), non-fatal, and FAIL-CLOSED: a missing pin, a failed
+# download, or a hash mismatch skips the tool loudly rather than installing it.
+verified_install() {
+  local bin="$1" url="$2" want="$3"
+  command -v "$bin" >/dev/null 2>&1 && return 0
+
+  local arch; arch="$(uname -m)"
+  if [[ "$arch" != x86_64 ]]; then
+    echo "   $bin: no pinned asset for $arch — install it by hand" >&2
+    return 0
+  fi
+  if [[ -z "$want" || ! "$want" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "   $bin: no valid SHA-256 pin in install/tool-versions.env — SKIPPED" >&2
+    return 0
+  fi
+
+  blib_say "$bin (pinned release asset, sha256-verified)"
+  local tmp; tmp="$(mktemp -d)" || return 0
+  # Clean up on every exit path, including the early returns below.
+  trap 'rm -rf "$tmp"' RETURN
+
+  if ! curl -fsSL --retry 3 --retry-delay 2 -o "$tmp/asset" "$url"; then
+    echo "   $bin: download failed ($url) — SKIPPED" >&2
+    return 0
+  fi
+  if ! printf '%s  %s\n' "$want" "$tmp/asset" | sha256sum -c - >/dev/null 2>&1; then
+    echo "   $bin: SHA-256 MISMATCH — refusing to install." >&2
+    echo "     expected $want" >&2
+    echo "     actual   $(sha256sum "$tmp/asset" | cut -d' ' -f1)" >&2
+    echo "     If you just bumped the version, run scripts/update-tool-checksums.sh." >&2
+    return 0
+  fi
+
+  mkdir -p "$HOME/.local/bin"
+  # Every pinned asset is a tarball containing the binary somewhere inside; find it
+  # by name rather than assuming a layout (atuin nests under a versioned dir, uv/ty
+  # under a target-triple dir, mise under bin/).
+  if ! tar -xzf "$tmp/asset" -C "$tmp" 2>/dev/null; then
+    echo "   $bin: could not unpack the asset — SKIPPED" >&2
+    return 0
+  fi
+  local found
+  found="$(find "$tmp" -type f -name "$bin" -perm -u+x -print -quit 2>/dev/null)"
+  if [[ -z "$found" ]]; then
+    echo "   $bin: no '$bin' executable inside the asset — SKIPPED" >&2
+    return 0
+  fi
+  install -m 0755 "$found" "$HOME/.local/bin/$bin"
+  blib_ok "$bin → ~/.local/bin/$bin"
 }
 
 _dotfiles_go_install() { # <import-path@version> <binary-name>
@@ -99,36 +214,80 @@ _dotfiles_go_install() { # <import-path@version> <binary-name>
 
 provision() {
   export DEBIAN_FRONTEND=noninteractive
-  blib_say "apt update + full-upgrade"
-  sudo apt-get update
-  sudo apt-get full-upgrade -y
+
+  # The base list is not optional — bootstrap without it installs NOTHING and still
+  # exits 0, which reads as success. (The offensive list below IS optional, hence the
+  # -f test there rather than here.) blib_read_pkgs does no existence check of its own.
+  local base_list="$DOTFILES/install/packages.txt"
+  [[ -f "$base_list" ]] || {
+    echo "missing $base_list — the base package list is required" >&2
+    exit 1
+  }
+
+  local -a base=() off=()
+  mapfile -t base < <(blib_read_pkgs "$base_list")
+  if ((DO_OFFENSIVE)) && [[ -f "$DOTFILES/install/offensive-packages.txt" ]]; then
+    mapfile -t off < <(blib_read_pkgs "$DOTFILES/install/offensive-packages.txt")
+  fi
+
+  if ((DRY)); then
+    blib_say "(dry run) would apt update$( ((DO_UPGRADE)) && printf ' + full-upgrade')"
+    blib_say "(dry run) would install ${#base[@]} base packages (install/packages.txt)"
+    if ((${#off[@]})); then
+      blib_say "(dry run) would install ${#off[@]} offensive packages (install/offensive-packages.txt)"
+    else
+      blib_say "(dry run) would skip the offensive tool stack"
+    fi
+    blib_say "(dry run) would ensure the out-of-band tools: $(printf '%s ' "${OUT_OF_BAND_TOOLS[@]}")"
+    ((IS_WSL)) && blib_say "(dry run) would write /etc/wsl.conf"
+    return 0
+  fi
+
+  # One password prompt up front, then keep the timestamp warm. Without this the
+  # first sudo can land many minutes into an otherwise unattended run — long after
+  # the operator walked away — and block on a prompt nobody is watching.
+  if [[ -n "${BLIB_SU-sudo}" ]] && command -v sudo >/dev/null 2>&1; then
+    sudo -v || { echo "sudo is required for the package install" >&2; exit 1; }
+  fi
+
+  if ((DO_UPGRADE)); then
+    blib_say "apt update + full-upgrade"
+    sudo apt-get update
+    sudo apt-get full-upgrade -y
+  else
+    blib_say "apt update (skipping full-upgrade: --no-upgrade)"
+    sudo apt-get update
+  fi
 
   blib_say "apt base CLI stack (install/packages.txt)"
-  local -a base=()
-  mapfile -t base < <(blib_read_pkgs "$DOTFILES/install/packages.txt")
   apt_install "${base[@]}"
   blib_ok "base packages requested: ${#base[@]}"
 
-  if ((DO_OFFENSIVE)) && [[ -f "$DOTFILES/install/offensive-packages.txt" ]]; then
+  if ((${#off[@]})); then
     blib_say "offensive tool stack (install/offensive-packages.txt) — heavy, go get coffee"
-    local -a off=()
-    mapfile -t off < <(blib_read_pkgs "$DOTFILES/install/offensive-packages.txt")
     apt_install "${off[@]}"
     blib_ok "offensive packages requested: ${#off[@]}"
   else
     blib_say "skipping offensive tool install (--no-offensive)"
   fi
 
-  # Tools not reliably in apt — upstream installers (same approach as dotfiles-Fedora).
-  # These print progress on purpose: atuin/yazi can fall back to a (silent, multi-minute)
-  # source build, and a suppressed installer looks like a hang. '|| true' keeps each one
-  # non-fatal — they're all HAVE_*-guarded, so the shell works without them.
-  command -v starship >/dev/null || { blib_say "starship (installer)"; curl -fsSL https://starship.rs/install.sh | sh -s -- -y || true; }
-  command -v atuin >/dev/null || { blib_say "atuin (installer — may compile from source, be patient)"; curl -fsSL https://setup.atuin.sh | sh || true; }
-  if ! command -v mise >/dev/null && [[ ! -x "$HOME/.local/bin/mise" ]]; then
-    blib_say "mise (installer)"
-    curl -fsSL https://mise.run | sh || true
-  fi
+  # ── pinned + verified out-of-band tools ─────────────────────────────────────
+  # Not in apt, so they come from upstream — but as VERIFIED release assets, not
+  # `curl … | sh`. See install/tool-versions.env for the pins and the rationale.
+  # Each is HAVE_*-guarded in the shell, so a failure here degrades, never aborts.
+  verified_install atuin \
+    "https://github.com/atuinsh/atuin/releases/download/v${ATUIN_VERSION}/atuin-x86_64-unknown-linux-gnu.tar.gz" \
+    "$ATUIN_SHA256"
+  verified_install mise \
+    "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64.tar.gz" \
+    "$MISE_SHA256"
+  verified_install uv \
+    "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+    "$UV_SHA256"
+
+  # The cargo/go builds below need no pin file: cargo verifies against the registry
+  # checksums in each crate's Cargo.lock (--locked), and `go install` verifies against
+  # the module checksum database. Both are stronger than a hash we maintain by hand.
   if ! command -v yazi >/dev/null && [[ ! -x "$HOME/.cargo/bin/yazi" ]] && command -v cargo >/dev/null; then
     # yazi-fm/yazi-cli can't be installed directly from crates.io (their build.rs panics);
     # upstream requires the yazi-build orchestrator, which pulls in both binaries.
@@ -150,22 +309,17 @@ provision() {
     blib_say "ast-grep (cargo — structural search; not in apt)"
     cargo install --locked ast-grep >/dev/null 2>&1 || true
   fi
-  # uv — Astral's Python package/project manager (not in apt). Installs to ~/.local/bin.
-  if ! command -v uv >/dev/null && [[ ! -x "$HOME/.local/bin/uv" ]]; then
-    blib_say "uv (installer)"
-    curl -fsSL https://astral.sh/uv/install.sh | sh || true
-  fi
-  # ty — Astral's fast type checker (not in apt). Prefer `uv tool install` when uv is
-  # present; fall back to the standalone installer otherwise.
-  if ! command -v ty >/dev/null && [[ ! -x "$HOME/.local/bin/ty" ]]; then
-    local uv_bin
-    uv_bin="$(command -v uv || echo "$HOME/.local/bin/uv")"
-    if [[ -x "$uv_bin" ]]; then
+  # ty — Astral's type checker. Prefer `uv tool install` (uv verifies its own
+  # downloads and keeps ty upgradable in place); fall back to the pinned release
+  # asset when uv didn't make it onto the box.
+  if ! command -v ty >/dev/null 2>&1; then
+    if command -v uv >/dev/null 2>&1; then
       blib_say "ty (via uv tool install)"
-      "$uv_bin" tool install ty || true
+      uv tool install ty || true
     else
-      blib_say "ty (installer)"
-      curl -fsSL https://astral.sh/ty/install.sh | sh || true
+      verified_install ty \
+        "https://github.com/astral-sh/ty/releases/download/${TY_VERSION}/ty-x86_64-unknown-linux-gnu.tar.gz" \
+        "$TY_SHA256"
     fi
   fi
 
@@ -321,19 +475,44 @@ wire_links() {
 
   # The managed .zshrc loader (v4): param-less — it globs the numbered fragments, so the
   # offensive stage rides band 85 (85-offensive.zsh) with no explicit module list.
+  #
+  # This ALSO seeds $ZDOTDIR/.zshrc (via the lib's _blib_seed_zdotdir_rc): a login zsh
+  # configured the XDG way reads $ZDOTDIR/.zshrc, not $HOME/.zshrc, and without the
+  # mirror a fresh login window fires zsh-newuser-install before our rc loads.
+  #
+  # Do NOT re-do that link by hand here. The lib's seeder carries an ELOOP guard for
+  # the INVERTED layout (~/.zshrc is itself a symlink to $ZDOTDIR/.zshrc): it compares
+  # resolved inodes with -ef, warns, and declines. A second, unguarded `blib_link
+  # "$HOME/.zshrc" "$CONFIG/zsh/.zshrc"` used to run right here and would move the
+  # target aside and create exactly the symlink cycle the guard exists to prevent —
+  # after which zsh resolves ~/.zshrc → $ZDOTDIR/.zshrc → ~/.zshrc and gives up.
   blib_write_zshrc_loader
 
-  # A login zsh configured the XDG way reads $ZDOTDIR/.zshrc, NOT $HOME/.zshrc. With
-  # the entry loader only at $HOME, a fresh login window keys its new-user check off
-  # the (absent) $ZDOTDIR/.zshrc and fires zsh-newuser-install before our rc loads.
-  # Mirror the entry into ZDOTDIR so both lookup paths resolve to the same loader.
-  # Part of the zsh group — skip it when zsh isn't being wired (--only/--skip).
-  if blib_want zsh; then blib_link "$HOME/.zshrc" "$CONFIG/zsh/.zshrc"; fi
-
   blib_set_login_shell
+
+  # Install the local pre-commit core-guard so a hand-edit to the vendored core/
+  # subtree is refused on THIS clone. .git/hooks isn't version-controlled, so a fresh
+  # clone has no guard until something installs one — sync-core.sh does it from the
+  # dotfiles-core side, which never runs on a machine that only ever consumes Core.
+  # The CI gate (core-integrity.yml) is the durable backstop; this is the fast local one.
+  #
+  # Gated on DRY by hand: blib_install_core_guard is the one helper here that does NOT
+  # honour BLIB_DRY (it writes .git/hooks/pre-commit unconditionally), so calling it
+  # from a --dry-run would break the "nothing was changed" contract.
+  if ((DRY)); then
+    blib_say "would install the core-guard pre-commit hook in ${DOTFILES##*/}"
+  else
+    blib_install_core_guard "$DOTFILES" || true
+  fi
+
   blib_ok "symlinks wired$(blib_selected_note)"
 }
 
 ((LINKS_ONLY)) || provision
 wire_links
-blib_ok "Kali bootstrap complete — open a new shell, or: exec zsh"
+blib_wire_summary
+if ((DRY)); then
+  blib_ok "dry run complete — nothing was changed."
+else
+  blib_ok "Kali bootstrap complete — open a new shell, or: exec zsh"
+fi

@@ -156,11 +156,17 @@ off-limits and the rest is the offensive stage:
 2. **Offensive config goes in the `offensive` stage**, not in `core/`. If it's
    identical everywhere it's Core; if it changes with the OS it's the OS layer.
 3. **Keep the discipline.** No payloads, loot, or targets in the repo; scope and
-   authorization come first. **Green the lint gate** (shellcheck + `bash -n` /
-   `zsh -n`; vendored trees excluded).
+   authorization come first. **Green the gates** — `make lint && make test`
+   (shellcheck + `bash -n` / `zsh -n` + markdownlint; vendored trees excluded).
+
+Full details, including how to sync either subtree and what the engagement-data
+guards actually enforce, are in [`CONTRIBUTING.md`](CONTRIBUTING.md). Run `make`
+with no target for the list of entry points.
 
 Bugs and ideas: open an
-[issue](https://github.com/dotgibson/dotfiles-Kali/issues).
+[issue](https://github.com/dotgibson/dotfiles-Kali/issues). Security reports go
+through [private vulnerability reporting](https://github.com/dotgibson/dotfiles-Kali/security/advisories/new)
+— see [`SECURITY.md`](SECURITY.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
