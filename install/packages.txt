@@ -32,8 +32,12 @@ gum            # charmbracelet TUI toolkit — recent (Debian sid → Kali rolli
 difftastic     # structural git diff (binary: difft) — Core wires `gdft` when HAVE_DIFFT; opt-in,
                # recent (Debian sid → Kali rolling); may lag migration. (ast-grep, its search
                # counterpart, isn't in apt — bootstrap.sh cargo-installs it, like viddy.)
-# core-doctor also wants: doggo, carapace, sesh, op — those are go/vendor and are
-# installed by bootstrap.sh (not in apt / not reliably packaged), not listed here.
+# core-doctor also wants: doggo, sesh (go), carapace (upstream .deb), op (vendor apt
+# repo) — all installed by bootstrap.sh (not in apt / not reliably packaged), not listed
+# here. carapace is deliberately NOT go-installed: `go install` cannot work for any
+# version of it (replace directives + uncommitted generated sources). See bootstrap.sh's
+# carapace block, and core/PORTING-MATRIX.md's carapace footnote (²⁷ there — it reaches
+# this vendored copy with the next Core sync; dotgibson/dotfiles-core#468).
 
 # Kali-only modern CLI — deliberately NOT in Core (dotfiles-core#395 routed it here)
 hexyl          # hex viewer — the stack's only binary-inspection verb. Own command, no alias

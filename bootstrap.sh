@@ -169,13 +169,101 @@ provision() {
     fi
   fi
 
-  # The remaining core-doctor tools that aren't reliably in apt: doggo/carapace/sesh
-  # are go binaries; op is 1Password's signed apt repo. All presence-guarded and
-  # best-effort ('|| true') — they're HAVE_*-guarded in the shell, so a failure here
-  # never aborts bootstrap (and never trips set -e).
+  # The remaining core-doctor tools that aren't reliably in apt: doggo/sesh are go
+  # binaries; carapace is an upstream .deb (see below — it CANNOT be go-installed);
+  # op is 1Password's signed apt repo. All presence-guarded and best-effort
+  # ('|| true') — they're HAVE_*-guarded in the shell, so a failure here never aborts
+  # bootstrap (and never trips set -e).
   command -v doggo >/dev/null 2>&1 || { blib_say "doggo (go install)"; _dotfiles_go_install github.com/mr-karan/doggo/cmd/doggo@latest doggo; }
-  command -v carapace >/dev/null 2>&1 || { blib_say "carapace (go install — not in Debian)"; _dotfiles_go_install github.com/carapace-sh/carapace-bin/cmd/carapace@latest carapace; }
   command -v sesh >/dev/null 2>&1 || { blib_say "sesh (go install — /v2 module path)"; _dotfiles_go_install github.com/joshmedeski/sesh/v2@latest sesh; }
+
+  # carapace: upstream's official .deb, NOT `go install`.
+  #
+  # This line used to read `_dotfiles_go_install .../carapace-bin/cmd/carapace@latest`.
+  # That cannot work, and not for any version — two independent blockers, both properties
+  # of how the module is built rather than a break to wait out (core/PORTING-MATRIX.md's
+  # carapace footnote carries the full story and the evidence — numbered ²⁷ there, and it
+  # lands in this vendored copy with the next Core sync; until then see
+  # dotgibson/dotfiles-core#468):
+  #   1. Its go.mod carries `replace` directives (spf13/pflag → carapace-pflag,
+  #      kevinburke/ssh_config → carapace-sh/ssh_config), and `go install pkg@version`
+  #      refuses any module that does, because a replace would make the build differ from
+  #      building it as the main module.
+  #   2. The generated sources (pkg/{actions,conditions}/*_generated.go) are not committed;
+  #      cmd/carapace/main.go's `go:generate` lines produce them. So even a plain
+  #      `go build` on a clone fails until generation has run.
+  # Checked across the whole tag history: 184 of 184 tags (v0.0.3 2020-08-31 → v1.7.3
+  # 2026-06-30) carry a `replace`, and 0 commit the generated sources. So pinning an older
+  # @version does NOT help — that is the tempting next move, and it fails identically.
+  # The old call therefore failed on EVERY bootstrap, invisibly: _dotfiles_go_install sends
+  # the explanation to /dev/null, so the run just never produced a carapace and the only
+  # trace was one terse "go install failed" line among many.
+  #
+  # Upstream publishes an official .deb per release, which lands in /usr/bin. Notes on the
+  # shape below, in the order they will trip you up:
+  #   • `dpkg --print-architecture` is used rather than `uname -m` because Debian's arch
+  #     names (amd64/arm64) are exactly upstream's asset names — no mapping table needed.
+  #     The op block below already uses it for the same reason. Debian i386 is NOT upstream's
+  #     "386", so anything outside amd64/arm64 is refused rather than guessed at.
+  #   • `apt-get install` wants a PATH, not a URL, so this downloads first. An absolute path
+  #     is treated as a local file (the leading `./` is only needed for RELATIVE paths).
+  #     Prefer this over `dpkg -i`, which does not resolve dependencies.
+  #   • Upstream signs nothing (no `signs:` stanza in its .goreleaser.yml), which apt does
+  #     not mind for a local .deb — no --allow-unauthenticated needed. dotfiles-openSUSE has
+  #     to pass two extra flags for the same artifact because zypper is stricter here.
+  #
+  # Be exact about what this does and does not buy: installing a downloaded .deb does NOT
+  # add a repo, so NOTHING upgrades carapace afterwards. Not `apt upgrade`, not maint, and
+  # not a later bootstrap either — the `command -v carapace` guard skips the whole block
+  # once the binary exists. Upstream ships no apt repo and Debian does not package it, so
+  # there is no upgrade source to point at; updating is a deliberate manual step, and
+  # `carapace --version` is how you would know you are behind. That is the real cost, and it
+  # is still the right route: `go install` cannot work at all, so the choice is a
+  # manually-updated binary or no carapace.
+  #
+  # Resolve the newest asset for THIS arch with grep/cut (no jq dependency) rather than
+  # pinning a version that would rot. Mirrors dotfiles-Fedora and dotfiles-openSUSE — port
+  # fixes across all three. A future change wanting a real trust anchor would pin the version
+  # and verify a SHA-256 recorded in THIS tree; upstream's own checksums.txt is unsigned and
+  # same-origin, so it catches corruption, not compromise.
+  if ! command -v carapace >/dev/null 2>&1; then
+    blib_say "carapace (upstream .deb — go install is impossible, see above)"
+    local _cara_arch _cara_url _cara_tmp
+    _cara_arch="$(dpkg --print-architecture 2>/dev/null || echo unknown)"
+    case "$_cara_arch" in
+    amd64 | arm64) ;;
+    *) _cara_arch="" ;;
+    esac
+    if [[ -z "$_cara_arch" ]]; then
+      echo "   carapace: no upstream .deb for $(dpkg --print-architecture 2>/dev/null) — skipping; see github.com/carapace-sh/carapace-bin/releases"
+    else
+      _cara_url="$(curl -fsSL --max-time 30 \
+        https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest 2>/dev/null |
+        grep -o "\"browser_download_url\": *\"[^\"]*linux_${_cara_arch}\.deb\"" |
+        cut -d'"' -f4 | head -1)" || true
+      if [[ -n "$_cara_url" ]]; then
+        # mktemp is checked, and the cleanup is guarded, because this block is supposed to
+        # be best-effort and `set -e` is on. A bare `_cara_tmp="$(mktemp -d)"` aborts the
+        # WHOLE bootstrap the moment mktemp fails (unwritable TMPDIR, full disk) — an
+        # assignment takes the exit status of its command substitution — and a bare
+        # `rm -rf "$_cara_tmp"` on an empty var exits non-zero too. Testing mktemp inside
+        # `if !` suspends `set -e` for it; the `if [[ -n ]]` cleanup can't fail the run the
+        # way `[[ -n … ]] && rm …` would when the test is false.
+        _cara_tmp=""
+        if ! _cara_tmp="$(mktemp -d 2>/dev/null)"; then
+          echo "   carapace: could not create a temp dir (unwritable TMPDIR? disk full?) — skipping; asset was $_cara_url"
+        elif curl -fsSL --max-time 180 -o "$_cara_tmp/carapace.deb" "$_cara_url"; then
+          sudo apt-get install -y "$_cara_tmp/carapace.deb" >/dev/null ||
+            echo "   carapace: .deb install failed — retry later: curl -fsSLO $_cara_url && sudo apt-get install -y ./${_cara_url##*/}"
+        else
+          echo "   carapace: download failed (offline?) — retry later: $_cara_url"
+        fi
+        if [[ -n "$_cara_tmp" ]]; then rm -rf "$_cara_tmp"; fi
+      else
+        echo "   carapace: could not resolve the latest linux_${_cara_arch} .deb (offline? API rate-limited?) — see github.com/carapace-sh/carapace-bin/releases"
+      fi
+    fi
+  fi
 
   # op — 1Password CLI, from 1Password's official signed apt repo. Whole block is
   # guarded on `command -v op` and each step is best-effort so it can't abort bootstrap.
