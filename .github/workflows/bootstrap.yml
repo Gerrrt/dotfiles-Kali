@@ -6,12 +6,21 @@
 # See dotfiles-core/.github/workflows/bootstrap-test.yml.
 name: bootstrap
 
+# NO PATH FILTER, deliberately — two reasons.
+#
+# 1. A workflow skipped by `paths:` produces no check run, so requiring it would
+#    hang every non-matching PR on "Expected — waiting for status".
+# 2. The filter was already incomplete and silently so: it listed bootstrap.sh,
+#    core/, os/, ssh/ and offensive/ but NOT install/ or wsl/ — both of which
+#    bootstrap.sh reads (install/packages.txt, install/tool-versions.env,
+#    wsl/wsl.conf). Editing a package list therefore did not re-run the bootstrap
+#    test. Rather than keep chasing the list as bootstrap grows new inputs, run it
+#    on every PR; it is a container job of a few minutes and it is the single
+#    highest-value gate in the repo.
 on:
   pull_request:
-    paths: ['bootstrap.sh', 'core/**', 'os/**', 'ssh/**', 'offensive/**', '.github/workflows/bootstrap.yml']
   push:
     branches: [main]
-    paths: ['bootstrap.sh', 'core/**', 'os/**', 'ssh/**', 'offensive/**', '.github/workflows/bootstrap.yml']
   workflow_dispatch:
 
 permissions:
