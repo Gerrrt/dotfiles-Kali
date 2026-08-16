@@ -15,8 +15,13 @@
 #                                         git index; zsh/*.zsh must NOT be (sourced)
 #   3. shell syntax                     — bash -n on bash scripts; zsh -n on zsh modules
 #   4. lua                              — luacheck nvim/        (if luacheck present)
+#  4b. nvim module reachability        — no orphaned lua module under nvim/lua/gerrrt
+#                                         (the backstop the directory-granular manifest
+#                                          entry for nvim/ cannot provide)
 #   5. lint                             — shellcheck            (if present)
 #  5c. Core⇄OS boundary                — no OS-absolute paths in portable zsh modules
+#  5d. pipefail SIGPIPE hazard        — no shell-string producer piped into a reader
+#                                         that exits early (grep -q / awk exit / head)
 #   6. config files                     — toml/yaml parse-check (if python3 present)
 #   7. markdown                          — markdownlint (if markdownlint-cli2 present)
 #   8. workflows                         — actionlint on .github/workflows (if present)
@@ -366,13 +371,50 @@ elif have luacheck; then
   # luacheck discovers .luacheckrc by searching UP from the CWD, not the target —
   # so run it from inside nvim/, where nvim/.luacheckrc lives. From repo root it
   # would miss the config and emit hundreds of false "undefined vim" warnings.
-  if (cd nvim && luacheck . --no-color >/dev/null 2>&1); then
+  if lua_out="$(cd nvim && luacheck . --no-color 2>&1)"; then
     pass "luacheck nvim/"
   else
     fail "luacheck reported issues — run: (cd nvim && luacheck .)"
+    fail_detail "$lua_out"
   fi
 else
   skip "luacheck (not installed)"
+fi
+
+# ── 4b. nvim module reachability (the orphan backstop) ───────────────────────
+# core.manifest lists `nvim/` as a DIRECTORY, so §1's manifest⇄fs drift check auto-lists
+# every new path under it and cannot see an orphan — a lua module nothing loads would sit
+# in the tree and fan out to all eight OS repos silently. core.manifest said that gap was
+# covered "by verify-core.sh instead"; that script has never existed here (#454). The real
+# logic — a graph walk from nvim/init.lua, not a "is this name mentioned" scan — lives in
+# the script below, along with the rationale for its roots and its two resolved edges. It
+# is a standalone script rather than an inline block precisely so test-core.sh can drive
+# it against synthetic fixtures. Findings arrive one per line; each becomes a fail.
+hdr "nvim module reachability"
+if ! ((SCOPE_NVIM)); then
+  skip "nvim reachability (out of scope)"
+elif [[ ! -d nvim/lua/gerrrt ]]; then
+  skip "nvim reachability (no nvim/lua/gerrrt)"
+else
+  # Gate on the EXIT STATUS as well as the output. Deciding purely on "did it print
+  # anything" means a silent non-zero exit — the script killed, or dying before it can
+  # emit a diagnostic — reads as a passing gate, which is the one outcome a backstop must
+  # never produce. Pass requires rc 0 AND no findings; anything else fails, and a
+  # status-without-output still says something actionable rather than nothing.
+  orph_out="$("$HERE/scripts/nvim-reachability.sh" --root "$HERE" 2>&1)"
+  orph_rc=$?
+  if [[ -n "$orph_out" ]]; then
+    while IFS= read -r orph_line; do
+      [[ -n "$orph_line" ]] && fail "nvim: $orph_line"
+    done <<EOF
+$orph_out
+EOF
+    ((orph_rc == 0)) && fail "nvim: reachability reported findings but exited 0 (contract violation)"
+  elif ((orph_rc == 0)); then
+    pass "nvim module reachability (no orphaned lua modules)"
+  else
+    fail "nvim: reachability exited $orph_rc with no output — the gate did not actually run"
+  fi
 fi
 
 # ── 5. lint (shellcheck) ─────────────────────────────────────────────────────
@@ -382,10 +424,11 @@ if ! ((SCOPE_SHELL)); then
 elif have shellcheck; then
   sc_fail=0
   while IFS= read -r f; do
-    shellcheck -x "$f" >/dev/null 2>&1 || {
+    if ! sc_out="$(shellcheck -x "$f" 2>&1)"; then
       sc_fail=1
       fail "shellcheck: $f"
-    }
+      fail_detail "$sc_out"
+    fi
   done < <(git ls-files '*.sh' 'bin/clip' 'bin/clip-paste' 2>/dev/null)
   ((sc_fail)) || pass "shellcheck (all bash scripts clean)"
 else
@@ -504,6 +547,53 @@ done < <(
 )
 ((bnd_fail)) || pass "every manifested Core file carries no OS-absolute path (scope derived from core.manifest)"
 
+# ── 5d. pipefail SIGPIPE hazard (regression gate) ────────────────────────────
+# Under `set -o pipefail`, piping into a reader that EXITS EARLY turns a success into a
+# failure. `grep -q` stops on its first match, `awk` on its `exit`, `head` after N lines;
+# the writer then takes EPIPE and dies with 141, and pipefail reports the PIPELINE as
+# failed even though the reader matched.
+#
+# This repo has hit it three times. Twice it was found and fixed by hand — the CHANGELOG
+# records a 4000-line `git show` into `grep -q` reporting "no heading" on a file that had
+# one, and test-core.sh has an assertion literally named "the pipefail trap this repo has
+# hit before" for `ldd --version | grep -qi musl`. The third broke `main`:
+# nvim-reachability.sh invented two orphans because a visited module's membership lookup
+# returned 141 (#458). The fix each time was a hand sweep of the tree — correct for its
+# moment, and unable to cover code written afterwards. Hence a gate (#459).
+#
+# SCOPE IS DELIBERATELY NARROW: a SHELL-STRING producer (`printf`/`echo`) into an
+# early-exiting reader. `sed <file> | head -n1` — a FILE producer, ~15 instances — is left
+# alone on purpose: converting those is not free, and a gate that fires fifteen times on
+# working code is a gate someone turns off.
+#
+# THE REMEDY IS "REMOVE THE PIPE", NOT "ALWAYS USE A HERESTRING". A herestring appends a
+# newline, so `printf '%s' "\$v" | head -c 3` and `head -c 3 <<<"\$v"` differ by a byte —
+# for a byte-counting reader the naive rewrite corrupts the value. Capturing to a variable
+# preserves the producer's exact bytes; a herestring is the right fix wherever a trailing
+# newline is immaterial, which is most places but not all.
+#
+# The scanner is textual (see _core_pipefail_hits) and so a heuristic backstop, not a
+# proof: a pipeline split across lines, or a reader reached via a variable, is not seen.
+hdr "pipefail SIGPIPE hazard"
+if ! ((SCOPE_SHELL)); then
+  skip "pipefail SIGPIPE (out of scope)"
+else
+  pf_fail=0
+  while IFS= read -r pf_f; do
+    [ -n "$pf_f" ] || continue
+    while IFS= read -r pf_line; do
+      [ -n "$pf_line" ] || continue
+      fail "pipefail: $pf_f:$pf_line — shell-string producer feeds a reader that exits early; remove the pipe (capture to a variable, or a herestring where a trailing newline is immaterial)"
+      pf_fail=1
+    done <<EOF
+$(_core_pipefail_hits "$pf_f")
+EOF
+  done <<EOF
+$(git ls-files '*.sh' 'bin/clip' 'bin/clip-paste' 2>/dev/null)
+EOF
+  ((pf_fail)) || pass "pipefail (no shell-string producer feeds an early-exiting reader)"
+fi
+
 # ── 6. config files (toml / yaml parse) ──────────────────────────────────────
 # A malformed starship.toml / mise config.toml / ci.yml is still valid *text* —
 # so zsh -n and shellcheck never look at it — yet it breaks every one of the 9
@@ -570,10 +660,11 @@ elif [[ -x node_modules/.bin/markdownlint-cli2 ]]; then
   _mdl=(node_modules/.bin/markdownlint-cli2)
 fi
 if ((${#_mdl[@]})); then
-  if "${_mdl[@]}" "**/*.md" >/dev/null 2>&1; then
+  if md_out="$("${_mdl[@]}" "**/*.md" 2>&1)"; then
     pass "markdownlint (all tracked markdown clean)"
   else
     fail "markdownlint reported issues — run: markdownlint-cli2 '**/*.md'"
+    fail_detail "$md_out"
   fi
 else
   skip "markdownlint (markdownlint-cli2 not installed — npm i -g markdownlint-cli2)"
@@ -588,10 +679,11 @@ fi
 # above; CI installs it pinned (ACTIONLINT_VERSION) so the gate actually runs there.
 hdr "workflows (actionlint)"
 if have actionlint; then
-  if actionlint >/dev/null 2>&1; then
+  if al_out="$(actionlint 2>&1)"; then
     pass "actionlint (workflows valid)"
   else
     fail "actionlint reported issues — run: actionlint"
+    fail_detail "$al_out"
   fi
 else
   skip "actionlint (not installed — go install github.com/rhysd/actionlint/cmd/actionlint@latest)"
@@ -608,10 +700,19 @@ fi
 # like the linters above; CI installs it pinned (GITLEAKS_VERSION) so it runs there.
 hdr "secrets (gitleaks)"
 if have gitleaks; then
-  if gitleaks dir . --no-banner --redact >/dev/null 2>&1; then
+  # -v is what makes the captured output worth anything: without it gitleaks prints only
+  # "leaks found: N" and the file/line/rule stay hidden — the same non-answer this change
+  # exists to remove. --no-color matches the flag already passed to luacheck, so the text
+  # captured into a log is plain rather than escape sequences.
+  if gl_out="$(gitleaks dir . --no-banner --redact -v --no-color 2>&1)"; then
     pass "gitleaks (no secrets in the working tree)"
   else
-    fail "gitleaks found potential secrets — run: gitleaks dir . --redact"
+    fail "gitleaks found potential secrets — run: gitleaks dir . --redact -v"
+    # Safe to print BECAUSE of --redact: gitleaks replaces the matched value with
+    # REDACTED, so the report names the file, line, rule and fingerprint without
+    # reproducing the secret. Drop --redact and this becomes the one gate whose output
+    # must stay dark.
+    fail_detail "$gl_out"
   fi
 else
   skip "gitleaks (not installed — https://github.com/gitleaks/gitleaks/releases)"
@@ -751,11 +852,26 @@ if ((BEHAV_BG)); then
   if [[ -s "$BEHAV_OUT" ]]; then
     if ((JSON)); then cat "$BEHAV_OUT" >&2; else cat "$BEHAV_OUT"; fi
   fi
+  # NAME WHAT BROKE, in the fail line itself. "run: ./scripts/test-core.sh" sends the operator
+  # away to reproduce a result this run already has — and for an INTERMITTENT failure that is
+  # advice that cannot be taken: the re-run passes and the evidence is gone. It has already
+  # cost two occurrences of an unattributed flake here, both lost because the ✗ scrolled past
+  # far above the summary and only the summary survived being piped through `tail`.
+  #
+  # Read BEFORE the buffer is removed. The rendering itself lives in common.sh so the suite can
+  # test it on fixtures — see _core_fail_digest for why each of its branches is a quiet-failure
+  # risk that hand-injecting a fault would not keep honest.
+  _behav_digest="$(_core_fail_digest "$BEHAV_OUT")"
   rm -f "$BEHAV_OUT"
   if ((_behav_rc == 0)); then
     pass "behavioral tests (load-order smoke + function units)"
+  elif [[ -n "$_behav_digest" ]]; then
+    fail "behavioral tests failed ($_behav_digest) — run: ./scripts/test-core.sh"
   else
-    fail "behavioral tests failed — run: ./scripts/test-core.sh"
+    # rc says failed and no ✗ was printed: the suite died before it could report (a crash, a
+    # kill, a timeout). Say THAT rather than render an empty list, which would read as zero
+    # failures beside a red line and send the reader hunting a mismatch that is not there.
+    fail "behavioral tests failed — it exited $_behav_rc without printing a ✗, so it died before reporting; run: ./scripts/test-core.sh"
   fi
 else
   # Serial fallback. `${arr[@]+"${arr[@]}"}`, not `"${arr[@]}"`: under `set -u`, expanding
