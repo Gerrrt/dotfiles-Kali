@@ -148,7 +148,7 @@ Code execution ≠ a shell — script a pseudo-shell instead
 # response is regex'd back. Enumerating through this beats tampering one Burp
 # Repeater request at a time, and it sidesteps egress firewalls entirely.
 #
-#   ~/.config/kali/templates/pseudo-shell.py  is a ready-to-fill starting point
+#   ~/.config/offensive/templates/pseudo-shell.py  is a ready-to-fill starting point
 #   (the templates dir is symlinked there by bootstrap.sh). Copy it INTO the
 #   engagement's exploit/ dir, wire up the request + the capture regex, run it.
 #

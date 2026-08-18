@@ -27,20 +27,22 @@ opt-in.
 editable here; changes under `core/` are overwritten on the next sync. Edit shared
 Core config **in dotfiles-core**, `make audit`, then `make sync`.
 
-Four things that actually bite on this repo:
+Three things that actually bite on this repo:
 
 - The zsh loader adds an **`offensive` stage** (`… os offensive local`) on top of
   the Core order — band 85, linked as `85-offensive.zsh`. Keep offensive config in
-  that layer, not in `core/`, and not in an `os/` overlay.
-- **Don't reintroduce an OS layer here.** A package manager, a clipboard backend, a
-  path prepend or an `ID=` gate is a sign the change belongs in `dotfiles-Debian`.
-  The one exception left is `os/kali.conf`, and it is on its way out — see below.
-- **`os/kali.conf` is the last OS-layer file, and it is TEMPORARY.** It carries the
-  `prefix + e` engagement popup, which is role config living in an OS overlay
-  (`$CONFIG/tmux/os.conf`) because Core had exactly one tmux overlay hook when it was
-  written. Core **v4.13.1** adds `source-file -q ~/.config/tmux/role.conf`; once this
-  repo vendors that Core the binding moves to `offensive/offensive.conf` and the file
-  goes. Until then Offense and Debian both write `os.conf` and the last bootstrap wins.
+  that layer, not in `core/`.
+- **Don't reintroduce an OS layer here.** There is no `os/` directory any more. A
+  package manager, a clipboard backend, a path prepend or an `ID=` gate is a sign the
+  change belongs in `dotfiles-Debian`, which covers Kali.
+- **The three role destinations are Core's to decide, not this repo's.**
+  `blib_link_role_layer` (v4.13.1+) links `offensive/offensive.zsh` → band 85,
+  `offensive/offensive.conf` → `$CONFIG/tmux/role.conf`, and `offensive/templates/` →
+  `$CONFIG/offensive/templates`. Don't hand-roll them again — the block this replaced
+  had already drifted from Defense's copy of the same three links. `role.conf` is
+  sourced **last** by Core's `tmux.conf`, which is why the `prefix + e` binding lives
+  there rather than in an OS overlay: anything sourced earlier can have its key taken
+  back by a later `bind`.
 - **`--install` has two routes and they are not equivalent.** On Kali it apt-installs
   `install/offensive-packages.txt`. On any other Debian-family box it installs a small
   **portable subset** via pipx and go — and pipx's names differ from Kali's
@@ -63,13 +65,13 @@ paranoid `.gitignore` as backup.
 - `offensive/exploitdev` — binary-exploitation companion (stack/SEH overflows, egghunters, shellcode, DEP/ASLR, PE backdooring, plus a vulnserver command→bug→technique map as the practice target); same vim-fold UX, symlinked to `~/exploitdev`, opened with `xdev`
 - `offensive/evasion` — defense-evasion companion (AV/AMSI/AppLocker bypass, client-side macro access, process injection, egress/C2, advanced AD); symlinked to `~/evasion`, opened with `evade`
 - `offensive/ippsec` — **the method**: workflow habits + signature moves from IppSec's HTB catalog (the "always be running recon" loop, shell stabilization, the scripted `cmd.Cmd` pseudo-shell, the unsticking playbook) — the altitude *above* the command refs; same vim-fold UX, symlinked to `~/ippsec`, opened with `ipp`. Reusable starting points in `offensive/templates/`: `pseudo-shell.py`, plus `engagement.md`/`finding.md` scaffolds. Helpers in `offensive/offensive.zsh`: `mkengagement` (dated engagement tree), `eng` (fzf engagement switcher — the shell twin of the `prefix+e` tmux popup), `bhce` (NetExec → BloodHound CE), `nmapsweep`, `ttyup`, `note`, `logshell` (`script(1)` audit-trail recorder), `lhost`, `hethttp` (quick delivery web server on `0.0.0.0`, advertises the reachable callback URL via `lhost`), `cde`, `rocks`, `redup` (manual, opt-in refresh of the fast-moving offensive tools — nuclei/searchsploit; attacker box only, never mid-engagement)
-- `offensive/tmux/tmux-eng.sh` — fuzzy engagement-session switcher (the offensive twin of Core's `tmux-sesh.sh`), invoked by the `prefix + e` popup in `os/kali.conf`
+- `offensive/offensive.conf` — the role layer's tmux bits (the `prefix + e` engagement popup), linked to `~/.config/tmux/role.conf` and sourced last by Core
+- `offensive/tmux/tmux-eng.sh` — fuzzy engagement-session switcher (the offensive twin of Core's `tmux-sesh.sh`), invoked by the `prefix + e` popup in `offensive/offensive.conf`
 - `PURPLE-TEAM.md` — defensive mirror of `hacktheplanet`: Splunk/Sentinel detections + Windows event-ID reference per attack (from TrustedSec's Actionable Purple Teaming, BH USA 2023)
 - `offensive/companion` — **a vendored `git subtree` of [dotgibson/htpx](https://github.com/dotgibson/htpx)** (provenance in `companion.lock`): the structured, ATT&CK-tagged, red↔blue-paired corpus (`entries/red|blue/*.md`) browsed with `htpx` (fzf: pick → preview attack beside its detection → fill `{{slots}}` → `clip`); dir symlinked to `~/companion`. **Same rule as `core/`: do not hand-edit the vendored tree** — it's overwritten on the next sync. Edit upstream in htpx, then run `scripts/sync-companion.sh` (pulls htpx `main` + bumps `companion.lock`; or do the `git subtree pull --prefix=offensive/companion <htpx> main --squash` + lock bump by hand). It's the **source of truth** for the paired slice; `gen-views.sh` generates the marked blocks in `hacktheplanet`/`PURPLE-TEAM.md` from the entries and `.github/workflows/companion.yml` drift-gates them (`hacktheplanet`/`PURPLE-TEAM.md` stay canonical for everything *outside* the markers)
 - `install/offensive-packages.txt` — the apt list `--install` uses **on Kali only**
 - `install/tools.lst` — the host-tool probe list: what `bootstrap.sh` reports on. A
   command belongs here only if `offensive/offensive.zsh` probes or invokes it by bare name
-- `os/kali.conf` — the last OS-layer file; temporary, see above
 - `OFFENSIVE-METHODOLOGY.md` — the engagement playbook
 - `bootstrap.sh` — symlinks Core + the offensive role layer; probes host tools; `--install` is opt-in
 - `core/` — vendored Core (read-only here; edit upstream in dotfiles-core)

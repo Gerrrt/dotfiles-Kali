@@ -369,40 +369,53 @@ wire_links() {
   # Core's whole shipped surface, one call: the numbered zsh fragments, nvim + the vim
   # fallback, tmux (+ tpm), starship, git, and the tools group.
   blib_link_core "$DOTFILES" "$CONFIG"
-  # NO blib_link_os_layer: band 80 belongs to your OS-native repo (dotfiles-Debian),
-  # not to this one. os/kali.conf below is the one remaining exception and it is
-  # TEMPORARY — see its comment.
+  # NO blib_link_os_layer, and no os/ directory at all any more: band 80 belongs to
+  # your OS-native repo (dotfiles-Debian, which covers Kali), not to this one.
 
   # ── OFFENSIVE role layer ───────────────────────────────────────────────────
-  blib_say "symlinking OFFENSIVE role layer"
-  # v4: link the offensive stage as the numbered fragment 85-offensive.zsh (role band
-  # 85-94). The loader globs $ZSH_CFG/NN-*.zsh, so an unnumbered offensive.zsh would
-  # never load; band 85 sorts after the OS layer (80-os.zsh) and before host-local
-  # (99-local.zsh), preserving the `… os offensive local` order. Drop any stale pre-v4
-  # unnumbered link so the loader doesn't see a dead entry.
-  if [[ -L "$CONFIG/zsh/offensive.zsh" ]]; then
-    if ((DRY)); then
-      blib_say "would drop stale pre-v4 link: $CONFIG/zsh/offensive.zsh"
-    else
-      rm -f "$CONFIG/zsh/offensive.zsh"
-    fi
-  fi
-  blib_link "$DOTFILES/offensive/offensive.zsh" "$CONFIG/zsh/85-offensive.zsh"
-  [[ -d "$DOTFILES/offensive/templates" ]] && blib_link "$DOTFILES/offensive/templates" "$CONFIG/kali/templates"
-
-  # TEMPORARY, and the only OS-layer file still linked from this repo. os/kali.conf
-  # carries the `prefix + e` engagement popup, which is role config living in an OS
-  # overlay ($CONFIG/tmux/os.conf) because Core had exactly one tmux overlay hook when
-  # it was written. Core v4.13.1 adds a second — `source-file -q ~/.config/tmux/role.conf`
-  # — and once THIS repo vendors it, the binding moves to offensive/offensive.conf on the
-  # role hook and this line goes. Until then, dropping it would silently kill prefix+e.
+  # One call, from Core (v4.13.1+). It links all three role destinations and drops a
+  # stale pre-v4 unnumbered link, honouring BLIB_DRY throughout:
   #
-  # Known conflict while it lasts: dotfiles-Debian also writes $CONFIG/tmux/os.conf, so
-  # whichever bootstrap ran last wins. That is the status quo, not a regression — it is
-  # precisely what the role.conf hook exists to end.
-  if blib_want tmux && [[ -f "$DOTFILES/os/kali.conf" ]]; then
-    blib_link "$DOTFILES/os/kali.conf" "$CONFIG/tmux/os.conf"
-  fi
+  #   offensive/offensive.zsh   → $CONFIG/zsh/85-offensive.zsh   (role band 85-94)
+  #   offensive/offensive.conf  → $CONFIG/tmux/role.conf         (sourced LAST by Core)
+  #   offensive/templates/      → $CONFIG/offensive/templates
+  #
+  # This replaces a hand-rolled block that had already drifted from dotfiles-Defense's
+  # copy of the same three links — Defense honoured the dry-run when dropping the stale
+  # link and this repo did not, so `--dry-run` mutated the box here and not there.
+  blib_link_role_layer "$DOTFILES" "$CONFIG" offensive
+
+  # ── migrate a box bootstrapped before the role layer existed ───────────────
+  # Two destinations this repo used to write are no longer ours, and both are left
+  # DANGLING by the change above rather than updated:
+  #
+  #   $CONFIG/tmux/os.conf        — was os/kali.conf; the OS repo owns band 80 now
+  #   $CONFIG/kali/templates      — templates moved to $CONFIG/offensive/templates
+  #
+  # Remove each ONLY when it is a symlink resolving inside THIS checkout. That guard is
+  # the whole point: on a box also running dotfiles-Debian, $CONFIG/tmux/os.conf is
+  # Debian's live link and must not be touched. Core deliberately declined a compat
+  # symlink for the templates move (it would preserve a ~/.config/kali/ on a repo no
+  # longer called Kali), so cleaning up is the alternative to leaving one behind.
+  local _stale
+  for _stale in "$CONFIG/tmux/os.conf" "$CONFIG/kali/templates"; do
+    [[ -L "$_stale" ]] || continue
+    # `readlink`, NOT `readlink -f`. -f CANONICALISES, which requires every parent
+    # component of the target to exist — and os/ has just been deleted, so -f returns
+    # EMPTY for exactly the dangling link this loop exists to clear, and the guard below
+    # would never match it. Plain readlink reads the stored target verbatim, dangling or
+    # not, which is the question being asked: does this link point into THIS checkout?
+    [[ "$(readlink "$_stale" 2>/dev/null)" == "$DOTFILES"/* ]] || continue
+    if ((DRY)); then
+      blib_say "would drop stale link from the pre-role-layer wiring: $_stale"
+    else
+      rm -f "$_stale"
+      # Take the now-empty $CONFIG/kali with it; rmdir refuses a non-empty dir, so a
+      # host that put something else there keeps it.
+      rmdir "${_stale%/*}" 2>/dev/null || true
+    fi
+  done
+
   # The `prefix + e` popup script. It CANNOT live under $CONFIG/tmux/scripts — that path
   # is a whole-dir symlink to core/tmux/scripts (Core-owned, no offensive script) — so
   # link it a level up, beside tmux.conf, and the binding points there. Gated on

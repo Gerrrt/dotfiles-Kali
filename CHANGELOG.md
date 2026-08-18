@@ -91,6 +91,35 @@ release line.
 
 ### Changed
 
+- **The last OS-layer file is gone, and the role wiring is Core's now.** `os/kali.conf`
+  carried the `prefix + e` engagement popup as *role* config living in an *OS* overlay
+  (`$CONFIG/tmux/os.conf`), because Core had exactly one tmux overlay hook when it was
+  written. Vendoring Core **v4.13.1** brings the second hook, so the binding moves to
+  **`offensive/offensive.conf`** → `$CONFIG/tmux/role.conf`, and `os/` is deleted
+  outright. Two consequences worth stating plainly:
+  - `role.conf` is sourced **last** by Core's `tmux.conf`, after Core's own bindings.
+    `os.conf` is sourced before them, so a future Core `bind e` could have silently
+    taken the key back. That ordering is the actual reason the hook exists.
+  - `dotfiles-Debian` and this repo no longer race for `$CONFIG/tmux/os.conf`. Until
+    now whichever bootstrap ran last won it; the OS repo owns band 80 alone again.
+  The battery and net-speed status probes did **not** move here — they are OS-native and
+  `dotfiles-Debian`'s `os/debian.conf` already carries them.
+- **`bootstrap.sh` calls `blib_link_role_layer` instead of hand-rolling three links.**
+  The block it replaces had already drifted from `dotfiles-Defense`'s copy of the same
+  wiring: Defense honoured `BLIB_DRY` when dropping the stale pre-v4 link and this repo
+  did not, so `--dry-run` mutated the box here and not there. One shared definition ends
+  that class of drift.
+- **Templates moved to `$CONFIG/offensive/templates`** (from `$CONFIG/kali/templates`) —
+  named for the role rather than the distro, matching Defense's `$CONFIG/defense/`. The
+  two shipped docs that quote the path by hand, `offensive/hacktheplanet` and
+  `offensive/ippsec`, are updated in the same change. Core deliberately declined a compat
+  symlink, since it would preserve a `~/.config/kali/` on a repo no longer called Kali.
+- **Bootstrap now cleans up after the old wiring.** A box bootstrapped before this change
+  carries `$CONFIG/tmux/os.conf` and `$CONFIG/kali/templates` pointing into this
+  checkout; both dangle afterwards. Each is removed **only when it is a symlink resolving
+  inside this repo**, so a box also running `dotfiles-Debian` never has that repo's live
+  `os.conf` touched, and `--dry-run` only reports.
+
 - **This repo is now a pure Role layer.** It used to be both the OS-native layer for
   Kali *and* the offensive role on top. `dotfiles-Debian` now covers the Debian family
   properly and accepts `ID=kali` as a first-class target, so the OS half moved there and
@@ -135,14 +164,6 @@ release line.
 
 ### Known gaps
 
-- **`os/kali.conf` survives this pass, and is the last OS-layer file here.** It carries
-  the `prefix + e` engagement popup — role config living in an OS overlay
-  (`$CONFIG/tmux/os.conf`) because Core had exactly one tmux overlay hook when it was
-  written. Core **v4.13.1** adds `source-file -q ~/.config/tmux/role.conf`; once this
-  repo vendors that Core, the binding moves to `offensive/offensive.conf` on the role
-  hook and the file goes. Dropping it now would silently kill `prefix + e`. While it
-  lasts, Offense and Debian both write `os.conf` and the last bootstrap to run wins —
-  the status quo, and exactly what the role hook exists to end.
 - **pipx installs different binary names than Kali does.** PyPI's impacket ships
   `secretsdump.py`, not Kali's `impacket-secretsdump` wrapper; `certipy-ad` ships
   `certipy`. `offensive.zsh` probes the Kali names, so those `HAVE_*` flags do not fire

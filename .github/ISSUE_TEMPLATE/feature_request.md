@@ -14,8 +14,10 @@ labels: enhancement
 
 - [ ] **Offensive role** (`offensive/`) — changes with the operator; engagement
       scaffolding, a field-reference entry, a helper
-- [ ] **OS layer** (`os/kali.*`, `install/*.txt`) — changes with the distro; a package,
-      a path, a clipboard or tmux detail
+- [ ] **OS layer** — changes with the distro; a package, a path, a clipboard or status
+      detail. This belongs in
+      [dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian) (it covers Kali),
+      not here — this repo has no `os/` layer
 - [ ] **Core** — identical on every machine. This belongs in
       [dotfiles-core](https://github.com/dotgibson/dotfiles-core), not here
 - [ ] **Companion corpus** — a paired red/blue entry belongs in
