@@ -1,4 +1,4 @@
-# Makefile — the discoverable entry point for dotfiles-Kali.
+# Makefile — the discoverable entry point for dotfiles-Offense.
 # ──────────────────────────────────────────────────────────────────────────────
 # This repo had no Makefile, which made several documented commands untrue:
 # core.lock's own header says "Regenerate ... with: make core-lock", CLAUDE.md
@@ -15,7 +15,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help lint shellcheck markdown test packages-check secrets \
         core-check core-sync core-lock companion-check companion-sync companion-integrity \
-        bootstrap-dry tool-checksums hooks
+        bootstrap-dry hooks
 
 # Pinned tool versions come from the vendored Core, so local runs match CI exactly.
 CORE_PINS := core/scripts/tool-versions.env
@@ -53,7 +53,7 @@ test: ## Run the repo's behavioural checks
 	@./offensive/companion/gen-views.sh --check
 	@echo "✓ tests pass"
 
-packages-check: ## Do all install/*.txt package names still resolve? (advisory)
+packages-check: ## Does every offensive-packages.txt name still resolve on Kali? (advisory)
 	@./test/check-packages.sh || true
 
 secrets: ## gitleaks over the working tree + full history (needs gitleaks)
@@ -93,8 +93,10 @@ companion-sync: ## Pull the companion from upstream htpx and refresh companion.l
 
 ## ── maintenance ──────────────────────────────────────────────────────────────
 
-tool-checksums: ## Refresh install/tool-versions.env SHA-256s after a version bump
-	@./scripts/update-tool-checksums.sh --verify
+# No tool-checksums target: install/tool-versions.env and its updater moved to
+# dotfiles-Debian with the rest of the OS-native layer. This repo pins nothing —
+# `--install` uses apt on Kali, and pipx/go elsewhere, both of which verify their own
+# downloads (PyPI hashes, the Go checksum database).
 
 hooks: ## Install the local core-guard pre-commit hook into this clone
 	@bash -c 'source core/lib/ux.sh; source core/lib/bootstrap-lib.sh; blib_install_core_guard "$$PWD"'

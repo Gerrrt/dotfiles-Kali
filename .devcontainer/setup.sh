@@ -4,7 +4,7 @@
 # Lean by design: a small modern-CLI toolset + starship, then `bootstrap.sh
 # --links-only` (Core + the offensive role layer + zsh as the shell; NO apt package
 # stack). The cheatsheets and field helpers are the demo — for the full engagement
-# tool stack run `./bootstrap.sh` (no flag) inside the running container.
+# tool stack run `./bootstrap.sh --install` inside the running container.
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -24,7 +24,7 @@ apt-get install -y --no-install-recommends fzf ripgrep bat fd-find eza neovim jq
 
 echo "==> starship prompt (distro package)"
 # From apt, NOT a piped remote installer (no `curl | sh`): Kali/Debian ship starship. If
-# it's absent here the prompt just falls back to plain zsh; the full `./bootstrap.sh` uses
+# it's absent here the prompt just falls back to plain zsh; `./bootstrap.sh --install` uses
 # the upstream installer. Kept on its own line so its absence can't sink the CLIs above.
 apt-get install -y --no-install-recommends starship ||
   echo "   note: starship unavailable via apt here — prompt falls back to plain zsh"
@@ -36,19 +36,20 @@ echo "==> wiring dotfiles (Core + offensive role layer, no package install)"
 # is the same setting the reusable bootstrap-test workflow passes (-e BLIB_SU=) to its
 # distro containers.
 export BLIB_SU=
-# --links-only skips provision() (no apt, no heavy offensive stack) but runs wire_links:
+# --links-only skips the host-tool probe (nothing installs without --install anyway)
+# but runs wire_links:
 # Core via blib_link_core, the offensive symlinks (hacktheplanet/exploitdev/evasion/ippsec
 # + offensive.zsh), the offensive loader stage, and chsh to zsh.
 ./bootstrap.sh --links-only
 
 cat <<'EOF'
 
-  ✔ dotfiles-Kali is wired. Open a NEW terminal (it starts in zsh) and try:
+  ✔ dotfiles-Offense is wired. Open a NEW terminal (it starts in zsh) and try:
 
       htp     hack-the-planet cheatsheet        ipp     the IppSec method
       xdev    exploit-dev companion             evade   defense-evasion
       lhost   your attacker / VPN IP            ttyup   stabilize a dumb shell
       note    timestamped engagement log        mkengagement   scope-first workspace
 
-  Full engagement tool stack (heavy, optional):  ./bootstrap.sh
+  Full engagement tool stack (heavy, optional):  ./bootstrap.sh --install
 EOF

@@ -27,6 +27,8 @@ labels: enhancement
 - If not packaged, how it installs:
 - Does it replace something already here?
 
-<!-- Tools that are not in apt need a pinned, SHA-256-verified release asset in
-     install/tool-versions.env, or a cargo/go install that verifies for us. A
-     `curl | sh` installer will not be added. -->
+<!-- This repo installs nothing by default: your OS-native layer (dotfiles-Debian,
+     which covers Kali) owns packages. `./bootstrap.sh --install` is the opt-in — apt
+     from install/offensive-packages.txt on Kali, a small pipx/go subset elsewhere.
+     Both routes verify their own downloads; a `curl | sh` installer will not be
+     added. -->
