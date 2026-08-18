@@ -1,4 +1,4 @@
-# dotfiles-Kali/install/offensive-packages.txt
+# dotfiles-Offense/install/offensive-packages.txt
 # ──────────────────────────────────────────────────────────────────────────────
 # The offensive tool layer for Kali (apt). The Core modern-CLI stack lives in
 # the normal install/packages.txt; THIS file is the role layer on top of it.

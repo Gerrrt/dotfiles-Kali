@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # test/check-packages.sh
 # ──────────────────────────────────────────────────────────────────────────────
-# Does every package name in install/*.txt still RESOLVE on Kali?
+# Does every package name in install/offensive-packages.txt still RESOLVE on Kali?
 #
 # bootstrap.sh's apt_install is deliberately forgiving: a bulk install that fails
 # retries package-by-package and prints "skipped (unavailable on this box?)" for
 # each casualty. That resilience is right for a live box — one dead name should not
-# sink a 109-package install — but it means a typo, a Debian rename, or a dropped
+# sink the whole install — but it means a typo, a Debian rename, or a dropped
 # package is INVISIBLE. The run is still green, the operator still gets a shell, and
 # the tool they were counting on simply is not there. Renames are not hypothetical
 # here: install/offensive-packages.txt's own comments record freerdp2-x11 →
@@ -27,14 +27,14 @@
 #   2  one or more names did not resolve — the drift signal
 #
 # Usage:
-#   test/check-packages.sh                 # both manifests
-#   test/check-packages.sh install/packages.txt
+#   test/check-packages.sh                 # install/offensive-packages.txt
+#   test/check-packages.sh install/offensive-packages.txt
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 # `set -e` is deliberately off here (the exit code IS the result), so guard the cd
-# explicitly — continuing in the wrong directory would read the wrong manifests.
+# explicitly — continuing in the wrong directory would read the wrong manifest.
 cd -- "$REPO_ROOT" || exit 1
 
 if [[ -r "$REPO_ROOT/core/lib/ux.sh" ]]; then
@@ -56,8 +56,11 @@ command -v apt-cache >/dev/null 2>&1 || {
 # shellcheck source=core/lib/bootstrap-lib.sh
 source "$REPO_ROOT/core/lib/bootstrap-lib.sh"
 
+# ONE manifest now. install/packages.txt (the Core apt base) moved to dotfiles-Debian
+# when this repo stopped being an OS-native layer; what is left here is the role layer's
+# own tool list. A caller can still name a file explicitly.
 manifests=("$@")
-((${#manifests[@]})) || manifests=(install/packages.txt install/offensive-packages.txt)
+((${#manifests[@]})) || manifests=(install/offensive-packages.txt)
 
 # Name the suite so a local run's answer is interpretable. `apt-cache policy`'s FIRST
 # release line is the dpkg status pseudo-release (a=now), which is not a suite —

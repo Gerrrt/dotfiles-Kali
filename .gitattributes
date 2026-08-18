@@ -1,4 +1,4 @@
-# .gitattributes — line-ending policy for dotfiles-Kali.
+# .gitattributes — line-ending policy for dotfiles-Offense.
 # ──────────────────────────────────────────────────────────────────────────────
 # .editorconfig sets `end_of_line = lf`, but that only guides EDITORS — it does not
 # govern what git writes on checkout/commit. This repo is WSL2-targeted, which means
@@ -39,12 +39,6 @@ offensive/ippsec            text eol=lf
 *.txt       text eol=lf
 *.env       text eol=lf
 Makefile    text eol=lf
-# /etc/wsl.conf is rendered from this by sed and read by the WSL init — CRLF there
-# is silently ignored rather than erroring, which is worse.
-wsl/wsl.conf text eol=lf
-# The Windows-side example is documentation FOR Windows, but %UserProfile%\.wslconfig
-# parses LF fine and keeping it LF avoids a spurious diff on every WSL-side edit.
-wsl/windows.wslconfig.example text eol=lf
 
 # ── Binaries (defensive): never normalize, never diff as text ─────────────────
 *.png       binary

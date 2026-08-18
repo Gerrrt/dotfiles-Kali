@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to this repo's own layers — the OS overlays (`os/`,
-`install/`), the offensive role layer (`offensive/`), `bootstrap.sh`, and the
-tooling around the two vendored subtrees.
+All notable changes to this repo's own layer — the offensive role layer
+(`offensive/`, `install/`), `bootstrap.sh`, and the tooling around the two vendored
+subtrees.
 
 **Not** in scope: changes inside `core/` or `offensive/companion/`. Those are
 vendored copies with their own changelogs
@@ -56,7 +56,7 @@ release line.
 - `apt_install`'s per-package retry keeps `--no-install-recommends`.
 - The `bootstrap` workflow's path filter omitted `install/**` and `wsl/**`, so
   package-list edits never re-ran the bootstrap test. Filters removed.
-- `dotsync` hardcoded `~/dotfiles-Kali`; it now resolves this checkout.
+- `dotsync` hardcoded `~/dotfiles-Offense`; it now resolves this checkout.
 - The offensive tmux binding shipped even when its script was not linked, and
   hardcoded `~/.config` against an XDG-aware bootstrap.
 - `@batt_enable` was unconditionally off "because WSL has no battery" — now
@@ -91,6 +91,40 @@ release line.
 
 ### Changed
 
+- **This repo is now a pure Role layer.** It used to be both the OS-native layer for
+  Kali *and* the offensive role on top. `dotfiles-Debian` now covers the Debian family
+  properly and accepts `ID=kali` as a first-class target, so the OS half moved there and
+  what is left here is the role. Concretely:
+  - **Removed:** `os/kali.zsh`, `os/kali.gitconfig`, `install/packages.txt`,
+    `install/tool-versions.env`, `scripts/update-tool-checksums.sh`, `wsl/`,
+    `ssh/config`. Every one of them has an equivalent in `dotfiles-Debian`, whose
+    package list carries the Kali tier as `# only:kali` annotations.
+  - **`bootstrap.sh` is distro-agnostic and installs nothing by default.** The `ID=kali`
+    gate, the apt base install, the `full-upgrade`, the SHA-pinned `verified_install`
+    block, the carapace `.deb`, the 1Password repo and the `/etc/wsl.conf` write are all
+    gone — they belong to the OS-native layer. What replaces them is a **report**: a
+    three-state host-tool probe (on `$PATH` / present-but-unreachable / missing),
+    modelled on `dotfiles-Defense`.
+  - **`--install` is the new opt-in.** On Kali it apt-installs
+    `install/offensive-packages.txt` as before. On any other Debian-family box it
+    installs a small **portable subset** via pipx (impacket, certipy-ad, netexec,
+    bloodyAD, ldapdomaindump) and go (nuclei, gobuster, ffuf, kerbrute). On anything
+    else it refuses and says why rather than guessing at a package manager.
+  - **`--no-offensive` and `--no-upgrade` are accepted but inert**, with a note — the
+    behaviour they asked for is now the default, so aborting on them would be worse than
+    honouring them.
+  - **`--links-only` with `--install` is refused**: one wires symlinks only, the other
+    installs packages.
+- **`install/tools.lst` is new** — the host-tool probe list, and the one place it is
+  written. Twin of `dotfiles-Defense`'s. A command belongs there only if
+  `offensive/offensive.zsh` probes or invokes it by bare name.
+- **`offsync` replaces this repo's half of `dotsync`.** `dotsync` came from
+  `os/kali.zsh` and now belongs to the OS-native layer (band 80). `offensive.zsh`
+  exports `$DOTFILES_OFFENSE` and binds `offsync` to it — a distinct verb, because
+  reusing `dotsync` at band 85 would silently shadow the OS layer's.
+- **`test/check-packages.sh` and `make packages-check` now check one manifest**
+  (`install/offensive-packages.txt`); `make tool-checksums` is gone with the pins.
+
 - The gating workflows (`lint`, `bootstrap`, `companion`, `routine-filter`) no
   longer use trigger-level path filters: a `paths:`-skipped workflow produces no
   check run, so requiring one would hang every non-matching PR.
@@ -98,3 +132,22 @@ release line.
   `os/kali.zsh` no longer duplicates Core's `~/.local/bin` PATH prepend.
 - `offensive/templates/engagement.md` documents the layout `mkengagement` actually
   creates.
+
+### Known gaps
+
+- **`os/kali.conf` survives this pass, and is the last OS-layer file here.** It carries
+  the `prefix + e` engagement popup — role config living in an OS overlay
+  (`$CONFIG/tmux/os.conf`) because Core had exactly one tmux overlay hook when it was
+  written. Core **v4.13.0** adds `source-file -q ~/.config/tmux/role.conf`; once this
+  repo vendors that Core, the binding moves to `offensive/offensive.conf` on the role
+  hook and the file goes. Dropping it now would silently kill `prefix + e`. While it
+  lasts, Offense and Debian both write `os.conf` and the last bootstrap to run wins —
+  the status quo, and exactly what the role hook exists to end.
+- **pipx installs different binary names than Kali does.** PyPI's impacket ships
+  `secretsdump.py`, not Kali's `impacket-secretsdump` wrapper; `certipy-ad` ships
+  `certipy`. `offensive.zsh` probes the Kali names, so those `HAVE_*` flags do not fire
+  on a pipx box. The bootstrap's probe recognises both names, so the report is honest;
+  teaching the shell layer to resolve both is a separate change.
+- **The WSL Git-Credential-Manager note** that lived in `os/kali.gitconfig` (how to
+  point `credential.helper` at the Windows host's GCM) did not travel with the file.
+  It belongs in `dotfiles-Debian`'s git overlay now that that repo owns WSL.

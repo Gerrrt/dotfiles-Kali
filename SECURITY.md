@@ -1,6 +1,6 @@
 # Security Policy
 
-`dotfiles-Kali` is a **public** repository that ships offensive tooling
+`dotfiles-Offense` is a **public** repository that ships offensive tooling
 configuration. It contains no exploit code, no payloads, and no engagement data —
 but it does configure tools that reach the network, and it installs software on
 whatever machine runs `bootstrap.sh`. That makes it worth a disclosure path of its
@@ -12,7 +12,7 @@ directs layer-specific reports here.
 ## Reporting a vulnerability
 
 Please use GitHub's **[private vulnerability
-reporting](https://github.com/dotgibson/dotfiles-Kali/security/advisories/new)** —
+reporting](https://github.com/dotgibson/dotfiles-Offense/security/advisories/new)** —
 it opens a private advisory thread visible only to the maintainers.
 
 Do **not** open a public issue for anything in the "in scope" list below.
@@ -27,10 +27,11 @@ spare time, so there is no formal SLA and no bounty.
 
 Things that would genuinely compromise a machine running these dotfiles:
 
-- **Supply chain in `bootstrap.sh`** — an unverified download, a checksum that does
-  not gate an install, a writable path used before verification, a step that can be
-  induced to run attacker-controlled code. The pins live in
-  `install/tool-versions.env`; a stale or wrong hash there is a valid report.
+- **Supply chain in `bootstrap.sh`** — an unverified download, a writable path used
+  before verification, a step that can be induced to run attacker-controlled code.
+  `--install` is the only path that fetches anything: apt on Kali, and pipx/go
+  elsewhere, both of which verify against PyPI hashes and the Go checksum database.
+  A step that bypasses either is a valid report.
 - **Privilege escalation through the install path** — anything that widens what
   `sudo` is used for, a `sudo` invocation on an attacker-influenced path, or a
   world-writable artifact left behind.

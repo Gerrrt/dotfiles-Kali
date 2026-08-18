@@ -1,4 +1,4 @@
-# Contributing to dotfiles-Kali
+# Contributing to dotfiles-Offense
 
 The README's three rules in full, plus how to actually run the gates.
 
@@ -77,10 +77,13 @@ It is idempotent and must stay that way.
 ./bootstrap.sh --links-only    # then run it twice — no new *.pre-dotfiles.* files
 ```
 
-Adding a tool that isn't in apt means a pinned entry in
-`install/tool-versions.env` plus `scripts/update-tool-checksums.sh --verify`.
-`curl | sh` is not an option here; see that file's header for why, and for the
-cargo/go exceptions that verify for us.
+This repo installs nothing by default — your OS-native layer owns packages, and
+`dotfiles-Debian` covers Kali. `./bootstrap.sh --install` is the opt-in: apt from
+`install/offensive-packages.txt` on Kali, and a small pipx/go subset on any other
+Debian-family box. A tool the shell layer probes also belongs in
+`install/tools.lst`, which is what the host-tool report reads. `curl | sh` is not an
+option here; pipx and go verify their own downloads, which is why those two are the
+only non-apt routes.
 
 ## What `main` enforces
 
