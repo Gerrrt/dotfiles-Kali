@@ -1,4 +1,4 @@
-# dotfiles-Kali/.gitignore
+# dotfiles-Offense/.gitignore
 # =============================================================================
 # This is a PUBLIC showcase repo. Engagement data must NEVER land here.
 # Primary defense: all engagement data lives in ~/engagements (outside the repo).
@@ -75,9 +75,11 @@ id_ed25519*
 *.ovpn
 *.rdp
 
-# ── ssh: track only the sanitized config ──────────────────────────────────────
+# ── ssh: nothing tracked ──────────────────────────────────────────────────────
+# The sanitized ssh/config moved to dotfiles-Debian with the OS-native layer. The
+# ignore stays: keys and per-host configs must never land here by accident, and this
+# repo has no reason to track anything under ssh/ any more.
 ssh/*
-!ssh/config
 
 # ── local-only / generated ────────────────────────────────────────────────────
 # v4 renamed the host-local override fragment; the pre-v4 name is kept so a box

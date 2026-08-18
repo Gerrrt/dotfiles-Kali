@@ -1,8 +1,12 @@
 # .github/workflows/bootstrap.yml
 # Thin caller for the reusable bootstrap test authored in dotfiles-core. The logic
-# lives there (one place for the whole fleet); this just names Kali's container +
+# lives there (one place for the whole fleet); this just names the container +
 # the deps bootstrap needs, and sets offensive: true so the reusable test also
 # asserts the offensive role layer (symlinks + the `offensive` loader stage).
+#
+# The container is still kali-rolling because that is the box this role layer is
+# built for. It is no longer a REQUIREMENT: bootstrap.sh is distro-agnostic now and
+# refuses nothing, so this lane proves the wiring rather than an ID gate.
 # See dotfiles-core/.github/workflows/bootstrap-test.yml.
 name: bootstrap
 
@@ -11,10 +15,10 @@ name: bootstrap
 # 1. A workflow skipped by `paths:` produces no check run, so requiring it would
 #    hang every non-matching PR on "Expected — waiting for status".
 # 2. The filter was already incomplete and silently so: it listed bootstrap.sh,
-#    core/, os/, ssh/ and offensive/ but NOT install/ or wsl/ — both of which
-#    bootstrap.sh reads (install/packages.txt, install/tool-versions.env,
-#    wsl/wsl.conf). Editing a package list therefore did not re-run the bootstrap
-#    test. Rather than keep chasing the list as bootstrap grows new inputs, run it
+#    core/, os/, ssh/ and offensive/ but NOT install/, which bootstrap.sh reads
+#    (install/tools.lst, install/offensive-packages.txt). Editing a package list
+#    therefore did not re-run the bootstrap test. Rather than keep chasing the list
+#    as bootstrap grows new inputs, run it
 #    on every PR; it is a container job of a few minutes and it is the single
 #    highest-value gate in the repo.
 on:

@@ -22,19 +22,19 @@
     <img src="https://raw.githubusercontent.com/dotgibson/.github/main/profile/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">🔴 dotfiles-Kali</h3>
+  <h3 align="center">🔴 dotfiles-Offense</h3>
 
   <p align="center">
-    The offensive role layer — recon → exploit → evasion, on a Kali/WSL2 base.
+    The offensive role layer — recon → exploit → evasion, on any OS-native layer.
     <br />
     <a href="https://dotgibson.github.io/dotfiles-web/docs"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://dotgibson.github.io/dotfiles-web/purple/">Red ↔ Blue</a>
     &middot;
-    <a href="https://github.com/dotgibson/dotfiles-Kali/issues/new?labels=bug">Report Bug</a>
+    <a href="https://github.com/dotgibson/dotfiles-Offense/issues/new?labels=bug">Report Bug</a>
     &middot;
-    <a href="https://github.com/dotgibson/dotfiles-Kali/issues/new?labels=enhancement">Request Feature</a>
+    <a href="https://github.com/dotgibson/dotfiles-Offense/issues/new?labels=enhancement">Request Feature</a>
   </p>
 </div>
 
@@ -60,12 +60,19 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-**`dotfiles-Kali` is the offensive Role layer** — the one node in the fleet that
-stacks **three** layers instead of two. The shared **Core** (zsh, tmux, Neovim,
-git, starship, mise) is vendored under `core/` via `git subtree`; on top sits the
-Kali OS layer (Debian-family `apt`, built for WSL2); and on top of _that_ sits a
-unique **offensive** stage — engagement scaffolding and workspace workflow for
-**authorized** engagements.
+**`dotfiles-Offense` is the offensive Role layer** — the red twin of
+[`dotfiles-Defense`](https://github.com/dotgibson/dotfiles-Defense). The shared
+**Core** (zsh, tmux, Neovim, git, starship, mise) is vendored under `core/` via
+`git subtree`; your **OS-native layer** owns packages, clipboard and paths; and this
+repo adds the **offensive** stage on top — engagement scaffolding and workspace
+workflow for **authorized** engagements.
+
+It is **distro-agnostic and installs nothing by default.** `./bootstrap.sh` wires
+symlinks and reports which offensive tools the box already has; `--install` is the
+opt-in. The OS half of this repo — the apt base list, the pinned out-of-band installs,
+the WSL bootstrap, the zsh/git/ssh overlays — moved to
+[`dotfiles-Debian`](https://github.com/dotgibson/dotfiles-Debian), which now accepts
+`ID=kali` as a first-class target.
 
 > **The one rule that matters:** this is a public showcase repo, so **engagement
 > and client data never live in it.** Everything goes under `~/engagements/`
@@ -76,13 +83,13 @@ unique **offensive** stage — engagement scaffolding and workspace workflow for
 The full docs live on the [documentation site][docs]; the defensive mirror is
 [`dotfiles-Defense`](https://github.com/dotgibson/dotfiles-Defense).
 
-The system is three layers; Kali carries all three:
+The system is three layers; this repo is the third:
 
 | Layer | Lives in | Owns |
 | --- | --- | --- |
 | **Core** | [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core), vendored under `core/` | zsh, tmux, nvim, git, starship — identical everywhere |
-| **OS-native** | `os/kali.*` (Debian-family `apt`, WSL2) | package manager, clipboard, paths |
-| **Role (offensive)** | `offensive/` — **unique to this repo** | engagement scaffolding + workspace workflow |
+| **OS-native** | a separate repo — [`dotfiles-Debian`](https://github.com/dotgibson/dotfiles-Debian) for Kali/Debian/Ubuntu | package manager, clipboard, paths |
+| **Role (offensive)** | `offensive/` — **this repo** | engagement scaffolding + workspace workflow |
 
 ### Languages
 
@@ -102,31 +109,43 @@ The system is three layers; Kali carries all three:
 
 ### Prerequisites
 
-**Kali on WSL2**, and **Git**. WSL2 is NAT'd by default, so a listener / reverse
-shell / C2 in Kali isn't reachable from your LAN until you enable **mirrored
-networking** in the _Windows-side_ `%UserProfile%\.wslconfig` (`networkingMode=mirrored`,
-Win11 22H2+) — **not** `/etc/wsl.conf`.
+**An OS-native layer already installed**, and **Git**. Kali is the box this is built
+for — install [`dotfiles-Debian`](https://github.com/dotgibson/dotfiles-Debian) first
+and it will provision it. Any other Debian-family box works too; the tool report will
+just be shorter.
+
+Running Kali under **WSL2**? It is NAT'd by default, so a listener / reverse shell /
+C2 isn't reachable from your LAN until you enable **mirrored networking** in the
+_Windows-side_ `%UserProfile%\.wslconfig` (`networkingMode=mirrored`, Win11 22H2+) —
+**not** `/etc/wsl.conf`. The example file lives in `dotfiles-Debian/wsl/`.
 
 ### Installation
 
 ```sh
-git clone https://github.com/dotgibson/dotfiles-Kali ~/dotfiles-Kali
-cd ~/dotfiles-Kali
-./bootstrap.sh                 # apt base + offensive tools + Core/OS/offensive symlinks
-wsl.exe --shutdown             # from Windows, after dropping windows.wslconfig.example
+# 1. the OS-native layer (skip if you already run one)
+git clone https://github.com/dotgibson/dotfiles-Debian ~/dotfiles-Debian
+~/dotfiles-Debian/bootstrap.sh
+
+# 2. this role layer
+git clone https://github.com/dotgibson/dotfiles-Offense ~/dotfiles-Offense
+cd ~/dotfiles-Offense
+./bootstrap.sh                 # symlinks + the host-tool report; installs nothing
+./bootstrap.sh --install       # opt-in: the offensive tool stack
 ```
 
 `core/` is a vendored subtree and is **already present** in a clone — there is no
-submodule step. Flags: `--no-offensive` (base + symlinks, skip the heavy tool
-install), `--links-only` (just re-create symlinks).
+submodule step. Flags: `--install` (the opt-in tool install — apt from
+`install/offensive-packages.txt` on Kali, a pipx/go subset elsewhere), `--links-only`
+(just re-create symlinks), `--no-check` (skip the host-tool report), `--dry-run`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- WHAT'S IN THIS LAYER -->
 ## What's In This Layer
 
-The offensive stage loads after `os` and before `local` (`… os offensive local`),
-so OS paths/clipboard resolve first and a machine override still wins:
+The offensive stage loads after `os` and before `local` (`… os offensive local`) —
+band 85, linked as `85-offensive.zsh` — so your OS layer's paths and clipboard resolve
+first and a machine override still wins:
 
 - `offensive/offensive.zsh` — the role-stage helpers (`mkengagement`, `eng`,
   `logshell`, `nmapsweep`, `bhce`, …), each `HAVE_*`-guarded — no exploit code
@@ -135,12 +154,14 @@ so OS paths/clipboard resolve first and a machine override still wins:
 - `offensive/companion/` — the ATT&CK-tagged red↔blue corpus, a **vendored
   subtree of [htpx](https://github.com/dotgibson/htpx)** (browsed with `htpx`)
 - `PURPLE-TEAM.md` — the defensive mirror of `hacktheplanet` (Splunk/Sentinel)
+- `install/tools.lst` — the host-tool probe list; `install/offensive-packages.txt` —
+  the apt list `--install` uses **on Kali only**
 - `core/` — vendored from `dotfiles-core` (read-only here; edit upstream)
 
 The tradecraft — the phase → ATT&CK → tool map, the OPSEC hygiene, and the tools
 that bite (`nxc`/NetExec, BloodHound CE) — is written up on the hub:
 
-> **[→ Offensive methodology][methodology]** · **[dotfiles-Kali on the hub][repo-docs]**
+> **[→ Offensive methodology][methodology]** · **[dotfiles-Offense on the hub][repo-docs]**
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -164,8 +185,8 @@ guards actually enforce, are in [`CONTRIBUTING.md`](CONTRIBUTING.md). Run `make`
 with no target for the list of entry points.
 
 Bugs and ideas: open an
-[issue](https://github.com/dotgibson/dotfiles-Kali/issues). Security reports go
-through [private vulnerability reporting](https://github.com/dotgibson/dotfiles-Kali/security/advisories/new)
+[issue](https://github.com/dotgibson/dotfiles-Offense/issues). Security reports go
+through [private vulnerability reporting](https://github.com/dotgibson/dotfiles-Offense/security/advisories/new)
 — see [`SECURITY.md`](SECURITY.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -187,23 +208,23 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- Markdown Links & Images -->
-[repo-docs]: https://dotgibson.github.io/dotfiles-web/docs/repos/dotfiles-Kali
+[repo-docs]: https://dotgibson.github.io/dotfiles-web/docs/repos/dotfiles-Offense
 [methodology]: https://dotgibson.github.io/dotfiles-web/docs/reference/offensive-methodology
 [dotgibson-shield]: https://img.shields.io/github/v/release/dotgibson/dotfiles-core?style=flat-square&label=dotgibson&labelColor=181717&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAF1klEQVR4nLSWbUxT7RnHr9PT09MXSltaoC9QXkqR16Iwhb0Iw8VYYE7jPri5aBaZzpmFZbpolpn4QeMyM%2BM%2B7MVt0Q9LNJIlxCzqxGWS6aKAig51vBQKIi3QltpCS0%2Fbc879pD1N3%2Bnz4fG5Pl2977v%2F331d131f5%2BZrddWQZAgAgy9uCRlefICzT6GeIsP%2FXF15kahmu9JglGmLRQoRQdIQWgu77BuWGe%2Fo%2BOqym8odApaWomTT1%2Bl2HqirahaTuJ9kQMggkgYhDRGfRiQDZBi9fuf52%2BD7l1b3ZhRcmq%2FMnBHmibuO7fvWoTalVoDjQRwL8RGgEOtzB0MbtBDnkRjGR0AgTK%2BQfNukr1LKXlhXKZpJSxTKGoFSq9vf16tQ8%2FiEh094Vu0L449mLGMup20DRWuFYVCiFm%2BvU36nTbOlMB%2BnCDxIOBzhvv6nFpc3TS0dUKDRHzh1Jk9O8wlPYN326Oa%2FJobnN8shAOxqKjrdXa8WSnGKWPewR%2FuHLG5P8oKUFJHi%2FH19F6UKEQ%2BnbJap27%2B%2BtWR15VAHgLkV%2F%2F0xW6OuQCfNE4PgmyX6f0xZKYbJDuj43lmtoYqHU%2FaZdwNXr4eoUG51zqgw%2B%2FCtrbm0UCeRynBhqVj2YC4RNC%2FuqStbKkydAODzeO7%2B6QYTpnOIYgB729R729RY9DAGafb0wDOHLwAA5vKK1mJNFoCpsxeLLn%2Fy91uU359719%2FfVXL%2BSM35IzU9rcXciCcQujz0imOfbGhOB0jkGo2hFQBW7Quzr0Zzq6vyBT%2FuKY%2BHErfBmQWLK1Lhr6l1OkleCqC0poPb%2FuTwv3OrA8DPDhgkokgLmLX77o86kqcGJmaj5xjr1JWlAAr1Js75MDEGAAI%2B1mvWX%2F1JY29XmYDPS5ZoNsrM24si1xSh3%2FRbGBYlz%2F73g41ztqliqYv1onyVHgDocMjjXASAKycavlqnZBHa2ajcasjv%2B8MbAPhRV9nI5MezB41crIPPHWOW9Gtl9XhDDCMCokIqSwGQ4shvyucFhEQCnqlSdm9k%2BdKt6XM%2FqO7aof7t8YbIIW5SHdpVIhUTAOAP0L8bmM3MHgJwByidQCgnhSmAqOEYnQ8AgRBr%2FuUzKsgggIs3pyVCfkeTCgAmFtaNOgm39C%2F3511r2W8JYvIAJbIaAwQ3vKAEoVgRaTQIBYKxqxgMs6euvdUXiQDgeHd5rV7K1fb2kC2rOgaYghQBMJ5grI3HUGuuhQiNIOWq8sy%2FLTgCKplgT0ZtCyprWw7%2FvKCyNr6yQqYg8cim59a9KQDnwv84R1%2F99UwAzsMya4vxeOYLN7YePGG%2BcAPjxXS%2BoavknFfOlRTAh8nHKNqLa1v2ZwK6dxQZtHk5ahu3%2FcYmLsoh%2B%2FsUgN%2BztDQzEvkYFBurGnan%2FS1%2B1P98L1FbxLIPzh193X%2FtwbmjiGUBYHd5nVFRCABPlxdtfh%2B3LHGKxof%2Bqo90C6yj58yi9Tm1kWjr94ZXsGhTuDuynAx2z0245yY4X06Kf9HWFd0N%2BuPbsUR64%2B3a57Erig2qIoOIlJSUNE69GWTZRFufXvRNL%2Fo2ywyJE1fMP6xWqHBEP5yfvP7%2FbAAAsFufG01mkVCqkGvLyrbNTD2mw9kfDckmE0oudx9rUZfhiF5Zd%2F%2F00QDF0NkBTJhanB3e0riHJIRKhXarqWfdu%2Bx0WnOot1ftuNR90lhQzEO0L7B2YvCm3b%2BWNI%2ByffSLq757%2BPcquYaIvBtgdcXycuzO9MzTFdccd9IwDNMVlDaXbzPXtxsVhQRDEQzl8i6d%2Buf12Y%2BONDVMo6vOfHWJxHLz3l811u8WAEZABCNAAHSI8n8k2HABKRJjLJ8JECxFMAE%2BHXhiGb7yn35vcCNDKVsEcSuv%2BEpn%2B7Etla0CwAQIOBLBhrkt85kAnwm8mX95e%2FTOa9vUZiIxQI43r0Kura9uN5SYNMoyuVDGZ2nK73C65iy28Rezo44152bSKYAvz3ifVA1lDn0WAAD%2F%2F%2FWvXexgMwqgAAAAAElFTkSuQmCC
 [dotgibson-url]: https://github.com/dotgibson/dotfiles-core/releases/latest
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/dotgibson/dotfiles-Kali/lint.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI
-[ci-url]: https://github.com/dotgibson/dotfiles-Kali/actions/workflows/lint.yml
-[lastcommit-shield]: https://img.shields.io/github/last-commit/dotgibson/dotfiles-Kali?branch=main&style=flat-square&logo=git&logoColor=white
-[contributors-shield]: https://img.shields.io/github/contributors/dotgibson/dotfiles-Kali.svg?style=flat-square&logo=github
-[contributors-url]: https://github.com/dotgibson/dotfiles-Kali/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/dotgibson/dotfiles-Kali.svg?style=flat-square&logo=github
-[forks-url]: https://github.com/dotgibson/dotfiles-Kali/network/members
-[stars-shield]: https://img.shields.io/github/stars/dotgibson/dotfiles-Kali.svg?style=flat-square&logo=github
-[stars-url]: https://github.com/dotgibson/dotfiles-Kali/stargazers
-[issues-shield]: https://img.shields.io/github/issues/dotgibson/dotfiles-Kali?style=flat-square&logo=github
-[issues-url]: https://github.com/dotgibson/dotfiles-Kali/issues
-[license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-Kali.svg?style=flat-square
-[license-url]: https://github.com/dotgibson/dotfiles-Kali/blob/main/LICENSE
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/dotgibson/dotfiles-Offense/lint.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI
+[ci-url]: https://github.com/dotgibson/dotfiles-Offense/actions/workflows/lint.yml
+[lastcommit-shield]: https://img.shields.io/github/last-commit/dotgibson/dotfiles-Offense?branch=main&style=flat-square&logo=git&logoColor=white
+[contributors-shield]: https://img.shields.io/github/contributors/dotgibson/dotfiles-Offense.svg?style=flat-square&logo=github
+[contributors-url]: https://github.com/dotgibson/dotfiles-Offense/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/dotgibson/dotfiles-Offense.svg?style=flat-square&logo=github
+[forks-url]: https://github.com/dotgibson/dotfiles-Offense/network/members
+[stars-shield]: https://img.shields.io/github/stars/dotgibson/dotfiles-Offense.svg?style=flat-square&logo=github
+[stars-url]: https://github.com/dotgibson/dotfiles-Offense/stargazers
+[issues-shield]: https://img.shields.io/github/issues/dotgibson/dotfiles-Offense?style=flat-square&logo=github
+[issues-url]: https://github.com/dotgibson/dotfiles-Offense/issues
+[license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-Offense.svg?style=flat-square
+[license-url]: https://github.com/dotgibson/dotfiles-Offense/blob/main/LICENSE
 [docs]: https://dotgibson.github.io/dotfiles-web/docs
 [python-shield]: https://img.shields.io/github/v/release/python/cpython?style=flat-square&logo=python&logoColor=white&label=Python&labelColor=3776AB&color=3D59A1
 [python-url]: https://github.com/python/cpython

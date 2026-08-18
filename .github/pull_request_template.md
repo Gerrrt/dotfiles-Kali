@@ -1,4 +1,5 @@
-<!-- This repo stacks THREE layers (Core → OS → offensive) and vendors TWO subtrees.
+<!-- This repo is the offensive ROLE layer and vendors TWO subtrees. It owns no
+     OS-native layer any more — that is dotfiles-Debian's, which covers Kali.
      Most review mistakes here are "right change, wrong layer". -->
 
 ## What & why
@@ -13,7 +14,11 @@
 - [ ] It is **not** in `offensive/companion/` — vendored from
       [htpx](https://github.com/dotgibson/htpx); same rule. Edit the entry upstream
       and re-run `offensive/companion/gen-views.sh`.
-- [ ] Changes with the OS → `os/kali.*`. Changes with the operator → `offensive/`.
+- [ ] Changes with the **OS** (packages, clipboard, paths, WSL, an `ID=` gate) →
+      [dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian), **not here**.
+      Changes with the **operator** → `offensive/`.
+- [ ] It does not add anything back to `os/`. `os/kali.conf` is the last file there and
+      is on its way out once this repo vendors Core v4.13.1's `role.conf` hook.
 
 ## Engagement-data discipline
 
@@ -29,9 +34,9 @@
 - [ ] `make test` green (routine-filter classifier + companion view drift)
 - [ ] If `bootstrap.sh` changed: `./bootstrap.sh --dry-run` reviewed, and re-run twice
       to confirm it is still idempotent
-- [ ] If `install/*.txt` changed: `make packages-check`
-- [ ] If a tool version in `install/tool-versions.env` changed:
-      `scripts/update-tool-checksums.sh --verify`
+- [ ] If `install/offensive-packages.txt` changed: `make packages-check`
+- [ ] If `install/tools.lst` changed: the added command is one `offensive/offensive.zsh`
+      actually probes or invokes by bare name
 
 ## Notes
 

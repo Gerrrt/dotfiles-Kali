@@ -1,47 +1,15 @@
-# Kali Aliases Cheat Sheet
+# Offense Aliases Cheat Sheet
 
-Aliases sourced from three layers: `core/` (Core), `os/kali.zsh` (Debian/WSL2),
-and `offensive/offensive.zsh` (engagement layer). See `core/` for the full
+Aliases sourced from three layers: `core/` (Core), your **OS-native layer**
+(`dotfiles-Debian`'s `os/debian.zsh` on Kali/Debian/Ubuntu), and
+`offensive/offensive.zsh` (this repo's engagement layer). See `core/` for the full
 Core alias reference (modern CLI, git, safety nets).
 
----
+**The OS-layer aliases are no longer documented here.** `apt*`, `pbcopy`/`pbpaste`,
+the WSL2 verbs and `dotsync` moved to `dotfiles-Debian` with the rest of the
+OS-native layer — see [its docs][debian] rather than a copy that would drift.
 
-## OS Layer — Debian / WSL2
-
-### Package Management (apt)
-
-| Alias | Expands To |
-|-------|------------|
-| `aptu` | `sudo apt-get update && sudo apt-get full-upgrade -y` |
-| `apti` | `sudo apt-get install -y` |
-| `aptr` | `sudo apt-get remove` |
-| `apts` | `apt-cache search` |
-| `aptw` | `dpkg -S` (which package owns a file) |
-| `aptl` | `dpkg -L` (list files in package) |
-| `aptshow` | `apt-cache show` |
-
-### Clipboard
-
-| Alias | Expands To | Condition |
-|-------|-----------|----------|
-| `pbcopy` | `clip` | `clip` installed |
-| `pbpaste` | `clip-paste` | `clip-paste` installed |
-
-### WSL2 Integration
-
-| Alias | Expands To | Condition |
-|-------|-----------|----------|
-| `open` | `explorer.exe` | WSL2 only |
-| `xdg-open` | `wslview` | WSL2 + wslview |
-| `cdwin` | `cd "$WINHOME"` | WSL2 + WINHOME set |
-
-### Navigation
-
-| Alias | Expands To | Condition |
-|-------|-----------|----------|
-| `dotsync` | `cd "$HOME/dotfiles-Kali"` | always |
-| `opsignin` | `eval "$(op signin)"` | `op` CLI installed |
-| `localip` | `ip -brief -4 addr show scope global` | always |
+[debian]: https://github.com/dotgibson/dotfiles-Debian
 
 ---
 
@@ -53,7 +21,7 @@ a few (e.g. `hethttp`) are unguarded.
 
 ### Directories
 
-Three paths the offensive layer exports; override any of them in your host-local
+Paths the offensive layer exports; override any of them in your host-local
 `99-local.zsh` before the offensive stage loads.
 
 | Variable | Default | What it is |
@@ -61,6 +29,11 @@ Three paths the offensive layer exports; override any of them in your host-local
 | `$ENGAGEMENTS_DIR` | `~/engagements` | Engagement data root — deliberately **outside** the repo so client material is never committed |
 | `$SECLISTS_DIR` | `/usr/share/seclists` | SecLists install path (Kali default); the `seclists` alias `cd`s here |
 | `$WORDLISTS_DIR` | `/usr/share/wordlists` | Kali's packaged wordlist tree (rockyou et al.) |
+| `$DOTFILES_OFFENSE` | this checkout | Resolved from the `85-offensive.zsh` symlink, so it is right wherever you cloned it |
+
+| Alias | Expands To | What it is |
+|-------|-----------|------------|
+| `offsync` | `cd "$DOTFILES_OFFENSE"` | Jump to this checkout. **Not** `dotsync` — that belongs to the OS-native layer (band 80), and reusing the name here would silently shadow it |
 
 ### Tool Shortcuts
 

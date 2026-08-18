@@ -1,8 +1,11 @@
-# dotfiles-Kali/offensive/offensive.zsh
+# dotfiles-Offense/offensive/offensive.zsh
 # ──────────────────────────────────────────────────────────────────────────────
-# The OFFENSIVE layer. Sourced by the Kali .zshrc loader in the dedicated stage:
+# The OFFENSIVE role layer. Linked as ~/.config/zsh/85-offensive.zsh, so the loader
+# picks it up in the role band (85-94) — after your OS-native layer, before host-local:
 #   tools → aliases → functions → fzf → bindings → plugins → op → os → OFFENSIVE → local
-# (PORTING-MATRIX.md: Kali adds the `offensive` stage that no other repo has.)
+#
+# This is a ROLE layer: it stacks on whatever OS-native layer the box already runs
+# (dotfiles-Debian covers Kali). It owns no package manager, no clipboard, no paths.
 #
 # Same discipline as Core: every alias/function touching an optional tool is
 # GUARDED by a HAVE_* flag, so this file is inert on a box where the tool isn't
@@ -61,6 +64,20 @@ _have hexyl        && HAVE_HEXYL=1          # hex viewer — own command, no ali
 # python3 backs hethttp's `python3 -m http.server` — the one dependency in this file
 # that was invoked with no HAVE_* guard at all.
 _have python3      && HAVE_PYTHON3=1
+
+# ── This checkout ─────────────────────────────────────────────────────────────
+# `${0:A}` resolves the symlink ~/.config/zsh/85-offensive.zsh back to
+# <repo>/offensive/offensive.zsh, so :h:h is the repo root — correct wherever it is
+# cloned, unlike a hardcoded ~/dotfiles-Offense.
+#
+# The alias is `offsync`, NOT `dotsync`: dotsync belongs to the OS-native layer (band
+# 80 sets it to that repo). This file loads at band 85, so reusing the name would
+# silently shadow it and a `dotsync` after installing this layer would stop going where
+# it went yesterday. Two checkouts, two verbs.
+DOTFILES_OFFENSE="${${0:A}:h:h}"
+[[ -d "$DOTFILES_OFFENSE" ]] || DOTFILES_OFFENSE="$HOME/dotfiles-Offense"   # last-resort fallback
+export DOTFILES_OFFENSE
+alias offsync='cd "$DOTFILES_OFFENSE"'
 
 # ── Engagement workspace root (OUTSIDE the repo — keep it that way) ───────────
 : "${ENGAGEMENTS_DIR:=$HOME/engagements}"
