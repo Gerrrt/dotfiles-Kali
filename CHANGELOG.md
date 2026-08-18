@@ -138,7 +138,7 @@ release line.
 - **`os/kali.conf` survives this pass, and is the last OS-layer file here.** It carries
   the `prefix + e` engagement popup — role config living in an OS overlay
   (`$CONFIG/tmux/os.conf`) because Core had exactly one tmux overlay hook when it was
-  written. Core **v4.13.0** adds `source-file -q ~/.config/tmux/role.conf`; once this
+  written. Core **v4.13.1** adds `source-file -q ~/.config/tmux/role.conf`; once this
   repo vendors that Core, the binding moves to `offensive/offensive.conf` on the role
   hook and the file goes. Dropping it now would silently kill `prefix + e`. While it
   lasts, Offense and Debian both write `os.conf` and the last bootstrap to run wins —

@@ -38,7 +38,7 @@ Four things that actually bite on this repo:
 - **`os/kali.conf` is the last OS-layer file, and it is TEMPORARY.** It carries the
   `prefix + e` engagement popup, which is role config living in an OS overlay
   (`$CONFIG/tmux/os.conf`) because Core had exactly one tmux overlay hook when it was
-  written. Core **v4.13.0** adds `source-file -q ~/.config/tmux/role.conf`; once this
+  written. Core **v4.13.1** adds `source-file -q ~/.config/tmux/role.conf`; once this
   repo vendors that Core the binding moves to `offensive/offensive.conf` and the file
   goes. Until then Offense and Debian both write `os.conf` and the last bootstrap wins.
 - **`--install` has two routes and they are not equivalent.** On Kali it apt-installs

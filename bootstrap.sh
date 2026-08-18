@@ -393,7 +393,7 @@ wire_links() {
   # TEMPORARY, and the only OS-layer file still linked from this repo. os/kali.conf
   # carries the `prefix + e` engagement popup, which is role config living in an OS
   # overlay ($CONFIG/tmux/os.conf) because Core had exactly one tmux overlay hook when
-  # it was written. Core v4.13.0 adds a second — `source-file -q ~/.config/tmux/role.conf`
+  # it was written. Core v4.13.1 adds a second — `source-file -q ~/.config/tmux/role.conf`
   # — and once THIS repo vendors it, the binding moves to offensive/offensive.conf on the
   # role hook and this line goes. Until then, dropping it would silently kill prefix+e.
   #
