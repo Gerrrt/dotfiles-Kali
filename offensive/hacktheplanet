@@ -604,7 +604,7 @@ python3 -c 'import pty;pty.spawn("/bin/bash")'   # 1) target  (or: script -qc /b
 # 2) C-z   3) stty raw -echo; fg   4) <enter>
 export TERM=xterm; stty rows <R> cols <C>        # 5) target — <R>/<C> from `stty -a` local
 # Blind/awkward RCE (SSTI/injection/deser)? script a pseudo-shell, don't fight for a revshell:
-#   ~/.config/kali/templates/pseudo-shell.py     # copy to exploit/, wire request+regex
+#   ~/.config/offensive/templates/pseudo-shell.py     # copy to exploit/, wire request+regex
 # Firewalled both ways? forward shell (mkfifo /dev/shm | tail -f | sh).  Both: ~/ippsec (`ipp`).
 
 # File transfer:

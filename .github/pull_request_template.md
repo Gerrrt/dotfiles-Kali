@@ -17,8 +17,8 @@
 - [ ] Changes with the **OS** (packages, clipboard, paths, WSL, an `ID=` gate) →
       [dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian), **not here**.
       Changes with the **operator** → `offensive/`.
-- [ ] It does not add anything back to `os/`. `os/kali.conf` is the last file there and
-      is on its way out once this repo vendors Core v4.13.1's `role.conf` hook.
+- [ ] It does not add an `os/` directory back. This repo has none: the role layer's
+      tmux bits live in `offensive/offensive.conf` on Core's `role.conf` hook.
 
 ## Engagement-data discipline
 
