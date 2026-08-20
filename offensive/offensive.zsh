@@ -33,8 +33,11 @@ _have evil-winrm   && HAVE_EVILWINRM=1
 _have certipy-ad   && HAVE_CERTIPY=1        # AD CS abuse (ESC1–ESC17: ESC13/15/16 in v5.0, ESC17 in v5.1.0)
 # Impacket ships ~60 scripts; probe one canonical entrypoint.
 _have impacket-secretsdump && HAVE_IMPACKET=1
-# BloodHound CE collectors (python collector is the cross-platform one)
-_have bloodhound-python && HAVE_BHPY=1
+# BloodHound CE collectors (python collector is the cross-platform one). The CE binary is
+# `bloodhound-ce-python`; the LEGACY (≤4.3.1) collector installs as `bloodhound-python` and
+# its zips don't ingest into CE. Two packages, two paths, no compatibility symlink — so probe
+# the CE name, never the legacy one.
+_have bloodhound-ce-python && HAVE_BHPY=1
 # Web / recon (ProjectDiscovery + classics)
 _have nuclei       && HAVE_NUCLEI=1
 # Kali packages ProjectDiscovery's httpx as `httpx-toolkit` so it can't collide with

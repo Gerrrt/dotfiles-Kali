@@ -353,8 +353,10 @@ Active Directory — attack paths
 # Map the domain (`bhce` wraps the CE-ready collection):
 bhce <ip_address> <user> <password> <domain>
 nxc ldap <ip_address> -u <user> -p <password> --bloodhound --collection All --dns-server <ip_address>
-# bloodhound-python here is the CE collector from the `bloodhound-ce-python` pkg — NOT the legacy 'bloodhound.py':
-bloodhound-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
+# bloodhound-ce-python IS the CE collector (apt `bloodhound-ce-python`). The bare name
+# `bloodhound-python` is the LEGACY (≤4.3.1) binary from the 'bloodhound.py' pkg — its zips
+# do NOT ingest into CE, and there is no symlink between the two:
+bloodhound-ce-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
 # rusthound-ce is the fast ALTERNATE collector on a large domain — one static Rust binary,
 # no Python chain. UPSTREAM (`cargo install rusthound-ce`), not apt; complement, not replacement:
 rusthound-ce -d <domain> -u <user>@<domain> -p <password> --dc <ip_address> -z

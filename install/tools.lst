@@ -35,7 +35,10 @@ responder
 evil-winrm
 certipy-ad              # AD CS abuse (ESC1-ESC17)
 impacket-secretsdump    # apt: impacket-scripts — one canonical entrypoint of ~60
-bloodhound-python       # apt: bloodhound-ce-python — the CE-compatible collector
+# The CE collector, installed by apt `bloodhound-ce-python` OR pipx `bloodhound-ce` — both
+# ship this exact binary. The legacy (≤4.3.1) collector's binary is `bloodhound-python`; it is
+# deliberately NOT an accepted alt-name in bootstrap.sh, because its zips don't ingest into CE.
+bloodhound-ce-python
 
 # ── Web / recon ───────────────────────────────────────────────────────────────
 nuclei                  # also a redup fast-mover
