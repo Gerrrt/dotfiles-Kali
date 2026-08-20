@@ -97,7 +97,7 @@ bind9-dnsutils       # provides BOTH `dig` and `nslookup` — the DNS-53 zone-tr
 
 # ── Fold-primary tools Kali does NOT ship by default ──────────────────────────
 # The block above is the "already on the box, listed for slim installs" case. These
-# four are the opposite and that is why they get their own block: NO Kali metapackage
+# five are the opposite and that is why they get their own block: NO Kali metapackage
 # names them (checked against kali-meta's debian/control), so the hacktheplanet line
 # that invokes each one fails on a STOCK box, not just a slim one. That makes them the
 # only entries here whose absence is a real gap rather than an accounting nicety.
@@ -105,8 +105,11 @@ mariadb-client       # `mysql` — Databases fold (MySQL/MariaDB 3306)
 postgresql-client    # `psql` — Databases fold (PostgreSQL 5432)
 redis-tools          # `redis-cli` — Databases fold (Redis 6379)
 mingw-w64            # `i686-w64-mingw32-gcc` — the Windows cross-compile in the searchsploit-fixups
-#                    # fold. The sharpest of the four: build-essential gives you NATIVE gcc only, so
+#                    # fold. The sharpest of the five: build-essential gives you NATIVE gcc only, so
 #                    # nothing else on the box covers it
+gcc-multilib         # `gcc -m32` — the 32-bit half of that SAME fold, two lines below the mingw one.
+#                    # Identical failure mode and the identical reason: build-essential's gcc is native
+#                    # x86-64 and has no 32-bit libs, so the old-PoC rebuild dies on <bits/libc-header-start.h>
 
 # ── Recon / OSINT ─────────────────────────────────────────────────────────────
 amass
