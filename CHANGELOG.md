@@ -45,6 +45,49 @@ release line.
 
 ### Fixed
 
+- **Two `hacktheplanet` commands could not run as written** (#187). `rusthound-ce` was
+  invoked with `--dc <ip_address>`; RustHound-CE has no such flag — that is the
+  impacket/certipy idiom — and takes `-i/--ldapip` for the DC IP or `-f/--ldapfqdn` for its
+  FQDN. And two pivot lines invoked bare `proxychains`, which is **not a binary on this
+  layer's own box**: the manifest ships `proxychains4`, that package installs only
+  `/usr/bin/proxychains4`, and its `Provides: proxychains` is a virtual-package relation, so
+  `apt-file search '/usr/bin/proxychains$'` matches nothing. The audit that filed this
+  guessed the second one was "probably fine … one `command -v` settles it"; it was run, and
+  it isn't. Both lines now carry the reasoning inline, since `--dc` **is** right for
+  `kerbrute` two folds up and the next reader will otherwise "fix" it back.
+
+- **`cifs-utils` was missing from the manifest** (#187). `hacktheplanet` mounts a share with
+  `mount -t cifs` twice — once in the SMB fold, once on SYSVOL inside the GPP-cpassword
+  block — and nothing in `offensive-packages.txt` provided `mount.cifs`. `smbclient`
+  *browses* a share; mounting one is a separate package. This was the only real gap of the
+  six the audit alleged: `samba-common-bin` and `gcc-mingw-w64-i686` were false (`smbclient`
+  ships `/usr/bin/rpcclient`; `mingw-w64` provides `i686-w64-mingw32-gcc`), and the rest had
+  already landed with #186.
+
+- **The manifest's own accounting claim was false again** (#187). The target-dropped block
+  claims it "accounts for every tool the DOCS *and* the COMPANION CORPUS name", and seven
+  doc-named tools were unaccounted for. `pspy` joins the block properly — it is genuinely
+  target-dropped, and `ippsec` names it in the same breath as linpeas. The other six
+  (`macro_pack`, `PowerUpSQL`, and the `Donut`/`sRDI`/`ConfuserEx`/`ScareCrow` loaders from
+  `evasion`) get a **stated exclusion** instead of a listing, because they are operator-side
+  *payload-build* tooling that runs on Windows: not target-dropped, not in Kali apt, and not
+  something a Linux apt list should imply it can install. Either a tool is listed or the
+  manifest says in one line why it isn't — which is what makes the claim checkable.
+
+- **`ldapdomaindump` was installed twice and invoked never** (#187). It arrives by apt
+  (`python3-ldapdomaindump`) *and* by pipx on the non-Kali route, and `OFFENSIVE-METHODOLOGY.md`
+  lists it — but no command anywhere under `offensive/` ran it, making it the only installed
+  AD-enum tool with no copy-paste line. It now has one in the AD fold, writing to `loot/ldd`
+  to match the methodology table. The manifest records the apt-name/binary-name split, the
+  same dual-name trap already documented for impacket and certipy.
+
+  Not acted on from #187: the `bloodhound-python` finding was **already fixed** at HEAD (the
+  audit ran against a pre-`b294258` tree — every line number in it is stale by 11–15, and it
+  cites `os/kali.conf`, deleted 2026-08-18). The `-M wmi-event` finding is real but worse
+  than filed — that NetExec module does not exist in *either* spelling — and lives in
+  generated content, so it was fixed upstream in htpx#73 and arrives here on the next
+  companion sync.
+
 - **Seven packages, behind eight commands `hacktheplanet` invokes, had no manifest line**
   (#186) — `ftp`, `showmount`, `dig`, `nslookup`, `mysql`, `psql`, `redis-cli` and
   `i686-w64-mingw32-gcc`. The Service-enumeration block states its own rule — *every fold's
