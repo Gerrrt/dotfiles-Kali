@@ -63,6 +63,12 @@ release line.
   - No `install/tools.lst` change: that file's header restricts it to commands
     `offensive/offensive.zsh` probes or invokes by bare name, and none of these are.
     Adding them would make bootstrap's report cry wolf.
+- **`gcc-multilib` was the eighth package, spotted during that pass and deferred** (#186).
+  `hacktheplanet:212` runs `gcc -m32` two lines below the `i686-w64-mingw32-gcc` line above,
+  and fails for the identical reason: `build-essential`'s `gcc` is native x86-64 with no
+  32-bit libs, so rebuilding an old PoC dies on `<bits/libc-header-start.h>`. No Kali
+  metapackage names it either, so it joins the *does-not-ship-by-default* block rather than
+  the slim-install one.
 - **`PrintSpoofer64.exe` and `GodPotato` were the target-dropped block's one blind spot**
   (#186). That block promises to account for *every* tool the docs **and** the corpus name;
   these two arrive from the corpus inside `hacktheplanet`'s `companion:gen
