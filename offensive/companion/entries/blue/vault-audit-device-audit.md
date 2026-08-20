@@ -4,8 +4,8 @@ title: Detect audit-device disable (Vault audit log)
 detection: vault-audit-log
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 source: HashiCorp Vault evasion (audit-device disable)
 pair: vault-audit-disable
 ---

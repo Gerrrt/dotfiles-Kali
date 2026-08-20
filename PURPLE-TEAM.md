@@ -66,12 +66,28 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 ### Recon / credential access
 
 <!-- companion:gen password-spray-4625 -->
-**Detect password spray (4625 one source, many accounts)**
+**Detect password spray (one source, many accounts — 4771 + 4625)**
 
-The shape, not the count: one source address failing (`4625`) against many
-*distinct* accounts in a short window — the inverse of a single user who simply
-forgot their password. Counting distinct accounts per source beats a raw
-failure-rate threshold because the spray is deliberately slow.
+The shape, not the count: one source address failing against many *distinct*
+accounts in a short window — the inverse of a single user who simply forgot
+their password. Counting distinct accounts per source beats a raw failure-rate
+threshold because the spray is deliberately slow.
+
+Which event carries that shape depends on the spray path, and getting this wrong
+is how a spray detection misses. `kerbrute passwordspray` sprays **Kerberos
+AS-REQ pre-authentication**, so a wrong password lands on the DC as `4771` with
+`Failure_Code=0x18` — it never generates `4625`, which is the
+NTLM/interactive/SMB logon-failure event. Key on `4771` first; keep `4625` for
+the NTLM/SMB path (`nxc smb ... -p`), where it is the right event.
+
+```spl
+index=main EventCode=4771 Failure_Code="0x18" Account_Name!="*$"
+| stats dc(Account_Name) AS Accounts values(Account_Name) by host, Client_Address
+| where Accounts > 10 | sort -Accounts
+```
+
+Secondary — the NTLM/SMB/interactive spray path, where the same one-source-to-
+many-accounts shape shows up as `4625` instead:
 
 ```spl
 index=main EventCode=4625 NOT (Source_Network_Address IN ("-","127.0.0.1"))
@@ -216,17 +232,33 @@ index=main EventCode=4624 Workstation_Name!="-" Source_Port!="0"
 <!-- companion:gen coercion-5145 -->
 **Detect coercion (5145 named-pipe access)**
 
-Every coercion vector reaches the same handful of named pipes — `spoolss`,
-`efsrpc`, `lsarpc`, `netlogon`, `lsass` — over `IPC$` with a detailed
-file-share-access event (`5145`). Detect on the pipe set, not the tool: the
+Every coercion vector reaches the same handful of named pipes over `IPC$`, with a
+detailed file-share-access event (`5145`). Detect on the pipe set, not the tool: the
 target endpoint can't change even as the coercion technique does.
 
+The set is the union of the three protocols that carry coercion, and each name in it
+earns its place:
+
+- **MS-EFSR** (PetitPotam) is exposed over **five** pipes — `efsrpc`, `lsarpc`, `samr`,
+  `lsass`, `netlogon`. Note that `\pipe\lsass` really is one of them: it is an RPC
+  endpoint the EFSRPC interface binds to, *not* the LSASS process appearing by name, and
+  PetitPotam and `coercer` both spray it. Dropping it because it reads like a process
+  name opens a hole on the vector's most-used path.
+- **MS-RPRN** (printerbug) → `spoolss`.
+- **MS-DFSNM** (DFSCoerce) → `netdfs`, DC-only.
+
 ```spl
-index=main EventCode=5145 Access_Mask="0x3"
+index=main EventCode=5145
 | regex Share_Name="(?i).*ipc\$$"
-| regex Relative_Target_Name="(?i)(spoolss|efsrpc|lsarpc|netlogon|lsass)"
-| table _time, host, Account_Name, Source_Address, Share_Name, Relative_Target_Name
+| regex Relative_Target_Name="(?i)(spoolss|efsrpc|lsarpc|netlogon|lsass|samr|netdfs)"
+| table _time, host, Account_Name, Source_Address, Share_Name, Relative_Target_Name, Access_Mask
 ```
+
+`Access_Mask` is reported rather than filtered. `0x3` (read+write) is what a typical RPC
+pipe bind requests and is a reasonable tightening if this is noisy in your environment —
+but as a *filter* it is a silent drop for any client that opens the pipe with a different
+mask, which trades away the whole premise that the endpoint is the invariant and the tool
+is not. Tighten only after confirming the masks you actually observe.
 <!-- companion:end coercion-5145 -->
 
 ### Lateral movement & dumping
@@ -381,6 +413,26 @@ index=main EventCode=4688 New_Process_Name IN ("*\\cmd.exe","*\\powershell.exe")
     Account_Name IN ("*$","*APPPOOL*","NETWORK SERVICE","LOCAL SERVICE")
 | table _time, host, Account_Name, Creator_Process_Name, New_Process_Name, Process_Command_Line
 ```
+
+**Know how this query fails.** The `Account_Name` filter assumes the shell is spawned *as*
+the service identity, but that is the state the exploit has already left: PrintSpoofer and
+GodPotato impersonate the SYSTEM token **before** calling `CreateProcessAsUser`, so the
+4688 Subject can be logged as `SYSTEM` — and a SYSTEM-spawning-`cmd.exe` event is excluded
+by the very service-account list meant to find it. The narrower your list, the more reliably
+it drops the successful escalations and keeps only the failed ones.
+
+`Creator_Process_Name` is the sturdier key, because the parent is the potato binary itself
+regardless of which token the child ends up with. Pivot to it when tuning:
+
+```spl
+index=main EventCode=4688 New_Process_Name IN ("*\\cmd.exe","*\\powershell.exe")
+| regex Creator_Process_Name="(?i)(printspoofer|godpotato|juicypotato|roguepotato|sweetpotato|efspotato)"
+| table _time, host, Account_Name, Creator_Process_Name, New_Process_Name, Process_Command_Line
+```
+
+That trades one weakness for another — it is name-based, so a renamed binary walks past it —
+which is why the entry rates itself moderate and why Sysmon 17/18 on the `spoolss`/DCOM
+named pipe should lead. Use the two 4688 queries as corroboration, not as the primary.
 <!-- companion:end potato-seimpersonate-4688 -->
 
 **Rogue account creation** — `4720` (created), pair with `4722` (enabled):

@@ -20,6 +20,16 @@ sequence.
 npm audit-log telemetry, companion-only — `PURPLE-TEAM.md` is on-prem Windows.
 
 ```spl
-index=npm sourcetype=npm:audit action=package.publish NOT actor.type=ci
-| table _time, actor.name, action, package, version, actor.ip
+index=npm sourcetype=npm:audit action=package.publish NOT actor.name IN ("<ci-publisher-bot>")
+| table _time, actor.name, actor.type, action, package, version, actor.ip
 ```
+
+**Allowlist the identity, never the actor class.** The paired attack publishes with a
+*stolen automation token*, so it is recorded as an automation/CI actor — an exclusion like
+`NOT actor.type=ci` would filter out the exact class the attacker publishes as and blind
+this query to its own primary path. The compromised credential is indistinguishable from
+the legitimate one by class; only the *specific* known publisher can be safely excluded, so
+pin `actor.name` (or the automation token's id) to your release identity and keep
+human-vs-automation as an enrichment column to triage by, not a gate. If your tenant's audit
+records expose the token id, prefer `NOT actor.token_id IN (<known automation tokens>)` — a
+token that was rotated out then reappears is itself the finding.

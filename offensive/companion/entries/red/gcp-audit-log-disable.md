@@ -2,10 +2,10 @@
 id: gcp-audit-log-disable
 title: GCP Cloud Audit log tamper (delete sink / strip auditConfigs)
 section: GCP / cloud IAM
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.008]
+  tactic: TA0112
+  techniques: [T1685.002]
 platform: [cloud]
 source: GCP logging abuse (blind Data Access telemetry)
 pair: gcp-audit-log-tamper-audit

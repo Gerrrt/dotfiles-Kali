@@ -2,10 +2,10 @@
 id: gl-protected-branch-off
 title: Remove protected-branch rules (merge unreviewed code)
 section: GitLab / CI/CD
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 platform: [gitlab]
 source: GitLab supply-chain abuse (protected-branch tamper)
 pair: gl-protected-branch-audit

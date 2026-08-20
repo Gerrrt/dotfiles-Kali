@@ -42,6 +42,18 @@ index=aws sourcetype=aws:cloudtrail
 | table _time, eventName, actor, target, requestParameters.policyArn, sourceIPAddress, userAgent
 ```
 
+Two known gaps in that first query, both on the self-grant branch — treat it as a
+high-signal net, not a complete one. The `actor=target` comparison is a **string equality
+across two differently-shaped fields**: `actor` resolves through `coalesce` to an ARN or
+`principalId`, while `target` is usually a bare `userName`, so the self-grant it is meant
+to catch rarely matches literally. Normalize both to the same form (strip the ARN to its
+trailing `user/<name>`) before relying on it. And the ARN `like` tests only recognize the
+two AWS-managed admin policies by name — a **customer-managed policy carrying
+`"Action": "*"`** escalates identically while matching neither pattern, and unless it also
+sets `setAsDefault=true` it slips all three branches. Where it matters, resolve the
+attached policy's document and match on the grant itself rather than its name; the ARN
+tests are a cheap proxy for that, not a substitute.
+
 The PassRole half, which the query above cannot see — the role rides in the launching call's
 `requestParameters`. Baseline who legitimately launches compute with which role, then alert
 on the pairs that fall outside it:

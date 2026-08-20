@@ -2,10 +2,10 @@
 id: npm-2fa-disable
 title: npm publish-2FA disable (open the publish path)
 section: npm / registry
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 platform: [npm]
 source: npm supply-chain evasion (2FA requirement tamper)
 pair: npm-2fa-audit
