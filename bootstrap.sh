@@ -158,9 +158,13 @@ _probe_altname() {
   certipy-ad) set -- certipy ;;
   httpx-toolkit) set -- httpx ;;
   sliver-client) set -- sliver ;;
-  bloodhound-python) set -- bloodhound-ce-python bloodhound.py ;;
   searchsploit) set -- exploitdb ;;
   john) set -- john-the-ripper ;;
+  # No bloodhound entry, deliberately: the CE collector installs as `bloodhound-ce-python`
+  # from BOTH apt and pipx, so there is no alternate packaging name to teach. The legacy
+  # `bloodhound-python` / `bloodhound.py` is a DIFFERENT capability — its zips don't ingest
+  # into CE — so accepting it here would report a green tick for the one collector that
+  # silently produces unusable output. A false "missing" is the cheaper failure.
   *) return 1 ;;
   esac
   for a in "$@"; do
@@ -335,7 +339,7 @@ install_offensive() {
   blib_say "not Kali (ID=${OS_ID:-unknown}) — installing the PORTABLE SUBSET only"
   blib_say "  the rest of install/offensive-packages.txt is Kali-packaged; see its UPSTREAM notes"
   if ((DRY)); then
-    blib_say "(dry run) would pipx-install: impacket certipy-ad netexec bloodyAD ldapdomaindump"
+    blib_say "(dry run) would pipx-install: impacket certipy-ad netexec bloodyAD ldapdomaindump bloodhound-ce"
     blib_say "(dry run) would go-install:   nuclei gobuster ffuf kerbrute"
     return 0
   fi
@@ -348,6 +352,10 @@ install_offensive() {
     _pipx_install netexec nxc
     _pipx_install bloodyAD bloodyAD
     _pipx_install ldapdomaindump ldapdomaindump
+    # PyPI `bloodhound-ce` provides the same `bloodhound-ce-python` binary Kali's package does.
+    # Without it a non-Kali box got no collector at all, while tools.lst probed for one — a
+    # warning that could never be satisfied by --install.
+    _pipx_install bloodhound-ce bloodhound-ce-python
   else
     blib_warn "pipx not found — skipping the python tools (install pipx via your OS layer)"
   fi

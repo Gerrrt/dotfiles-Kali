@@ -33,8 +33,11 @@ _have evil-winrm   && HAVE_EVILWINRM=1
 _have certipy-ad   && HAVE_CERTIPY=1        # AD CS abuse (ESC1–ESC17: ESC13/15/16 in v5.0, ESC17 in v5.1.0)
 # Impacket ships ~60 scripts; probe one canonical entrypoint.
 _have impacket-secretsdump && HAVE_IMPACKET=1
-# BloodHound CE collectors (python collector is the cross-platform one)
-_have bloodhound-python && HAVE_BHPY=1
+# BloodHound CE collectors (python collector is the cross-platform one). The CE binary is
+# `bloodhound-ce-python`; the LEGACY (≤4.3.1) collector installs as `bloodhound-python` and
+# its zips don't ingest into CE. Two packages, two paths, no compatibility symlink — so probe
+# the CE name, never the legacy one.
+_have bloodhound-ce-python && HAVE_BHPY=1
 # Web / recon (ProjectDiscovery + classics)
 _have nuclei       && HAVE_NUCLEI=1
 # Kali packages ProjectDiscovery's httpx as `httpx-toolkit` so it can't collide with
@@ -445,9 +448,10 @@ rocks() {
 # ── redup — MANUAL offensive-tool refresh (opt-in; NEVER automatic) ───────────
 # apt owns the packaged tools (`up` / `sudo apt upgrade`); THIS refreshes the fast-movers
 # that carry their OWN updater and rot between apt syncs — nuclei's engine + templates
-# (templates move daily), searchsploit's exploit-DB, and the go-installed tools that
-# aren't in apt. Run it DELIBERATELY on your attacker box — NEVER on a client/engagement
-# host mid-op, where updating a tool under a working chain is exactly how you break it.
+# (templates move daily), katana's crawler engine, searchsploit's exploit-DB, and the
+# go-installed tools that aren't in apt. Run it DELIBERATELY on your attacker box — NEVER
+# on a client/engagement host mid-op, where updating a tool under a working chain is
+# exactly how you break it.
 # Each step is guarded by tool presence (command -v, not _have — that's unfunctioned at
 # load). It only ever runs each tool's own updater; it installs nothing new and touches
 # no engagement data.
@@ -455,8 +459,8 @@ redup() {
   emulate -L zsh
   if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
     print -- "redup — manually refresh the fast-moving offensive tools (opt-in, attacker box only,"
-    print -- "        never mid-engagement): nuclei engine+templates, searchsploit exploit-DB, and"
-    print -- "        the go-installed tools. apt-packaged tools update via 'up'."
+    print -- "        never mid-engagement): nuclei engine+templates, katana, searchsploit"
+    print -- "        exploit-DB, and the go-installed tools. apt-packaged tools update via 'up'."
     return 0
   fi
   print -P "%F{yellow}⚠ redup: manual offensive-tool refresh — attacker box only, never mid-engagement.%f"
@@ -505,6 +509,20 @@ redup() {
     print -- "  – searchsploit not installed — skipping"
   fi
 
+  # katana — go-only, still not in Kali apt (six releases in nine months), and it ships its
+  # own `-update`. That self-updater is why it lives HERE and not in go_fast_movers below;
+  # the reasoning is on that list.
+  if command -v katana >/dev/null 2>&1; then
+    print -P "%F{cyan}» katana — crawler engine%f"
+    if katana -update -silent 2>/dev/null || katana -update 2>/dev/null; then
+      ((updated++))
+    else
+      print -P "  %F{red}✗ katana update failed%f"; ((failed++))
+    fi
+  else
+    print -- "  – katana not installed — skipping"
+  fi
+
   # go-installed, apt-ABSENT fast-movers (see install/offensive-packages.txt UPSTREAM
   # notes). REINSTALL-ONLY: each tool is guarded by its OWN binary, so redup never installs
   # something new — it only re-fetches @latest for a tool you already have. Curated to the
@@ -517,6 +535,12 @@ redup() {
   # in install/offensive-packages.txt), so redup dropping it changes nothing about how you get
   # or keep it. Keep this machinery for the next genuinely fast-moving go-only tool: add a
   # `bin=module@latest` pair to go_fast_movers.
+  #
+  # katana was the obvious candidate for that slot and was deliberately NOT put in it:
+  # upstream's documented install is `CGO_ENABLED=1 go install`, while the loop below runs a
+  # bare `go install` — an entry here would build katana differently from the documented
+  # build. It carries its own `-update`, so it took the self-updater route above instead.
+  # The list stays empty by REASON, not by neglect.
   local pair bin mod
   local -a go_fast_movers=()
   # Gate on the LIST, not on `go`. With the list empty (today), the old code still

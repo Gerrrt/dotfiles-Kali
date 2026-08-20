@@ -17,6 +17,7 @@ netexec              # nxc — successor to CrackMapExec (CME archived 2023)
 nmap
 rustscan             # fast port sweep that hands off to nmap -sC -sV; ships in kali-linux-default, list it for slim installs
 responder
+mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/ShadowCoerce) — the piece that KICKS the relay/ESC8 chain (responder/ntlmrelayx have no trigger of their own)
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
@@ -70,7 +71,10 @@ nuclei               # ProjectDiscovery — templated scanner. `-ai` (2026 AI te
 #                    # for it mid-engagement.
 httpx-toolkit        # ProjectDiscovery httpx — bare 'httpx' apt pkg is the python lib, not this
 # katana            → UPSTREAM (Go): not in apt —
-#                     go install github.com/projectdiscovery/katana/cmd/katana@latest
+#                     CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
+#                     Six releases in nine months and it ships its own `-update`, so redup
+#                     drives the refresh — NOT the go_fast_movers loop, whose bare
+#                     `go install` would build it differently from the documented CGO build.
 # (wfuzz dropped — unreferenced by any doc; ffuf/feroxbuster/gobuster cover fuzzing)
 
 # ── Service enumeration (the per-port folds in hacktheplanet) ─────────────────
@@ -83,6 +87,7 @@ smtp-user-enum       # SMTP VRFY/EXPN/RCPT user enum (SMTP-25 fold)
 ssh-audit            # SSH algorithm/config audit (SSH-22 fold)
 dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold)
 nbtscan              # NetBIOS name sweep (SMB fold)
+smbclient            # provides BOTH `smbclient` (SMB-445 fold: share listing/browsing) and `rpcclient` (RPC-135 fold) — one Debian package, the primary command of two folds
 
 # ── Recon / OSINT ─────────────────────────────────────────────────────────────
 amass
@@ -130,16 +135,23 @@ docker.io            # `docker` — harbor-* image/artifact entries; also how ca
 
 # ── C2 / adversary emulation ──────────────────────────────────────────────────
 metasploit-framework
-sliver               # Go C2, the open-source standard — NOW APT-PACKAGED (kali-rolling since
-#                    # Mar 2026), shipping sliver-client + sliver-server. Those are the binary
-#                    # names offensive.zsh already probes and aliases, so only this manifest
-#                    # lagged; retires the old `curl https://sliver.sh/install | sudo bash`.
+sliver               # Go C2, the open-source standard — APT-PACKAGED, and long has been:
+#                    # kali-rolling has carried it since 1.1.1-0kali2 (Jul 2021). The Mar 2026
+#                    # event was the 1.7.1-0kali4 VERSION migration, not the packaging.
+#                    # Ships sliver-client + sliver-server — the binary names offensive.zsh
+#                    # already probes and aliases, so only this manifest lagged; retires the
+#                    # old `curl https://sliver.sh/install | sudo bash`.
 #                    # apt runs ~a patch behind upstream — fine for a C2 you re-profile anyway.
 adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver + Qt client, and
 #                    # the actively-developed slot now that havoc below is frozen. In kali apt.
 #                    # ⚠ its DEFAULT server profiles are heavily fingerprinted — publicly
 #                    # scanned/tracked and seen in real intrusions. Profile it before you use
 #                    # it; that's a reason to configure it, not a reason to skip it.
+#                    # ⚠ CURRENCY: apt ships a git SNAPSHOT (1.1~git20260208, migrated Mar 2026)
+#                    # and upstream publishes ZERO GitHub releases — it rolls on `main` (last
+#                    # push Aug 2026). So the active C2 slot sits ~6 months behind HEAD with no
+#                    # tag to judge staleness by, and profile churn is exactly what an old
+#                    # snapshot misses — which is what the warning above depends on.
 # havoc             → UPSTREAM build (github.com/HavocFramework/Havoc).
 #                     NOTE: upstream ARCHIVED (Feb 2026; last push Dec 2025). Kali still ships
 #                     havoc 0.6~git20251218, so it's FROZEN, not gone — same honest status as
