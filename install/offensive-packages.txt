@@ -17,6 +17,7 @@ netexec              # nxc — successor to CrackMapExec (CME archived 2023)
 nmap
 rustscan             # fast port sweep that hands off to nmap -sC -sV; ships in kali-linux-default, list it for slim installs
 responder
+mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/ShadowCoerce) — the piece that KICKS the relay/ESC8 chain (responder/ntlmrelayx have no trigger of their own)
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
@@ -83,6 +84,7 @@ smtp-user-enum       # SMTP VRFY/EXPN/RCPT user enum (SMTP-25 fold)
 ssh-audit            # SSH algorithm/config audit (SSH-22 fold)
 dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold)
 nbtscan              # NetBIOS name sweep (SMB fold)
+smbclient            # provides BOTH `smbclient` (SMB-445 fold: share listing/browsing) and `rpcclient` (RPC-135 fold) — one Debian package, the primary command of two folds
 
 # ── Recon / OSINT ─────────────────────────────────────────────────────────────
 amass
