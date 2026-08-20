@@ -2,10 +2,10 @@
 id: slack-2fa-disable
 title: Slack 2FA enforcement disable (weaken workspace auth)
 section: Slack / SaaS
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 platform: [slack]
 source: Slack workspace compromise (2FA enforcement tamper)
 pair: slack-2fa-audit

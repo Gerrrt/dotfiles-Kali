@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # scripts/auto-tag.sh — cut htpx's next release tag from the top CHANGELOG version.
 # ──────────────────────────────────────────────────────────────────────────────
-# htpx is the SOURCE OF TRUTH for the red<->blue paired corpus; dotfiles-Kali
+# htpx is the SOURCE OF TRUTH for the red<->blue paired corpus; dotfiles-Offense
 # vendors it at offensive/companion/ via git subtree. A release here is the trigger
-# for the fan-out (sync-fanout.yml) that re-syncs that subtree into Kali.
+# for the fan-out (sync-fanout.yml) that re-syncs that subtree into Offense.
 #
 # CHANGELOG.md is the version source: the FIRST `## [vX.Y.Z]` heading is the
 # intended current release. When no `vX.Y.Z` git tag matches that version yet, this

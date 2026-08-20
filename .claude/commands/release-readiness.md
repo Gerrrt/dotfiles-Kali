@@ -19,7 +19,7 @@ htpx is Keep-a-Changelog + SemVer. To cut a release you move the `[Unreleased]`
 entries under a new `## [vX.Y.Z] - YYYY-MM-DD` heading and push to `main`:
 `auto-tag.yml` reads the **top version heading in `CHANGELOG.md`**, tags `vX.Y.Z`,
 and publishes a Release; `sync-fanout.yml` then opens a `companion.lock`-bump PR
-against `dotfiles-Kali`. So **the version you recommend is literally the heading the
+against `dotfiles-Offense`. So **the version you recommend is literally the heading the
 maintainer writes** — get it right.
 
 ## The readiness checklist (gather, then judge)
@@ -44,9 +44,9 @@ maintainer writes** — get it right.
    you performed: (a) `ci.yml` is green on `main` (pairing + `{{slot}}` + view-drift +
    shell lint), and (b) no open `corpus-review` issue flags something that ought to
    ride or block the release.
-4. **Downstream awareness.** A release **fans out to `dotfiles-Kali`** (its
+4. **Downstream awareness.** A release **fans out to `dotfiles-Offense`** (its
    `offensive/companion/` + `companion.lock`) via `sync-fanout.yml`. Surface that as
-   context — it's not a blocker, but the maintainer should expect the Kali PR.
+   context — it's not a blocker, but the maintainer should expect the Offense PR.
 
 ## How to report
 

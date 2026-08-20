@@ -38,7 +38,7 @@ REPO="$(cd -- "$HERE/../.." && pwd)"
 
 # The flat files that carry generated blocks (paths relative to the repo root).
 # PURPLE-TEAM.md takes blue detections (HTML markers); hacktheplanet takes red
-# attacks (`#` markers). HOST-AGNOSTIC: this list is the default for the Kali host,
+# attacks (`#` markers). HOST-AGNOSTIC: this list is the default for the Offense host,
 # but a consumer can override it via $COMPANION_TARGETS (space/newline-separated,
 # repo-root-relative) — so the same script works when this dir is vendored into a
 # different repo, or runs standalone (no flat views) where it simply finds nothing

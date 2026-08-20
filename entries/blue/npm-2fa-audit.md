@@ -4,8 +4,8 @@ title: Detect publish-2FA disable (npm audit log)
 detection: npm-audit-log
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 source: npm supply-chain evasion (2FA requirement tamper)
 pair: npm-2fa-disable
 ---

@@ -2,10 +2,10 @@
 id: gh-branch-protection-off
 title: Disable/override branch protection (merge unreviewed code)
 section: GitHub / CI/CD
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 platform: [github]
 source: GitHub supply-chain abuse (branch-protection tamper)
 pair: gh-branch-protection-audit

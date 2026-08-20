@@ -4,8 +4,8 @@ title: Detect network-policy change (Snowflake QUERY_HISTORY)
 detection: snowflake-query-history
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.007]
+  tactic: TA0112
+  techniques: [T1686.001]
 source: Snowflake defense evasion (network-policy tamper)
 pair: snowflake-network-policy
 ---

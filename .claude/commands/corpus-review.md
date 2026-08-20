@@ -86,6 +86,6 @@ useful result; say so plainly rather than manufacturing findings.
 
 htpx is the **source of truth** for the corpus. A fix is an edit to `entries/`
 here, then `./gen-views.sh` to refresh any local views and `ci.yml` to gate it; the
-change fans out to `dotfiles-Kali`'s `offensive/companion/` via the existing
+change fans out to `dotfiles-Offense`'s `offensive/companion/` via the existing
 `auto-tag.yml` → `sync-fanout.yml` release path. Never hand-edit the vendored copy
-in Kali. Propose only — do not edit entries unless asked.
+in Offense. Propose only — do not edit entries unless asked.

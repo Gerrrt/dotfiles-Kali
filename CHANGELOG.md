@@ -6,9 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 htpx is the source of truth for the red↔blue paired corpus; it is vendored into
-`dotfiles-Kali` at `offensive/companion/` via `git subtree`. Cutting a release
+`dotfiles-Offense` at `offensive/companion/` via `git subtree`. Cutting a release
 here (a new top version below) tags the repo and fans the change OUT to
-`dotfiles-Kali` as a `companion.lock`-bump PR — see
+`dotfiles-Offense` as a `companion.lock`-bump PR — see
 `.github/workflows/auto-tag.yml` and `.github/workflows/sync-fanout.yml`.
 
 ## How releasing works
@@ -16,7 +16,159 @@ here (a new top version below) tags the repo and fans the change OUT to
 Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `[Unreleased]` entries under a new `## [vX.Y.Z] - YYYY-MM-DD` heading and push to
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
-GitHub Release; `sync-fanout.yml` then opens the Kali sync PR.
+GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
+
+## [v2.8.0] - 2026-08-20
+
+### Changed
+
+- **The release fan-out targets `dotfiles-Offense`, not `dotfiles-Kali`.** That repo was
+  renamed when it stopped being an OS layer, and `sync-fanout.yml` had not followed. The
+  breakage would have been **silent**: this workflow opens a PR rather than merging, so a
+  fan-out that never runs reddens nothing anywhere. The line that actually breaks is the
+  App-token mint — `repositories:` scopes an installation token **by repository name**,
+  and App installation scopes do not reliably follow a repo redirect — with the clone URL
+  and the three `gh pr` calls behind it. The `$kali` shell variable is renamed with them
+  in the same pass; under `set -euo pipefail` a half-rename is an unbound-variable abort,
+  not a cosmetic miss. Prose across `auto-tag.{yml,sh}`, `README.md`, `gen-views.sh` and
+  the two `.claude/commands` follows. Entries below this heading keep the old name: they
+  are history, and were true when written.
+
+- **ATT&CK v19 retag — 10 pairs move off revoked or drifted tags** (#65). The
+  v19 release (14 April 2026) split Defense Evasion into **Stealth** (`TA0005`,
+  renamed) and **Defense Impairment** (`TA0112`, new), and reorganized "Impair
+  Defenses" — promoting `T1562.001` to a parent technique and **formally
+  revoking** the sub-techniques this corpus used. Unlike the `T1496` →
+  `T1496.001` move in v2.7.0, this is a correction rather than a sharpening: the
+  old IDs no longer resolve. `attack.mitre.org` now serves a revocation redirect
+  for each, which is what these retags follow:
+  - `T1562.008` → **`T1685.002`** (Disable or Modify Cloud Log) —
+    `gcp-audit-log-disable` ↔ `gcp-audit-log-tamper-audit`.
+  - `T1562.007` → **`T1686.001`** (Cloud Firewall) — `snowflake-network-policy`
+    ↔ `snowflake-network-policy-audit`.
+  - `T1562.001` → **`T1685`** (Disable or Modify Tools, now a parent) —
+    `npm-2fa-disable`, `slack-2fa-disable`, `gh-branch-protection-off`,
+    `gl-protected-branch-off`, `vault-audit-disable` (+ mates). Disabling an MFA
+    requirement, a branch-protection rule, or an audit device are all
+    "disrupting preventative, detection, and response mechanisms," which is the
+    parent's scope; none of the new subs fits them more closely.
+  - `cf-waf-disable` ↔ `cf-waf-disable-audit` takes **`T1686.001`** rather than
+    the `T1685` base its old tag redirects to. Deleting a Cloudflare firewall
+    rule to expose the origin is the same shape as opening a Snowflake IP
+    allowlist, and the two would otherwise end up tagged differently.
+  - All of the above also move `TA0005` → **`TA0112`**, since `T1685`/`T1686`
+    sit under the new Defense Impairment tactic.
+- **Two further v19 drift items**, found by sweeping every technique ID in
+  `entries/` against live ATT&CK rather than only the IDs named in the review:
+  - `dcshadow` ↔ `dcshadow-4742` — `T1207` is not revoked, but it now sits under
+    Defense Impairment, so the pair moves `TA0005` → `TA0112`.
+  - `harbor-artifact-delete` — `T1070` and `TA0005` are both still correct, but
+    the tactic's *name* changed, so its `phase:` label becomes `Stealth`.
+
+  The sweep found no other revoked IDs and no other tactic drift.
+
+### Fixed
+
+- **`coerce-petitpotam` shipped two commands that do not exist.** Its first line was
+  `impacket-petitpotam {{lhost}} {{rhost}}` — no such tool: PetitPotam is
+  `topotam/PetitPotam`, it is not one of impacket-scripts' ~60 scripts, and Kali packages
+  no `petitpotam` either. Its third was `dfscoerce …`, which is `Wh04m1001/DFSCoerce`, a
+  git clone rather than a binary on anyone's PATH. Both are now `coercer` invocations,
+  since coercer implements the same two vectors as MS-EFSR and MS-DFSNM: filtered with
+  `--filter-method-name Efs` (the whole method family, rather than the single
+  `EfsRpcOpenFileRaw` that is patched on a current DC) and `--filter-protocol-name
+  MS-DFSNM` respectively. The body carries that reasoning. The middle line, `printerbug`,
+  was always correct and is untouched.
+
+  Worth knowing *where* this hid: `dotfiles-Offense` lists `coerce-petitpotam` among the
+  seven entries it deliberately does **not** project into `hacktheplanet` (the prose there
+  is the richer superset), so the `companion.yml` byte-gate never compared the two and
+  never would have. But `~/companion` is symlinked and `htpx` is a first-class alias, so
+  an operator picks the entry, hits `clip`, and gets `command not found` mid-coercion.
+  The `impacket-petitpotam` line was reported by dotfiles-Offense's `/doc-audit` routine
+  (dotgibson/dotfiles-Offense#186); the `dfscoerce` line was found while fixing it, and is
+  newer than that report — it arrived in #68, after v2.7.0 was vendored.
+
+- **`password-spray-4625` could not fire on its own paired attack** (#65). The
+  red entry's only command is `kerbrute passwordspray`, which sprays **Kerberos
+  AS-REQ pre-authentication** — a wrong password there lands on the DC as `4771`
+  `Failure_Code=0x18`. The detection keyed exclusively on `4625`, the
+  NTLM/interactive/SMB logon-failure event, which that command never generates.
+  The `4771` fan-out is now the primary query and `4625` the secondary, scoped
+  to the NTLM/SMB spray path where it *is* the right event. The
+  one-source-to-many-distinct-accounts framing was already correct and is
+  unchanged — only the telemetry it keys on was wrong.
+- **`npm-publish-audit` filtered out the class its own paired attack publishes
+  as** (#67). The red entry's headline command publishes with a *stolen
+  automation token*, which is recorded as an automation/CI actor — and the
+  detection's `NOT actor.type=ci` excluded exactly that class, so the technique's
+  primary path could never fire. The entry's prose already described the right
+  design ("pin releases to the CI publish identity, allowlist it"), but the query
+  implemented a blanket class-exclusion, which is its opposite: a compromised
+  automation token is indistinguishable from the legitimate one *by class*. Now
+  allowlists the specific publisher identity (`actor.name`, or `actor.token_id`
+  where exposed) and keeps actor class as an enrichment column rather than a
+  gate.
+- **`coercion-5145` missed DFSCoerce and MS-EFSR's `samr` endpoint** (#67). The
+  pipe set gains **`netdfs`** (MS-DFSNM / DFSCoerce, DC-only) and **`samr`**;
+  the red pair gains a `dfscoerce` command so the corpus demonstrates the vector
+  the detection now covers. `Access_Mask="0x3"` also moves out of the filter and
+  into the reported fields — as a gate it silently drops any client that opens
+  the pipe with a different mask, which contradicts the entry's own premise that
+  the endpoint is the invariant and the tool is not.
+
+  **`lsass` was reported as a bogus pipe and has been kept** — the review's
+  claim that it is "a process, not a coercion named pipe" is incorrect, and
+  acting on it would have opened a hole rather than closed one. MS-EFSR is
+  exposed over five SMB named pipes — `efsrpc`, `lsarpc`, `samr`, `lsass`,
+  `netlogon` — and `\pipe\lsass` is a genuine RPC endpoint that PetitPotam and
+  `coercer` both spray. The entry now names all three protocols and their pipes
+  inline, so the membership of the set is justified where it is used.
+- **`cloud-destroy-cloudtrail` was default-blind to the destructive half of its
+  paired attack** (#67). `DeleteObject`/`DeleteObjects` are S3 **data events**,
+  absent from CloudTrail unless per-bucket data-event logging is enabled — so on
+  a default account the query caught the deny-recovery calls (all management
+  events) and silently missed the `aws s3 rm --recursive` burst that is the red
+  entry's payload. Documented with the same caveat and fallback (S3 server
+  access logs / CloudWatch) that sibling entry `aws-s3-exfil-cloudtrail` already
+  carried for `GetObject`, resolving an internal inconsistency. A second query
+  also surfaces singleton `DeleteBucket`/`DeleteTable`/snapshot deletes, which
+  the `count>10` burst floor could never reach despite each being a finding on
+  its own.
+
+### Documentation
+
+- **README states an ATT&CK baseline.** The corpus tracks live ATT&CK rather
+  than a pinned bundle; it now says so, names the current baseline (v19, April
+  2026) and the Stealth / Defense Impairment split, and points at the weekly
+  review as the mechanism that keeps it current. Without this, a retag cycle
+  like the one above reads as unexplained drift.
+- **Corrected the stale corpus count** in the same section: "70-plus paired
+  attack/detection concepts (plus a recon entry)" → 90 pairs plus two unpaired
+  recon entries.
+- **Four detections now document where they fail** (#67), a polish pass on
+  entries whose prose promised more precision than their query delivered:
+  - `consent-grant-auditlogs` said the invariant was a *user* (not admin)
+    consent, but admin consent raises the **same** `Consent to application`
+    operation and the KQL never separated them. Now reads
+    `ConsentContext.IsAdminConsent` out of the modified properties and says to
+    run it both ways — a tenant-wide admin grant on those scopes is rarer and
+    worse than the user grant, and was previously buried rather than surfaced.
+  - `aws-iam-privesc-cloudtrail` notes that its self-grant branch compares
+    `actor` (an ARN/`principalId`) to `target` (a bare `userName`), so the
+    literal equality rarely holds, and that a customer-managed `"Action": "*"`
+    policy escalates identically while matching neither ARN test.
+  - `potato-seimpersonate-4688` notes that PrintSpoofer/GodPotato impersonate
+    SYSTEM *before* spawning the shell, so the 4688 Subject may log as `SYSTEM`
+    and be excluded by the service-account list meant to catch it — keeping the
+    failed escalations and dropping the successful ones. Adds a
+    `Creator_Process_Name` variant as the sturdier 4688 key.
+  - `cf-waf-disable` (red) targeted the **legacy Firewall Rules API**, sunset
+    2025-06-15 and unreproducible on a current tenant; refreshed to the
+    Rulesets-engine equivalent under the `http_request_firewall_custom` phase,
+    using a `enabled:false` PATCH as the quieter variant. The blue half needed
+    no query change — it already matched `ruleset` alongside `firewall_rule` —
+    but now explains why both values are retained.
 
 ## [v2.7.0] - 2026-08-01
 

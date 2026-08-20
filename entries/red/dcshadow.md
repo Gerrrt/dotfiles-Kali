@@ -2,9 +2,9 @@
 id: dcshadow
 title: DCShadow (register a rogue DC, push directory changes)
 section: Active Directory — attack paths
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
+  tactic: TA0112
   techniques: [T1207]
 platform: [windows]
 source: hacktheplanet §"Active Directory — attack paths"

@@ -4,8 +4,8 @@ title: Detect branch-protection tamper (GitHub audit log)
 detection: github-audit-log
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 source: GitHub supply-chain abuse (branch-protection tamper)
 pair: gh-branch-protection-off
 ---

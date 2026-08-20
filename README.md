@@ -69,10 +69,10 @@ from your target env, and copy. No mainstream tool ships attacks paired with the
 detections they set off — that purple pivot is the point.
 
 It is **host-agnostic**, so it lives in its own repo and is vendored back into
-[`dotfiles-Kali`](https://github.com/dotgibson/dotfiles-Kali) at
+[`dotfiles-Offense`](https://github.com/dotgibson/dotfiles-Offense) at
 `offensive/companion/` via `git subtree` (like Core is vendored into the OS
 repos). It's the **source of truth** for the paired slice: `gen-views.sh`
-generates the marked blocks in Kali's `hacktheplanet` / `PURPLE-TEAM.md` from the
+generates the marked blocks in Offense's `hacktheplanet` / `PURPLE-TEAM.md` from the
 entries, and CI drift-gates them. See the fleet's
 [red ↔ blue view][purple] and the [offensive methodology][methodology] for the
 wider context.
@@ -121,12 +121,18 @@ frontmatter fields it needs with `awk`.
 <!-- THE CORPUS -->
 ## The Corpus
 
-70-plus paired attack/detection concepts (plus a recon entry), spanning
-Credential Access, Privilege Escalation, Lateral Movement, Persistence, Defense
-Evasion, Collection, Exfiltration, and Discovery — across on-prem AD, a multi-cloud
-slice (Entra/M365, AWS, GCP), Kubernetes, Okta, Google Workspace, CI/CD (GitHub
-Actions, GitLab, Jenkins), Harbor, HashiCorp Vault, Terraform Cloud, Snowflake,
-Cloudflare, the npm + PyPI registries, and Slack. A representative slice:
+90 paired attack/detection concepts (plus two unpaired recon entries), spanning
+Credential Access, Privilege Escalation, Lateral Movement, Persistence, Stealth,
+Defense Impairment, Collection, Exfiltration, and Discovery — across on-prem AD,
+a multi-cloud slice (Entra/M365, AWS, GCP), Kubernetes, Okta, Google Workspace,
+CI/CD (GitHub Actions, GitLab, Jenkins), Harbor, HashiCorp Vault, Terraform
+Cloud, Snowflake, Cloudflare, the npm + PyPI registries, and Slack.
+
+Tags track **live** ATT&CK rather than a pinned bundle — currently **v19 (April
+2026)**, which split Defense Evasion into Stealth (`TA0005`) and Defense
+Impairment (`TA0112`). The weekly corpus review re-verifies every technique ID
+against `attack.mitre.org` and flags anything revoked or renamed, so retags land
+as they happen. A representative slice:
 
 | Attack (red) | Detection (blue) | ATT&CK |
 | --- | --- | --- |
@@ -153,9 +159,9 @@ is entry-first:
 2. **Regenerate the views.** Mark the matching blocks in the flat files and run
    `gen-views.sh`; `gen-views.sh --check` (CI) fails on drift. Prose outside the
    markers stays hand-authored and canonical.
-3. **Edit here, not in Kali.** The vendored copy at `dotfiles-Kali`'s
+3. **Edit here, not in Offense.** The vendored copy at `dotfiles-Offense`'s
    `offensive/companion/` is overwritten on the next sync — fix it here, then
-   Kali's `scripts/sync-companion.sh` pulls the change into that copy.
+   Offense's `scripts/sync-companion.sh` pulls the change into that copy.
 
 Bugs and ideas: open an
 [issue](https://github.com/dotgibson/htpx/issues).

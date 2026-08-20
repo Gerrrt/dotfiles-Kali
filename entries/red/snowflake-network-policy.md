@@ -2,10 +2,10 @@
 id: snowflake-network-policy
 title: Snowflake network-policy tamper (open the IP allowlist)
 section: Snowflake / data cloud
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.007]
+  tactic: TA0112
+  techniques: [T1686.001]
 platform: [snowflake]
 source: Snowflake defense evasion (network-policy tamper)
 pair: snowflake-network-policy-audit
