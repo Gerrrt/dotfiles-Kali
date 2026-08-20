@@ -71,7 +71,10 @@ nuclei               # ProjectDiscovery — templated scanner. `-ai` (2026 AI te
 #                    # for it mid-engagement.
 httpx-toolkit        # ProjectDiscovery httpx — bare 'httpx' apt pkg is the python lib, not this
 # katana            → UPSTREAM (Go): not in apt —
-#                     go install github.com/projectdiscovery/katana/cmd/katana@latest
+#                     CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
+#                     Six releases in nine months and it ships its own `-update`, so redup
+#                     drives the refresh — NOT the go_fast_movers loop, whose bare
+#                     `go install` would build it differently from the documented CGO build.
 # (wfuzz dropped — unreferenced by any doc; ffuf/feroxbuster/gobuster cover fuzzing)
 
 # ── Service enumeration (the per-port folds in hacktheplanet) ─────────────────

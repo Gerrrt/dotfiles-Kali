@@ -43,7 +43,7 @@ bloodhound-ce-python
 # ── Web / recon ───────────────────────────────────────────────────────────────
 nuclei                  # also a redup fast-mover
 httpx-toolkit           # ProjectDiscovery httpx; bare `httpx` is the python lib
-katana
+katana                  # also a redup fast-mover (self-updates via `katana -update`)
 bbot
 ffuf
 feroxbuster
