@@ -88,6 +88,25 @@ ssh-audit            # SSH algorithm/config audit (SSH-22 fold)
 dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold)
 nbtscan              # NetBIOS name sweep (SMB fold)
 smbclient            # provides BOTH `smbclient` (SMB-445 fold: share listing/browsing) and `rpcclient` (RPC-135 fold) — one Debian package, the primary command of two folds
+ftp                  # the plain FTP client (FTP-21 fold: the anonymous/anonymous check). Debian builds it from the tnftp source; ships in kali-system-core, so it is on every Kali — listed for the accounting, not the install
+nfs-common           # provides `showmount` (NFS-111/2049 fold: list the exports before you mount one). Also kali-system-core
+bind9-dnsutils       # provides BOTH `dig` and `nslookup` — the DNS-53 zone-transfer fold and the OSINT NS/MX/TXT lines.
+#                    # NAME CHURN: the old name `dnsutils` is a TRANSITIONAL binary off the same bind9 source — gone from
+#                    # trixie, back only in sid, and the sole Kali metapackage still naming it is kali-linux-wsl. Pin the
+#                    # durable name: bind9-dnsutils is what kali-linux-headless (and so kali-linux-default) actually pulls
+
+# ── Fold-primary tools Kali does NOT ship by default ──────────────────────────
+# The block above is the "already on the box, listed for slim installs" case. These
+# four are the opposite and that is why they get their own block: NO Kali metapackage
+# names them (checked against kali-meta's debian/control), so the hacktheplanet line
+# that invokes each one fails on a STOCK box, not just a slim one. That makes them the
+# only entries here whose absence is a real gap rather than an accounting nicety.
+mariadb-client       # `mysql` — Databases fold (MySQL/MariaDB 3306)
+postgresql-client    # `psql` — Databases fold (PostgreSQL 5432)
+redis-tools          # `redis-cli` — Databases fold (Redis 6379)
+mingw-w64            # `i686-w64-mingw32-gcc` — the Windows cross-compile in the searchsploit-fixups
+#                    # fold. The sharpest of the four: build-essential gives you NATIVE gcc only, so
+#                    # nothing else on the box covers it
 
 # ── Recon / OSINT ─────────────────────────────────────────────────────────────
 amass
@@ -209,6 +228,14 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # PowerUp.ps1       → UPSTREAM (PowerSploit, unmaintained since 2020): Invoke-AllChecks
 #                     in the Windows privesc fold. Kept because the checks still hold;
 #                     winPEAS covers the same ground on a modern box.
+# PrintSpoofer64.exe→ UPSTREAM (github.com/itm4n/PrintSpoofer, release binary): the spoolss
+#                     named-pipe SeImpersonate -> SYSTEM path in the Windows privesc fold.
+# GodPotato         → UPSTREAM (github.com/BeichenDream/GodPotato, release binary): the DCOM
+#                     variant of the same abuse, for when spoolss is disabled. Pick the build
+#                     matching the target's .NET version (GodPotato-NET2/3.5/4).
+#                     Both arrive from the corpus, inside hacktheplanet's `# companion:gen
+#                     potato-seimpersonate` block — the reason they were the one pair of
+#                     doc-named tools this block did not account for.
 # mimikatz is NOT listed here — it IS an apt package (see Credential attacks above);
 # apt just puts Windows binaries in /usr/share/windows-resources/ for you to drop.
 # AADInternals is NOT listed here either — it's operator-side external recon, not

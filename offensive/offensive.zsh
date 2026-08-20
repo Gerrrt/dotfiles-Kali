@@ -448,10 +448,10 @@ rocks() {
 # ── redup — MANUAL offensive-tool refresh (opt-in; NEVER automatic) ───────────
 # apt owns the packaged tools (`up` / `sudo apt upgrade`); THIS refreshes the fast-movers
 # that carry their OWN updater and rot between apt syncs — nuclei's engine + templates
-# (templates move daily), katana's crawler engine, searchsploit's exploit-DB, and the
-# go-installed tools that aren't in apt. Run it DELIBERATELY on your attacker box — NEVER
-# on a client/engagement host mid-op, where updating a tool under a working chain is
-# exactly how you break it.
+# (templates move daily), katana's crawler engine and searchsploit's exploit-DB, plus any
+# go-installed fast-movers registered in go_fast_movers below — an empty array today, see
+# the note there. Run it DELIBERATELY on your attacker box — NEVER on a client/engagement
+# host mid-op, where updating a tool under a working chain is exactly how you break it.
 # Each step is guarded by tool presence (command -v, not _have — that's unfunctioned at
 # load). It only ever runs each tool's own updater; it installs nothing new and touches
 # no engagement data.
@@ -459,8 +459,8 @@ redup() {
   emulate -L zsh
   if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
     print -- "redup — manually refresh the fast-moving offensive tools (opt-in, attacker box only,"
-    print -- "        never mid-engagement): nuclei engine+templates, katana, searchsploit"
-    print -- "        exploit-DB, and the go-installed tools. apt-packaged tools update via 'up'."
+    print -- "        never mid-engagement): nuclei engine+templates, katana, and searchsploit's"
+    print -- "        exploit-DB. apt-packaged tools update via 'up'."
     return 0
   fi
   print -P "%F{yellow}⚠ redup: manual offensive-tool refresh — attacker box only, never mid-engagement.%f"

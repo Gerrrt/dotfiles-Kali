@@ -45,6 +45,35 @@ release line.
 
 ### Fixed
 
+- **Seven packages, behind eight commands `hacktheplanet` invokes, had no manifest line**
+  (#186) — `ftp`, `showmount`, `dig`, `nslookup`, `mysql`, `psql`, `redis-cli` and
+  `i686-w64-mingw32-gcc`. The Service-enumeration block states its own rule — *every fold's
+  primary command in PATH* — and five folds were not honouring it. `ftp`, `nfs-common` and
+  `bind9-dnsutils` join that block; the other four get a **new block of their own**, because
+  checking `kali-meta`'s `debian/control` showed the audit's framing was too generous: no
+  Kali metapackage names `mariadb-client`, `postgresql-client`, `redis-tools` or
+  `mingw-w64`, so those four lines in `hacktheplanet` fail on a **stock** box, not just a
+  slim one. `mingw-w64` is the sharpest — `build-essential` gives you native `gcc` only, so
+  nothing else on the box covers the cross-compile.
+  - Note the DNS name: it is **`bind9-dnsutils`**, not the `dnsutils` the audit proposed.
+    `dnsutils` is a transitional binary off the same `bind9` source, gone from trixie and
+    back only in sid; the sole Kali metapackage still naming it is `kali-linux-wsl`. Since
+    `test/check-packages.sh` resolves every name against kali-rolling, the durable name is
+    the only safe one to pin.
+  - No `install/tools.lst` change: that file's header restricts it to commands
+    `offensive/offensive.zsh` probes or invokes by bare name, and none of these are.
+    Adding them would make bootstrap's report cry wolf.
+- **`PrintSpoofer64.exe` and `GodPotato` were the target-dropped block's one blind spot**
+  (#186). That block promises to account for *every* tool the docs **and** the corpus name;
+  these two arrive from the corpus inside `hacktheplanet`'s `companion:gen
+  potato-seimpersonate` block, which is how they slipped it. Two `UPSTREAM →` lines now,
+  matching the linpeas/winPEAS treatment.
+- **`redup`'s help advertised a step that always no-ops** (#186). Both help strings and
+  `aliases.md` promised a refresh of "the go-installed tools", but `go_fast_movers` has
+  been `()` since kerbrute was dropped as upstream-frozen. The strings now describe what
+  the function does; the block comment still records why the array is empty and how to
+  re-populate it. `aliases.md` also gains `katana`, which it had missed since redup started
+  driving it.
 - **`doggo`, `carapace` and `sesh` never installed on a fresh box.** `mise` lands in
   `~/.local/bin`, which is not on `PATH` during bootstrap, so the `go install`
   fallback's `command -v mise` always missed. A PATH prelude fixes this and the
