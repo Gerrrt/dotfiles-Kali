@@ -23,7 +23,9 @@ krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/a
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
 evil-winrm
 certipy-ad           # AD CS abuse (ESC1–ESC17: ESC13/15/16 landed in v5.0, ESC17 in v5.1.0)
-python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindump' isn't packaged)
+python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindump' isn't packaged),
+#                    # but the BINARY is bare `ldapdomaindump` — which is also the name bootstrap's
+#                    # non-Kali pipx route installs under. Field-reference line: hacktheplanet, AD fold
 enum4linux-ng
 smbmap
 bloodyad             # raw-LDAP shadow-creds / DACL / RBCD / attribute writes (+ autobloody to auto-exploit a BloodHound-graphed path)
@@ -90,6 +92,9 @@ nbtscan              # NetBIOS name sweep (SMB fold)
 smbclient            # provides BOTH `smbclient` (SMB-445 fold: share listing/browsing) and `rpcclient` (RPC-135 fold) — one Debian package, the primary command of two folds
 ftp                  # the plain FTP client (FTP-21 fold: the anonymous/anonymous check). Debian builds it from the tnftp source; ships in kali-system-core, so it is on every Kali — listed for the accounting, not the install
 nfs-common           # provides `showmount` (NFS-111/2049 fold: list the exports before you mount one). Also kali-system-core
+cifs-utils           # provides `mount.cifs` — the SMB-445 fold's `mount -t cifs` share mount AND the SYSVOL
+#                    # mount in the GPP-cpassword block. smbclient BROWSES a share; mounting one is a separate
+#                    # package, and nothing else in this file pulls it
 bind9-dnsutils       # provides BOTH `dig` and `nslookup` — the DNS-53 zone-transfer fold and the OSINT NS/MX/TXT lines.
 #                    # NAME CHURN: the old name `dnsutils` is a TRANSITIONAL binary off the same bind9 source — gone from
 #                    # trixie, back only in sid, and the sole Kali metapackage still naming it is kali-linux-wsl. Pin the
@@ -228,6 +233,9 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 #  / winPEAS          the automated privesc enumerators in hacktheplanet's Linux
 #                     and Windows privesc folds. Fetch the release build per
 #                     engagement — don't vendor a stale copy.
+# pspy              → UPSTREAM (github.com/DominicBreuker/pspy, release binary): watch
+#                     processes and cron fire WITHOUT root. The manual counterpart to
+#                     linpeas in ippsec's privesc loop, which names the two together.
 # PowerUp.ps1       → UPSTREAM (PowerSploit, unmaintained since 2020): Invoke-AllChecks
 #                     in the Windows privesc fold. Kept because the checks still hold;
 #                     winPEAS covers the same ground on a modern box.
@@ -237,12 +245,18 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 #                     variant of the same abuse, for when spoolss is disabled. Pick the build
 #                     matching the target's .NET version (GodPotato-NET2/3.5/4).
 #                     Both arrive from the corpus, inside hacktheplanet's `# companion:gen
-#                     potato-seimpersonate` block — the reason they were the one pair of
-#                     doc-named tools this block did not account for.
+#                     potato-seimpersonate` block — which is why they were doc-named AND
+#                     corpus-named while this block still went without them.
 # mimikatz is NOT listed here — it IS an apt package (see Credential attacks above);
 # apt just puts Windows binaries in /usr/share/windows-resources/ for you to drop.
 # AADInternals is NOT listed here either — it's operator-side external recon, not
 # target-dropped, so it sits with the other M365 tools under Recon / OSINT above.
+# The evasion doc's payload-BUILD tooling is NOT listed here either, and is not
+# target-dropped: macro_pack (offensive/evasion:30), PowerUpSQL (:124), and the
+# Donut / sRDI / ConfuserEx / ScareCrow loaders (:62-63) all run operator-side on
+# WINDOWS to produce an artifact. None is in Kali apt, none belongs in a Linux apt
+# list, and a lab Windows VM is the real prerequisite — so they are named here for
+# the accounting and deliberately shipped nowhere.
 # The corpus' Impact entries (inhibit-recovery-vssadmin, service-stop-preransom,
 # ransomware-encrypt-files, resource-hijack-xmrig) drive Windows BUILT-INS on the
 # target — vssadmin, wbadmin, bcdedit, sc, taskkill. Nothing to install, and the
