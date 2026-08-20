@@ -4,8 +4,8 @@ title: Detect protected-branch tamper (GitLab audit events)
 detection: gitlab-audit-log
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 source: GitLab supply-chain abuse (protected-branch tamper)
 pair: gl-protected-branch-off
 ---

@@ -2,7 +2,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # RELEASE AUTOMATION for htpx — turn a CHANGELOG bump into a tag + GitHub Release.
 #
-# htpx is the SOURCE OF TRUTH for the red<->blue paired corpus; dotfiles-Kali
+# htpx is the SOURCE OF TRUTH for the red<->blue paired corpus; dotfiles-Offense
 # vendors it at offensive/companion/ via git subtree. CHANGELOG.md is the version
 # source: when the first `## [vX.Y.Z]` heading names a version that has no matching
 # git tag yet, this workflow (via scripts/auto-tag.sh) creates the annotated tag and
@@ -14,13 +14,13 @@
 # errors after the tag is on origin.
 #
 # AUTH: the built-in GITHUB_TOKEN (contents: write) is enough here — it can push a tag
-# and create a Release IN THIS REPO. The cross-repo fan-out to dotfiles-Kali is a
+# and create a Release IN THIS REPO. The cross-repo fan-out to dotfiles-Offense is a
 # SEPARATE workflow (sync-fanout.yml) that needs a FLEET_SYNC_TOKEN, because the
 # built-in token cannot write to another repo.
 #
 # This is the FIRST link in the release chain:
 #   push CHANGELOG bump to main → auto-tag (this) tags + releases vX.Y.Z
-#     → sync-fanout (workflow_run on this completing) opens the Kali sync PR.
+#     → sync-fanout (workflow_run on this completing) opens the Offense sync PR.
 # ──────────────────────────────────────────────────────────────────────────────
 name: auto-tag
 

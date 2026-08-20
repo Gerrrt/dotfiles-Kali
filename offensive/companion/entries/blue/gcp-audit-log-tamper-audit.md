@@ -4,8 +4,8 @@ title: Detect audit-log tamper (GCP, DeleteSink / auditConfig strip)
 detection: gcp-logging
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.008]
+  tactic: TA0112
+  techniques: [T1685.002]
 source: GCP logging abuse (blind Data Access telemetry)
 pair: gcp-audit-log-disable
 ---

@@ -2,7 +2,7 @@
 id: harbor-artifact-delete
 title: Delete the trusted artifact (force re-pull + anti-forensics)
 section: Harbor / container registry
-phase: Defense Evasion
+phase: Stealth
 attack:
   tactic: TA0005
   techniques: [T1070]

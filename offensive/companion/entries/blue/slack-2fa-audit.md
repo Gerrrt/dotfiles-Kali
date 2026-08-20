@@ -4,8 +4,8 @@ title: Detect 2FA enforcement disable (Slack audit log)
 detection: slack-audit-log
 event_ids: []
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 source: Slack workspace compromise (2FA enforcement tamper)
 pair: slack-2fa-disable
 ---

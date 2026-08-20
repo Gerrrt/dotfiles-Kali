@@ -4,7 +4,7 @@ title: Detect DCShadow (rogue DC registration, 4742 GC SPN)
 detection: splunk-spl
 event_ids: [4742, 4662, 5137]
 attack:
-  tactic: TA0005
+  tactic: TA0112
   techniques: [T1207]
 source: TrustedSec "Actionable Purple Teaming" (BH USA 2023)
 pair: dcshadow

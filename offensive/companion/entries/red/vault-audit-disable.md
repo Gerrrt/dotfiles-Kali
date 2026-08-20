@@ -2,10 +2,10 @@
 id: vault-audit-disable
 title: Disable the Vault audit device (blind the SIEM)
 section: HashiCorp Vault / secrets
-phase: Defense Evasion
+phase: Defense Impairment
 attack:
-  tactic: TA0005
-  techniques: [T1562.001]
+  tactic: TA0112
+  techniques: [T1685]
 platform: [vault]
 source: HashiCorp Vault evasion (audit-device disable)
 pair: vault-audit-device-audit
