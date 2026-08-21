@@ -58,7 +58,7 @@ If you add a helper that writes files, resolve its root with `_eng_writeroot`.
 
 ```bash
 make            # list every target
-make lint       # shellcheck + bash -n / zsh -n + markdownlint
+make lint       # shellcheck + bash -n / zsh -n + markdownlint + trap discipline
 make test       # routine-filter classifier + companion view drift
 make bootstrap-dry
 ```
@@ -67,6 +67,17 @@ make bootstrap-dry
 pinned, SHA-256-verified copies from `core/scripts/tool-versions.env`, so CI is the
 authority. `make packages-check` needs apt and is advisory — the authoritative run
 is the `packages` workflow, in a `kali-rolling` container.
+
+`make trap-guard` is the one leg with no upstream equivalent. It refuses a bash
+`trap … RETURN` whose body does not start by disarming the slot, because a RETURN
+trap is *global*, not function-scoped: armed inside a function it survives into the
+caller's frame and fires again on that frame's return, where the local it cleans up
+no longer exists and `set -u` kills the run. That is [#198][i198], and the broken
+form is valid bash — shellcheck and `bash -n` both pass it. Write it as
+`trap 'trap - RETURN; rm -rf "$tmp"' RETURN`. The gate runs in CI too, as the
+`return-traps` job in `checks.yml`.
+
+[i198]: https://github.com/dotgibson/dotfiles-Offense/issues/198
 
 ## Touching `bootstrap.sh`
 

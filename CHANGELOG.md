@@ -150,6 +150,25 @@ release line.
 
 ### Added
 
+- **A gate against leaked `RETURN` traps** (#198) — `test/check-return-traps.sh`, wired
+  into `make lint` as `make trap-guard` and into CI as the `return-traps` job in
+  `checks.yml`. A bash RETURN trap is a **global slot, not a function-scoped one**: armed
+  inside a function it survives into the *caller's* frame and fires a second time when the
+  caller returns, where the local it cleans up is out of scope and `set -u` makes that
+  fatal. In `dotfiles-Debian` that aborted `provision()` after every package had installed
+  but before `wire_links` ran — the whole stack on the box, and not one symlink. Nothing
+  else can see it: the broken line is valid bash, so shellcheck and `bash -n` both pass it,
+  and no CI job in this fleet exercises a real install path (every bootstrap run is
+  `--links-only`). Hence a grep. The correct form is
+  `trap 'trap - RETURN; rm -rf "$tmp"' RETURN`.
+
+  **This is prevention, not a fix.** #198 reported the bug in this repo's
+  `verified_install()`, but that function — and the entire SHA-pinned out-of-band install
+  block around it — left in the layer split (`6d641d2`), which moved it to
+  `dotfiles-Debian`; the trap went with it. No repo-owned shell here arms a RETURN trap
+  today. The guard exists so none ever does again. zsh is out of scope: it has no `RETURN`
+  signal at all.
+
 - `Makefile` — the entry point (`make lint`, `test`, `core-sync`, `packages-check`, …).
   Makes `core.lock`'s `make core-lock` instruction true for the first time.
 - `scripts/sync-core.sh`, `test/check-core-freshness.sh` and a `freshness` workflow —
