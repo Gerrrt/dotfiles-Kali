@@ -18,6 +18,56 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [v2.10.0] - 2026-08-21
+
+### Added
+
+- **AD Discovery — the enumeration that precedes every AD attack in the corpus.** Two new
+  red↔blue pairs (#78) closing the discovery gap: the corpus had deep AD *offense*
+  (Kerberoasting, DCSync, RBCD, shadow credentials, ADCS) but no detection for the
+  reconnaissance that comes first. ATT&CK tags (`T1087.002`, `T1069.002`, `T1482`, all
+  Discovery / TA0007) verified against live MITRE.
+
+  - **`bloodhound-collect` / `bloodhound-collect-4662`** — the SharpHound /
+    `bloodhound-python` graph pull. Collection has no single-event signature (every read
+    is legitimate LDAP), so the blue keys on the *shape* — a `4662` directory-access
+    burst, one account against many distinct objects (`dc(Object_Name)`) in a window. Two
+    honesty notes carried in the entry: `4662` needs the Directory Service Access
+    subcategory **and** a SACL on the naming context or the DC emits nothing, and the
+    `0x100` mask is shared with `dcsync-4662` — same event, opposite shape (fan-out vs. a
+    replication right on a few objects).
+  - **`ldap-recon` / `ldap-recon-4662`** — the hand-tool version (`ldapsearch`,
+    `Get-ADUser`, `nxc ldap`). Different shape from the sweep: a few *broad, revealing
+    filters* rather than a fan-out, so the primary arm is `1644` matching the tell-tale
+    filter attributes (`servicePrincipalName`, the `userAccountControl` bitfield,
+    `adminCount`), with a `4662` property-GUID fallback where `1644` is off.
+
+  Both entries state the **`1644`** prerequisite plainly — the expensive/inefficient-LDAP
+  event is off by default and needs DC diagnostics registry thresholds — rather than
+  presenting an arm the tenant may not have as if it always fires.
+
+- **Initial Access — phishing and valid accounts, the front door the corpus never
+  mapped.** Two new red↔blue pairs (#79). Initial Access had been supply-chain-only
+  (`T1195.002`); this adds the two most common intrusion entry points, both with a real
+  Entra sign-in invariant rather than a generic "look for a bad login." ATT&CK tags
+  verified against live MITRE.
+
+  - **`aitm-phish` / `aitm-phish-signin`** — `T1566.002`. Adversary-in-the-middle
+    (Evilginx) phishing that beats MFA by stealing the *session cookie*. The detection
+    keys on the AiTM-specific tell — **token replay across ASNs**: interactive auth from
+    the proxy's network, then non-interactive token use from the attacker's, correlated
+    in `SigninLogs` × `AADNonInteractiveUserSignInLogs`. Names Entra ID Protection's
+    `anomalousToken` risk as the maintained arm where P2 exists.
+  - **`valid-accounts-cloud` / `valid-accounts-signin`** — `T1078.004`. Credential
+    stuffing into a tenant sign-in. Two arms: the failure-burst-then-success shape (the
+    winning-side inverse of `password-spray-4625`), and a first-seen-ASN arm built on a
+    per-user baseline (the same own-history join `vault-secret-read-audit` uses).
+
+  **`T1190` (exploit-public-facing-application) was deliberately left out**, per #79's own
+  guidance: its detection is app/CVE-specific and a generic version would be the
+  no-discriminator defect the whole review targeted. Phishing and valid-accounts are the
+  two #79 flagged as having concrete invariants; both closed here.
+
 ## [v2.9.0] - 2026-08-21
 
 ### Added
