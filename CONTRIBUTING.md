@@ -1,125 +1,133 @@
-# Contributing to dotfiles-Offense
+# Contributing to dotfiles-core
 
-The README's three rules in full, plus how to actually run the gates.
+This repo is the **Core layer** — the config that is identical on every machine —
+authored once here and vendored into each OS repo's `core/` via `git subtree`.
+A change here fans out to all nine OS repos, so the bar is: _is this truly Core,
+and is it healthy?_
 
-## 1. Which layer owns the change?
+## Is it actually Core?
 
-This repo stacks **three** layers, and most mistakes here are "right change, wrong
-layer". The test:
+Before adding anything, run the README's test. It belongs here **only** if:
 
-| If it… | It belongs in |
-| --- | --- |
-| is identical on every machine | **Core** — [dotfiles-core](https://github.com/dotgibson/dotfiles-core), *not here* |
-| changes with the OS (apt, paths, clipboard, WSL) | **[dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian)**, *not here* — it covers Kali |
-| changes with the operator (engagements, tradecraft) | `offensive/` |
-| is a paired red↔blue attack/detection entry | **htpx** — [dotgibson/htpx](https://github.com/dotgibson/htpx), *not here* |
+- it is **identical on every machine** (not OS-specific), **and**
+- it is **not offensive/engagement** tooling.
 
-## 2. Never hand-edit a vendored subtree
+Otherwise it lives elsewhere:
 
-`core/` and `offensive/companion/` are `git subtree` copies. **They are overwritten
-on the next sync**, so an edit there is silent drift: it works until someone syncs,
-and it never reaches the source of truth.
+| If it changes when…                                               | It belongs in…                                              |
+| ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| the **operating system** changes (pkg manager, paths, clipboard)  | the OS repo (`dotfiles-{MacBook,Fedora,Arch,…}`)            |
+| **you as an operator** change (C2/wordlists; or detections/hunts) | `dotfiles-Offense` (offense) / `dotfiles-Defense` (defense) |
+| neither — it's the same everywhere                                | **here**                                                    |
 
-Three things enforce this, and you will meet all of them:
+## The manifest is the contract
 
-- a local `pre-commit` hook (installed by `bootstrap.sh`, or `make hooks`)
-- `core-integrity` and `companion-integrity` in CI, comparing the vendored tree
-  hash against `core.lock` / `companion.lock`
-- `companion` in CI, asserting the generated blocks in `PURPLE-TEAM.md` and
-  `hacktheplanet` still match the entries they came from
+`core.manifest` is the canonical inventory of what Core ships. Adding a new Core
+file means adding its path to `core.manifest` in the same change — the audit
+enforces this in both directions:
 
-To update a subtree deliberately:
+- every path listed in the manifest must exist on disk, and
+- every tracked file must be either listed in the manifest or in the audit's
+  repo-meta allowlist (docs, CI config, dev tooling).
 
-```bash
-make core-sync         # or: make companion-sync
-make lint && make test
-```
+Repo-meta and dev tooling (this file, `LICENSE`, `.github/`, `scripts/sync-core.sh`,
+`scripts/audit-core.sh`, …) are **not** vendored into OS repos, so they live in the
+allowlist in `scripts/audit-core.sh` rather than the manifest.
 
-Both stamp their lock file from the squash commit's `git-subtree-split` trailer.
-Commit the lock together with the pull.
+## Run the audit before you push
 
-## 3. Engagement data never enters this repo
+`scripts/audit-core.sh` is the test suite. It checks manifest↔filesystem drift,
+executable-bit invariants, shell syntax (`bash -n` / `zsh -n`), `luacheck`, nvim
+module reachability (§4b), and `shellcheck`. It degrades gracefully — a missing
+linter is skipped, not failed — so it runs on a bare box as well as in CI.
 
-It lives in `~/engagements`, outside any git tree. Everything else is a backstop:
-
-- The helpers that write engagement data (`note`, `logshell`, `bhce`, `nmapsweep`)
-  refuse to run inside a git work tree unless `$ENGAGEMENT` is set.
-- `hethttp` refuses to serve a git work tree on `0.0.0.0`.
-- The four field references open **read-only** (`htp -w` to actually edit one) —
-  they are tracked files, and their "target fill" recipe writes a copy under
-  `$ENGAGEMENT`, never the buffer.
-- `.gitignore` blocks the directory names `mkengagement` creates, plus the usual
-  artifact types.
-- `gitleaks` scans the working tree **and** full history in CI.
-
-If you add a helper that writes files, resolve its root with `_eng_writeroot`.
-
-## Running the gates
+One section is worth knowing about when you touch `nvim/`: **§4b
+(`scripts/nvim-reachability.sh`)** fails on a lua module nothing can require.
+`core.manifest` lists `nvim/` as a _directory_, so the manifest↔filesystem check
+auto-lists every path under it and cannot see an orphan — §4b is the backstop
+instead. Adding a module under `lua/gerrrt/utils/` or at the top level means
+something must `require()` it by name; a new `servers/<name>.lua` must be added to
+the `servers` list in `servers/init.lua` (those are required dynamically, so that
+list is the only evidence a static check has). `plugins/` is exempt — lazy imports
+the whole directory.
 
 ```bash
-make            # list every target
-make lint       # shellcheck + bash -n / zsh -n + markdownlint + trap discipline
-make test       # routine-filter classifier + companion view drift
-make bootstrap-dry
+./scripts/audit-core.sh           # full run
+./scripts/audit-core.sh --quiet   # only skips/failures + summary
 ```
 
-`make lint` skips a linter that isn't installed rather than failing; CI installs
-pinned, SHA-256-verified copies from `core/scripts/tool-versions.env`, so CI is the
-authority. `make packages-check` needs apt and is advisory — the authoritative run
-is the `packages` workflow, in a `kali-rolling` container.
+The same script runs in CI (`.github/workflows/ci.yml`) on every push and PR, so
+local and CI share one definition of "healthy."
 
-`make trap-guard` is the one leg with no upstream equivalent. It refuses a bash
-`trap … RETURN` whose body does not start by disarming the slot, because a RETURN
-trap is *global*, not function-scoped: armed inside a function it survives into the
-caller's frame and fires again on that frame's return, where the local it cleans up
-no longer exists and `set -u` kills the run. That is [#198][i198], and the broken
-form is valid bash — shellcheck and `bash -n` both pass it. Write it as
-`trap 'trap - RETURN; rm -rf "$tmp"' RETURN`. The gate runs in CI too, as the
-`return-traps` job in `checks.yml`.
-
-[i198]: https://github.com/dotgibson/dotfiles-Offense/issues/198
-
-## Touching `bootstrap.sh`
-
-It is idempotent and must stay that way.
+### Pre-commit (optional but recommended)
 
 ```bash
-./bootstrap.sh --dry-run       # full plan, changes nothing
-./bootstrap.sh --links-only    # then run it twice — no new *.pre-dotfiles.* files
+pip install pre-commit && pre-commit install
+pre-commit run --all-files
 ```
 
-This repo installs nothing by default — your OS-native layer owns packages, and
-`dotfiles-Debian` covers Kali. `./bootstrap.sh --install` is the opt-in: apt from
-`install/offensive-packages.txt` on Kali, and a small pipx/go subset on any other
-Debian-family box. A tool the shell layer probes also belongs in
-`install/tools.lst`, which is what the host-tool report reads. `curl | sh` is not an
-option here; pipx and go verify their own downloads, which is why those two are the
-only non-apt routes.
+This wires up `shellcheck`, the standard whitespace/shebang hooks, and the audit
+itself at commit time. Two deliberate non-checks:
 
-## What `main` enforces
+- **shfmt is not enforced.** The scripts here use an intentional compact
+  one-liner style that `shfmt` would expand.
+- **luacheck only runs via the audit** (from inside `nvim/`), because it
+  discovers `.luacheckrc` by searching up from the working directory — run from
+  the repo root it misses `nvim/.luacheckrc` and floods false "undefined vim"
+  warnings.
 
-`main` is covered by a ruleset, so the gates are not advisory:
+## Conventions
 
-- **No direct pushes.** Every change lands through a PR (0 approvals required —
-  this is a single-maintainer repo, and GitHub will not let you approve your own).
-- **10 required checks**, all of which run on *every* PR: shell lint, actionlint,
-  the bootstrap test (`links-only` + `lint`), core-integrity, companion integrity,
-  companion view drift, gitleaks, markdownlint, and the routine-filer classifier.
-- **Branches must be up to date** before merging, so a PR opened before a gate
-  existed cannot merge on stale checks.
-- Force pushes and deletion of `main` are blocked.
+- **Executable bits matter.** Anything invoked by path (the `bin/` clip shims, the
+  `scripts/` dev tooling and `tmux/scripts/` popups, the maint runner) must be `+x`;
+  the `zsh/*.zsh`
+  modules are **sourced**, so they must stay non-executable. The audit asserts
+  both, so a regression fails CI rather than reaching a machine.
+- **Indentation** is 2-space across the tree (`.editorconfig`).
+- **Keep OS-specific bits out.** Strip clipboard/paths/package-manager logic into
+  the OS repo; Core stays portable. **[`PORTABILITY.md`](PORTABILITY.md) is the how** —
+  the bash-3.2 floor, the BSD/busybox coreutils traps, and the shim pattern to reach an
+  OS capability without naming a path. Read it before your first Core change; the boundary
+  gate (`audit-core.sh` §5c) enforces it, and its scope is derived from `core.manifest`,
+  so a file you add is checked the moment you list it.
+- **Working in an OS repo instead?** [`VENDORING.md`](VENDORING.md) is the consumer-side
+  contract: what `core/` and `core.lock` mean, which number band your file may claim, and
+  how to send a fix back upstream.
 
-Two checks are deliberately *not* required. `package names resolve` is advisory —
-Kali is rolling and a package can vanish mid-migration, so it reports to the job
-summary rather than failing. CodeQL is GitHub-managed and may not run on every
-change, and a required check that never starts blocks a PR forever.
+## Commit messages
 
-Merge commits stay enabled alongside squash and rebase: a `git subtree` pull
-carries the `git-subtree-split` trailer that `scripts/sync-core.sh` and
-`scripts/sync-companion.sh` read back, and squashing would collapse it away.
+Use a [Conventional Commits](https://www.conventionalcommits.org/) prefix so the
+log reads as a changelog and tooling can group it (Renovate already commits with
+a `ci` prefix; see `renovate.json`):
 
-## Commits
+```text
+type(scope): short imperative summary
 
-[Conventional Commits](https://www.conventionalcommits.org/) —
-`type(scope): summary`, e.g. `fix(offensive): refuse to write notes inside a repo`.
-Add a line to `CHANGELOG.md` under `[Unreleased]` for anything user-visible.
+optional body explaining the why
+```
+
+Common types here: `fix`, `feat`, `test`, `ci`, `docs`, `chore`, `perf`. The
+scope is the Core area touched — `zsh`, `nvim`, `tmux`, `audit`, `changelog`, etc.
+A user-visible change should land in `CHANGELOG.md` under `[Unreleased]` in the
+same commit.
+
+## Adding a new Core file (checklist)
+
+1. Confirm it's Core (the table above).
+2. Drop it into the matching path.
+3. Strip out anything OS-specific.
+4. Add the path to `core.manifest`.
+5. Wire the symlink into each OS repo's `bootstrap.sh` if it needs one — for a
+   symlinked **config** (not a `zsh/` module) that means the matching group in
+   `blib_link_core` (`lib/bootstrap-lib.sh`), which every bootstrap sources.
+6. Give the new file's top-level directory a home in the two path lists that fan
+   out from it: the Core⇄OS boundary scan in `scripts/audit-core.sh` (§5c — a
+   vendored config gets no OS-absolute paths either) and a bucket in
+   `scripts/ci-classify.sh` (an unrecognised path fails closed to a full CI run),
+   with a matching `_classify_is` line in `scripts/test-core.sh`. The classifier
+   emits three axes — `shell`, `nvim` and `atuin` — and `atuin` is narrow on
+   purpose: it gates the premise detector's hermetic self-test, the single most
+   expensive thing the suite does, so only `scripts/`, `zsh/00-tools.zsh` and
+   `atuin/` reach it. Widening it is a real cost on every push in the fleet.
+7. `./scripts/audit-core.sh` — green before you push.
+8. `./scripts/sync-core.sh` to vendor it into every OS repo.
