@@ -98,7 +98,7 @@ index=main EventCode=4625 NOT (Source_Network_Address IN ("-","127.0.0.1"))
 <!-- companion:end password-spray-4625 -->
 
 <!-- companion:gen asrep-probing-4771 -->
-**Detect AS-REP roast (4768 no-preauth) + Kerbrute probing (4771)**
+**Detect AS-REP roast (4768 no-preauth)**
 
 Detect on the invariant, not the IOC. The roastable AS-REP is a *successful*
 `4768` TGT request with **pre-authentication type 0** (no pre-auth) for a
@@ -109,11 +109,7 @@ offline (`hashcat -m 18200` for the RC4 case). Unlike Kerberoasting the attacker
 doesn't force the etype, so the *invariant* is the type-0 pre-auth on a user, not
 the negotiated cipher — key on it directly and don't constrain the encryption
 type, or AES-only domains slip through. A normal account pre-auths with type 2
-(encrypted timestamp), so type 0 on a user is the tell. The
-one-source-to-many-accounts `4771 0x18` burst is a *secondary* enumeration tell:
-it fires on wrong-password pre-auth failures against pre-auth-**required**
-accounts (Kerbrute enum / spraying), never on the roast itself — so keep it, but
-alert on the `4768` first.
+(encrypted timestamp), so type 0 on a user is the tell.
 
 ```spl
 index=main EventCode=4768 Pre_Authentication_Type=0 Account_Name!="*$"
@@ -121,14 +117,13 @@ index=main EventCode=4768 Pre_Authentication_Type=0 Account_Name!="*$"
 | sort -count
 ```
 
-Secondary tell — Kerbrute enumeration / spray burst (one source, many accounts,
-wrong-password pre-auth failures). Tune the threshold to the environment:
-
-```spl
-index=main EventCode=4771 Failure_Code="0x18"
-| stats dc(Account_Name) AS UniqueAccounts by host, Client_Address
-| where UniqueAccounts > 5
-```
+**Not here:** the one-source-to-many-accounts `4771 Failure_Code=0x18` burst. It is a real
+signal, but it is *not* this technique — it fires on wrong-password pre-auth failures against
+pre-auth-**required** accounts (Kerbrute enum / spraying) and never on the roast itself, which
+succeeds. It is `password-spray-4625`'s primary query, at a threshold tuned for it; running a
+lower-threshold copy here only doubles the alerts on someone else's finding. Pivot to that
+entry when the two fire together — enumeration followed by roasting is one operator working
+through the domain.
 <!-- companion:end asrep-probing-4771 -->
 
 <!-- companion:gen kerberoasting-4769 -->
@@ -264,18 +259,48 @@ is not. Tighten only after confirming the masks you actually observe.
 ### Lateral movement & dumping
 
 <!-- companion:gen lateral-4624-fanout -->
-**Detect lateral movement (4624 type-3 fan-out)**
+**Detect pass-the-hash lateral movement (4624 type-3 NTLM fan-out)**
 
 One source address logging on (`4624` type 3, network) to many distinct hosts in
 a short window is the reuse pattern — pass-the-hash, sprayed creds, or a relay all
 fan out the same way. The auth succeeds, so the signal is the breadth, not a
 failure.
 
+Breadth alone is not enough, though: type-3 network logons are the most common event
+in a Windows estate, and any backup agent, scanner, or management server fans out the
+same shape all day. **Pass-the-hash is specifically an NTLM authentication** — the NT
+hash *is* the NTLM secret, so `nxc -H`, `evil-winrm -H` and `impacket-psexec -hashes`
+all land on the target as a type-3 logon with `Authentication_Package="NTLM"` and
+`Logon_Process="NtLmSsp"`. Key on that first; it is the discriminator that separates
+the paired attack from ordinary network-logon fan-out, and it lets the host floor rise
+past the noise.
+
 ```spl
-index=main EventCode=4624 Logon_Type=3 NOT (Source_Network_Address IN ("-","::1"))
-| stats dc(host) AS Hosts by Source_Network_Address
-| where Hosts > 2 | sort -Hosts
+index=main EventCode=4624 Logon_Type=3
+    (Authentication_Package="NTLM" OR Logon_Process="NtLmSsp")
+    NOT (Source_Network_Address IN ("-","::1","127.0.0.1"))
+| eval Account=mvindex(Account_Name,1)
+| stats dc(host) AS Hosts values(host) AS Hosts_Seen by Source_Network_Address, Account
+| where Hosts > 4 | sort -Hosts
 ```
+
+Keep the package-agnostic sweep as a second, broader hunt — it is noisier by
+construction, so run it as a hunt rather than an alert. It covers the sibling
+techniques the NTLM clause deliberately excludes: **overpass-the-hash** converts the
+hash into a Kerberos TGT and then authenticates as Kerberos, and a `4624` fan-out
+with a *mixed* authentication package for one account is itself worth a look:
+
+```spl
+index=main EventCode=4624 Logon_Type=3 NOT (Source_Network_Address IN ("-","::1","127.0.0.1"))
+| eval Account=mvindex(Account_Name,1)
+| stats dc(host) AS Hosts values(Authentication_Package) AS Packages by Source_Network_Address, Account
+| where Hosts > 4 | sort -Hosts
+```
+
+Baseline before alerting either way. Legacy applications, IP-literal SMB access and
+inter-forest access all produce legitimate NTLM, so the floor is environment-specific —
+tune it to your estate rather than trusting the number above, and treat a source that
+has never fanned out before as more interesting than one that always does.
 <!-- companion:end lateral-4624-fanout -->
 
 <!-- companion:gen lsass-4656 -->

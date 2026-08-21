@@ -1,8 +1,8 @@
 ---
 id: asrep-probing-4771
-title: Detect AS-REP roast (4768 no-preauth) + Kerbrute probing (4771)
+title: Detect AS-REP roast (4768 no-preauth)
 detection: splunk-spl
-event_ids: [4768, 4771]
+event_ids: [4768]
 attack:
   tactic: TA0006
   techniques: [T1558.004]
@@ -19,11 +19,7 @@ offline (`hashcat -m 18200` for the RC4 case). Unlike Kerberoasting the attacker
 doesn't force the etype, so the *invariant* is the type-0 pre-auth on a user, not
 the negotiated cipher — key on it directly and don't constrain the encryption
 type, or AES-only domains slip through. A normal account pre-auths with type 2
-(encrypted timestamp), so type 0 on a user is the tell. The
-one-source-to-many-accounts `4771 0x18` burst is a *secondary* enumeration tell:
-it fires on wrong-password pre-auth failures against pre-auth-**required**
-accounts (Kerbrute enum / spraying), never on the roast itself — so keep it, but
-alert on the `4768` first.
+(encrypted timestamp), so type 0 on a user is the tell.
 
 ```spl
 index=main EventCode=4768 Pre_Authentication_Type=0 Account_Name!="*$"
@@ -31,11 +27,10 @@ index=main EventCode=4768 Pre_Authentication_Type=0 Account_Name!="*$"
 | sort -count
 ```
 
-Secondary tell — Kerbrute enumeration / spray burst (one source, many accounts,
-wrong-password pre-auth failures). Tune the threshold to the environment:
-
-```spl
-index=main EventCode=4771 Failure_Code="0x18"
-| stats dc(Account_Name) AS UniqueAccounts by host, Client_Address
-| where UniqueAccounts > 5
-```
+**Not here:** the one-source-to-many-accounts `4771 Failure_Code=0x18` burst. It is a real
+signal, but it is *not* this technique — it fires on wrong-password pre-auth failures against
+pre-auth-**required** accounts (Kerbrute enum / spraying) and never on the roast itself, which
+succeeds. It is `password-spray-4625`'s primary query, at a threshold tuned for it; running a
+lower-threshold copy here only doubles the alerts on someone else's finding. Pivot to that
+entry when the two fire together — enumeration followed by roasting is one operator working
+through the domain.
