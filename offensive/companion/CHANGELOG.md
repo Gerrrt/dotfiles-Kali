@@ -18,6 +18,68 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [v2.9.0] - 2026-08-21
+
+### Added
+
+- **Linux endpoint persistence — the corpus's first Linux tradecraft beyond the lone
+  cryptomining pair.** Three new red↔blue pairs (#77), each an on-host persistence
+  technique against its auditd detection. ATT&CK tags verified against live MITRE. The
+  blue halves establish the Linux detection idiom the corpus did not yet have: auditd
+  `-w` path watches (which alert nothing until loaded, so each entry ships its rules),
+  and a single discriminator across all three — the *writing process*, since a package
+  manager touching these paths is baseline and a shell or interpreter touching them is
+  the finding.
+
+  - **`cron-persist` / `cron-persist-auditd`** — `T1053.003`. Watches the cron
+    drop-directories (`/etc/cron.d/`, the `cron.{hourly,daily,weekly,monthly}` dirs,
+    `/var/spool/cron/`) rather than the `crontab` binary, since a file dropped into
+    `/etc/cron.d/` never invokes it.
+  - **`systemd-persist` / `systemd-persist-auditd`** — `T1543.002`. Watches the system
+    unit dirs for a new `.service`/`.timer`, and calls out the per-user
+    `~/.config/systemd/user/` tree an unprivileged implant uses without touching a
+    root-owned path.
+  - **`ssh-authkeys-persist` / `ssh-authkeys-auditd`** — `T1098.004`. The write *is* the
+    detection (there is no process to catch); covers root and service accounts by name,
+    `/home` by directory watch, and the `AuthorizedKeysCommand` `sshd_config` variant
+    that never touches an `authorized_keys` file.
+
+- **Linux privilege escalation — sudo and SUID abuse.** Two more red↔blue pairs (#77),
+  the privesc tranche following the persistence one above, on the same auditd idiom.
+  ATT&CK tags verified against live MITRE. Both blue halves share one invariant that
+  generalizes past any single GTFOBins vehicle: auditd preserves the **loginuid (`auid`)**
+  across a privilege transition, so a root shell (`euid=0`) whose `auid` is still a real
+  login user is the fingerprint of an escalation — sudo and SUID alike — captured once as
+  the `priv_exec` rule and reused by both.
+
+  - **`sudo-abuse-privesc` / `sudo-abuse-auditd`** — `T1548.003`. Keys on the
+    loginuid-vs-euid gap rather than the allowed binary, plus a `/etc/sudoers` /
+    `/etc/sudoers.d/` watch that catches the misconfiguration being *planted* before it
+    is abused.
+  - **`suid-abuse-privesc` / `suid-abuse-auditd`** — `T1548.001`. Adds a `chmod`/`fchmodat`
+    setuid-bit watch for the planted-SUID path, kept deliberately broad (auditd cannot
+    cheaply filter to only the setuid bit) with the triage narrowing to `04000` on a
+    shell or a file outside the baseline SUID set — the same broad-catch, narrow-in-query
+    shape the persistence watches use.
+
+- **Linux credential access — /etc/shadow and SSH private keys.** The final #77 tranche,
+  which closes the issue: Linux endpoint coverage goes from one entry to eight, spanning
+  persistence, privilege escalation, and credential access. ATT&CK tags verified against
+  live MITRE. The idiom shifts from watching writes to watching **reads** — auditd
+  captures a read only when the watch is set with `-p r` — with the reading process (and
+  the `auid` behind it) as the discriminator, the read-side mirror of the earlier
+  tranches' writing-process key.
+
+  - **`shadow-dump-credaccess` / `shadow-dump-auditd`** — `T1003.008`. A read watch on
+    `/etc/shadow` is naturally high-fidelity because almost nothing should read it; the
+    query allowlists the auth stack and account tools and surfaces any other reader
+    (`cat`, `cp`, `unshadow`, a `/tmp` binary).
+  - **`ssh-key-theft-credaccess` / `ssh-key-theft-auditd`** — `T1552.004`. Harder,
+    because a private key is read on every outbound SSH; the query leans on the theft
+    *shape* — one process, one `auid`, keys read across **many** users' `.ssh` dirs
+    (`dc(home) > 1`) — with the non-`ssh`/`git` reader allowlist as the weaker
+    single-key arm.
+
 ## [v2.8.2] - 2026-08-21
 
 ### Fixed
