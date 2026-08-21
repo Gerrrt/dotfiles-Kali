@@ -18,6 +18,46 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [v2.8.1] - 2026-08-20
+
+### Fixed
+
+- **`wmi-subscription` shipped an nxc module that does not exist.** Its first line was
+  `nxc smb {{rhost}} … -M wmi-event -o CONSUMER=…`. There is no such module, in either
+  spelling: checked against netexec 1.5.1, neither the 126 modules in `nxc smb -L` nor the
+  shorter `nxc wmi -L` list contains `wmi-event` or `wmi_event`. This was not the usual
+  hyphen-vs-underscore drift that the rest of the corpus' module names (`gpp_password`,
+  `lsassy`, `schtask_as`) would suggest — the whole invocation was fabricated, `-o
+  CONSUMER=` included.
+
+  It is **deleted rather than corrected**, because NetExec has no equivalent. Its one
+  T1546.003 surface is `nxc wmi <t> --exec-method wmiexec-event`, and that is an
+  *execution* method — it drives a subscription and tears it down — not the reboot-surviving
+  permanent consumer this entry is about. Substituting it would have kept the line running
+  at the cost of making the entry describe something else. The body now says so explicitly,
+  so the next reader does not "restore" a plausible-looking module. PowerLurk's
+  `Register-MaliciousWmiEvent`, which does do what the prose describes, is untouched — as is
+  the `__FilterToConsumerBinding` pedagogy the paired detection (`wmi-subscription-sysmon`)
+  keys on.
+
+- **`ntlm-relay-ntlmrelayx` invoked `proxychains`, which is not a binary.** The apt package
+  is `proxychains4` and it ships only `/usr/bin/proxychains4`; its `Provides: proxychains`
+  is a *virtual package* relation, so no file by that name lands on the box and
+  `apt-file search '/usr/bin/proxychains$'` matches nothing. `clip` the entry, paste, and
+  the relay ride dies with `command not found` at the moment the SOCKS session is parked.
+  Now `proxychains4`, in both the command and the prose.
+
+Unlike `coerce-petitpotam` in v2.8.0, `wmi-subscription` **is** projected into
+`dotfiles-Offense`'s `hacktheplanet`, so its `companion.yml` byte-gate did compare the two
+— and stayed green, because the gate asserts the flat view matches the entry, not that
+either names a real tool. A projected entry is no safer than an unprojected one against
+this class of bug; only running the tool is.
+
+Both were found while acting on dotfiles-Offense's `/methodology-review` routine
+(dotgibson/dotfiles-Offense#187). That report guessed the module was a `wmi_event`
+underscore typo and called the `proxychains` name "probably fine … one `command -v` settles
+it" — the command was run, and both guesses were wrong in the same direction: worse.
+
 ## [v2.8.0] - 2026-08-20
 
 ### Changed
