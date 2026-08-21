@@ -17,7 +17,11 @@ a `__FilterToConsumerBinding`. It lives in the WMI repository, survives reboot,
 runs as SYSTEM, and touches no Run key or scheduled task. PowerLurk's
 `Register-MaliciousWmiEvent` is the easy local PoC. Authorized only.
 
+NetExec has no module for this: there is no `wmi-event`/`wmi_event` in either
+`nxc smb -L` or `nxc wmi -L`. Its one T1546.003 surface is `nxc wmi <t>
+--exec-method wmiexec-event`, which *executes* through a subscription it then
+tears down — not the reboot-surviving consumer this entry is about.
+
 ```sh
-nxc smb {{rhost}} -u {{user}} -p {{password}} -M wmi-event -o CONSUMER='powershell -w hidden -enc <b64>'
 Register-MaliciousWmiEvent -EventName Persist -PermanentCommand "powershell -w hidden -enc <b64>" -Trigger ProcessStart -ProcessName notepad.exe
 ```
