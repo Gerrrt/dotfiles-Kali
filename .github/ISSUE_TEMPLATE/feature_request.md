@@ -1,36 +1,25 @@
 ---
 name: Feature request
-about: A tool, helper, or workflow this layer should carry
+about: Propose a new Core file or a change to an existing one
+title: "feat: "
 labels: enhancement
 ---
 
-## What & why
+## What do you want to add or change?
 
-<!-- What should exist, and what engagement problem it solves. -->
+A clear description of the proposal.
 
-## Which layer owns it?
+## Is it actually Core?
 
-<!-- Tick one. This is the question that decides where the change lands. -->
+Core is the config that is **identical on every machine** and **not** offensive
+tooling. Confirm it passes the three-layer test (see CONTRIBUTING.md):
 
-- [ ] **Offensive role** (`offensive/`) — changes with the operator; engagement
-      scaffolding, a field-reference entry, a helper
-- [ ] **OS layer** — changes with the distro; a package, a path, a clipboard or status
-      detail. This belongs in
-      [dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian) (it covers Kali),
-      not here — this repo has no `os/` layer
-- [ ] **Core** — identical on every machine. This belongs in
-      [dotfiles-core](https://github.com/dotgibson/dotfiles-core), not here
-- [ ] **Companion corpus** — a paired red/blue entry belongs in
-      [htpx](https://github.com/dotgibson/htpx)
+- [ ] It is identical on every machine (not OS-specific: no package manager,
+      paths, or clipboard logic).
+- [ ] It is not offensive/engagement tooling (that lives in `dotfiles-Offense`).
+- [ ] If it's a new file, I'll add its path to `core.manifest` (the contract).
 
-## If this is a new tool
+## Why
 
-- Package name on Kali (`apt-cache policy <name>`):
-- If not packaged, how it installs:
-- Does it replace something already here?
-
-<!-- This repo installs nothing by default: your OS-native layer (dotfiles-Debian,
-     which covers Kali) owns packages. `./bootstrap.sh --install` is the opt-in — apt
-     from install/offensive-packages.txt on Kali, a small pipx/go subset elsewhere.
-     Both routes verify their own downloads; a `curl | sh` installer will not be
-     added. -->
+What this enables, or what pain it removes. Since a change here fans out to all
+nine OS repos, note any blast radius worth weighing.
