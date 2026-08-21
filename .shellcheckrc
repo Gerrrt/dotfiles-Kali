@@ -1,42 +1,20 @@
 # .shellcheckrc — repo-wide ShellCheck config so author-time, CI, and editor
-# (bashls / nvim) all lint identically.
-#
-# Before this, the only ShellCheck settings in play were whatever flags a given
-# caller happened to pass, and they disagreed: the fleet lint gate
-# (dotfiles-core's lint-call.yml) runs plain `shellcheck`, while the bootstrap test
-# runs `shellcheck -x bootstrap.sh`. An editor opening the same file saw neither.
-# This centralises the cross-cutting bits so all three agree.
-#
-# File-SPECIFIC suppressions stay inline, next to the code that needs them — they
-# are not global truths and must not be hidden here.
+# (bashls / nvim) all lint identically. Previously the only ShellCheck settings were
+# the `-x` flag the audit passes and per-file `# shellcheck` directives scattered in
+# the scripts; an editor opening a script saw none of that and could disagree with CI.
+# This centralises the cross-cutting bits. File-SPECIFIC suppressions (e.g. the
+# intentional SC2016 in test-core.sh / bench-core.sh, where `$` in single quotes is
+# expanded by a zsh CHILD, not this bash parent) deliberately stay inline, next to the
+# code that needs them — they are not global truths and must not be hidden here.
 
 # Follow `source`/`.`-d files so `-x` works from any working directory, and resolve a
-# sourced path relative to the script being checked (SCRIPTDIR). This is what lets
-# bootstrap.sh's `source "$DOTFILES/core/lib/bootstrap-lib.sh"` and the test/ scripts'
-# `source "$REPO_ROOT/core/lib/ux.sh"` resolve without an inline directive per file.
+# sourced path relative to the script being checked (SCRIPTDIR) — this is what lets the
+# gate scripts' `source "${BASH_SOURCE[0]%/*}/lib/common.sh"` resolve in an editor
+# without each file needing an inline `# shellcheck source=` directive.
 external-sources=true
 source-path=SCRIPTDIR
 source-path=scripts
-source-path=test
 
-# Lint as bash: every runnable script outside the vendored trees is
-# `#!/usr/bin/env bash`, and the libraries it sources from core/lib/ carry no
-# shebang, so pin the dialect explicitly rather than letting it be inferred.
+# Lint as bash: every runnable script here is `#!/usr/bin/env bash`, and the sourced
+# libraries (scripts/lib/*.sh) carry no shebang, so pin the dialect explicitly.
 shell=bash
-
-# NOTE ON THE VENDORED TREES: core/ and offensive/companion/ are git-subtree copies
-# gated by their own upstreams' CI, and the lint workflow excludes both by pathspec
-# (`:!:core/**`, `:!:offensive/companion/**`). This file does not need to — and
-# cannot — exclude them; it only shapes how the files that ARE checked get checked.
-
-# House-style suppressions. These MIRROR the fleet gate in dotfiles-core
-# (.github/workflows/lint-call.yml and bootstrap-test.yml both set
-# SHELLCHECK_OPTS="-e SC1090 -e SC1091 -e SC2015 -e SC2088"). Without them, a local
-# `shellcheck` and an editor disagreed with a green CI — the drift recorded in
-# dotfiles-core#573. Keep them in step: if that list changes upstream, change it here
-# too. File-SPECIFIC suppressions stay INLINE at their use site; they are not global
-# truths and must not be hidden here.
-#   SC1090/SC1091 — runtime `source` of a path ShellCheck cannot follow statically
-#   SC2015        — the deliberate `cmd && ok || warn` idiom used throughout
-#   SC2088        — a literal `~` inside a user-facing MESSAGE, not a path to expand
-disable=SC1090,SC1091,SC2015,SC2088
