@@ -18,6 +18,15 @@ same CDN. Defenders watching the SNI never see the real destination. The tell is
 mismatch itself — the encrypted Host disagreeing with the SNI — plus the CDN edge
 being contacted by a non-browser process.
 
+**Currency — assume this is closed on the big four.** Classic fronting was deliberately
+broken by the major CDNs between roughly 2018 and 2021: AWS CloudFront, Google, Azure and
+Fastly all added SNI/Host matching, so an inner `Host` that disagrees with the SNI is
+rejected at the edge rather than routed. Treat this entry as the *shape* of the technique,
+not a working recipe against those providers — where it still lands is smaller or
+misconfigured CDNs that never added the check, multi-tenant fronts inside a single account,
+and the domain-*borrowing* variants (an attacker-controlled hostname on the same
+high-reputation CDN, SNI and Host agreeing). Test the front before you rely on it.
+
 ```sh
 # Cobalt Strike malleable profile: front on a benign CDN domain, route via Host
 #   set host_stage "false";

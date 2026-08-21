@@ -22,6 +22,17 @@ Administrator — it can reset a GA's credentials, so it is a GA grant one step 
 is the one most likely to be waved through on review. A grant that quickly follows a new-user
 or new-service-principal creation is the persistence pattern.
 
+**Rank the role, don't filter on it.** The selling point of this technique is that it blends
+into ordinary role churn, so a short named-role allowlist is the one shape that must not gate
+the query: an attacker who reads the same detection simply takes User Administrator, Groups
+Administrator, Cloud Application Administrator, or Hybrid Identity Administrator instead —
+each a path back to Global Admin — and the alert never fires. Alert on every grant and sort by
+role sensitivity, so the tier-0 grants surface first and the rest stay visible as churn to
+baseline against. The `tier` lists below are a starting point; Entra marks the authoritative
+set with the role definition's **`isPrivileged`** property, so a tenant that can join a role
+watchlist (or an `externaldata` pull of the privileged role list) should key on that rather
+than hand-maintain the `case`.
+
 Entra audit telemetry (KQL / Sentinel), companion-only — `PURPLE-TEAM.md` is on-prem Windows.
 
 ```kql
@@ -31,7 +42,14 @@ AuditLogs
 | mv-expand prop = TargetResources[0].modifiedProperties
 | where tostring(prop.displayName) == "Role.DisplayName"
 | extend role = trim('"', tostring(prop.newValue))
-| where role has_any ("Global Administrator", "Privileged Role Administrator",
-    "Privileged Authentication Administrator", "Application Administrator")
-| project TimeGenerated, InitiatedBy, OperationName, role, TargetResources
+| extend tier = case(
+    role in ("Global Administrator", "Privileged Role Administrator",
+             "Privileged Authentication Administrator"), 0,
+    role in ("Application Administrator", "Cloud Application Administrator",
+             "User Administrator", "Groups Administrator",
+             "Hybrid Identity Administrator", "Authentication Administrator",
+             "Security Administrator", "Directory Writers"), 1,
+    2)
+| project TimeGenerated, tier, InitiatedBy, OperationName, role, TargetResources
+| sort by tier asc, TimeGenerated desc
 ```
