@@ -13,7 +13,7 @@
 # Run `make` with no target for the list.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help lint shellcheck markdown test packages-check secrets \
+.PHONY: help lint shellcheck markdown trap-guard test packages-check secrets \
         core-check core-sync core-lock companion-check companion-sync companion-integrity \
         bootstrap-dry hooks
 
@@ -32,7 +32,7 @@ help: ## Show this help
 
 ## ── gates ────────────────────────────────────────────────────────────────────
 
-lint: shellcheck markdown ## Run every static gate (shellcheck + syntax + markdown)
+lint: shellcheck markdown trap-guard ## Run every static gate (shellcheck + syntax + markdown + trap discipline)
 
 shellcheck: ## shellcheck + bash -n / zsh -n over repo-owned shell
 	@command -v shellcheck >/dev/null 2>&1 \
@@ -43,6 +43,14 @@ shellcheck: ## shellcheck + bash -n / zsh -n over repo-owned shell
 	@for f in $(SH_FILES); do bash -n "$$f" || exit 1; done
 	@command -v zsh >/dev/null 2>&1 && { echo ":: zsh -n"; for f in $(ZSH_FILES); do zsh -n "$$f" || exit 1; done; } || true
 	@echo "✓ shell clean"
+
+trap-guard: ## Refuse a RETURN trap that does not disarm itself (shellcheck cannot see this)
+	@# A bash RETURN trap is a GLOBAL slot, not a function-scoped one: armed inside a
+	@# function it survives into the CALLER's frame and fires again on ITS return, where
+	@# the local it cleans up is gone and `set -u` kills the script. That is issue #198.
+	@# Valid syntax, so shellcheck and `bash -n` both pass it, and no gate in this fleet
+	@# ever runs a real install path — hence a dedicated grep. See the script's header.
+	@./test/check-return-traps.sh
 
 markdown: ## markdownlint repo-owned docs (pinned version, same as CI)
 	@command -v npx >/dev/null 2>&1 || { echo "npx not available — skipping markdown"; exit 0; }

@@ -8,6 +8,12 @@
 #   companion — tamper check on the SECOND vendored subtree. core-integrity.yml
 #               guards core/; offensive/companion/ had freshness and view-drift but
 #               nothing asserting the vendored tree still matches companion.lock.
+#   traps     — refuses a bash RETURN trap that does not disarm itself (issue #198).
+#               A RETURN trap is a GLOBAL slot: armed in a function it survives into the
+#               caller's frame and fires again on ITS return, aborting the script under
+#               `set -u`. The broken form is VALID BASH, so lint-call.yml's shellcheck
+#               and `bash -n` both pass it, and bootstrap.yml only ever runs
+#               --links-only — so no other gate anywhere observes it.
 #
 # WHY SECRET SCANNING MATTERS HERE MORE THAN ANYWHERE ELSE IN THE FLEET: this is a
 # public repo whose own .gitignore header says "engagement data must NEVER land
@@ -147,3 +153,39 @@ jobs:
               exit 1
               ;;
           esac
+
+  return-traps:
+    name: trap discipline (no leaked RETURN traps)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No toolchain step: the guard needs git and grep, both of which the runner has.
+      # It reads `git ls-files`, so the default shallow checkout is fine — it inspects
+      # the tree at this commit, never history.
+      - name: Assert every RETURN trap disarms itself
+        run: |
+          set -uo pipefail
+          rc=0
+          out="$(./test/check-return-traps.sh 2>&1)" || rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -eq 0 ]; then
+            echo "### ✅ every RETURN trap disarms itself" >>"$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### ❌ a RETURN trap is armed without disarming itself"
+              echo ""
+              echo '```'
+              printf '%s\n' "$out"
+              echo '```'
+              echo ""
+              echo "A bash RETURN trap is a **global slot**, not a function-scoped one: it"
+              echo "survives into the caller's frame and fires again on *its* return, where the"
+              echo "local it cleans up is out of scope and \`set -u\` makes that fatal. Disarm"
+              echo "first — \`trap 'trap - RETURN; rm -rf \"\$tmp\"' RETURN\`. Background: #198."
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
