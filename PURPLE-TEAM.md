@@ -55,13 +55,24 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > here (CI rejects a hand-edit). Everything outside the markers is hand-authored.
 >
 > **Scope: this map is the Windows Security / Sysmon mirror.** Every section below
-> keys off a Windows event ID, which is why only 23 of the companion's 90 blue
-> entries project here. The other 67 detect in logs this file has no section for —
+> keys off a Windows event ID, which is why only 23 of the companion's 101 blue
+> entries project here. The other 78 mostly detect in logs this file has no section for —
 > AWS CloudTrail, GCP audit logs, Entra sign-in/audit, Okta system log, GitHub/GitLab
 > audit, Vault audit device, Snowflake account usage — plus the C2-egress and Impact
 > detections. Read those with `htpx` (`~/companion`), which shows each detection
 > beside the attack that trips it. That split is deliberate, not a backlog: a
 > cloud-audit query has nothing to do with a Sysmon feed in `index=main`.
+>
+> Of those 78, **69** genuinely carry no Windows event ID. Seven of the remaining
+> nine are the C2-egress and Impact detections named above. The last two —
+> `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662**, which is
+> this file's own criterion for projecting, and yet project nowhere. That pair is a
+> real gap rather than part of the split, and it mirrors exactly the two unprojected
+> red entries `hacktheplanet` now flags. Read them with `htpx` until it is closed.
+>
+> These counts are hand-maintained and go stale on every `companion-sync` — they last
+> moved for htpx v2.10.0. If they disagree with
+> `ls offensive/companion/entries/blue | wc -l`, this file is wrong, not the corpus.
 
 ### Recon / credential access
 
