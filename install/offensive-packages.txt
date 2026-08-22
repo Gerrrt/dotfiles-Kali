@@ -271,11 +271,13 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # hate_crack        → UPSTREAM (github.com/trustedsec/hate_crack): chains dict → rules
 #                     → mask automatically. Referenced as a comment in hacktheplanet.
 
-# ── Corpus-only operator tooling, not in apt ──────────────────────────────────
-# These run on the ATTACKER box (unlike the target-dropped block below), are invoked by a
-# red corpus entry, and have no Kali package. They were unaccounted until
-# test/check-corpus-commands.sh started resolving corpus commands (#208) — the same class
-# of gap that let `impacket-petitpotam` ship.
+# ── Operator-side tooling, not in apt ─────────────────────────────────────────
+# These run on the ATTACKER box (unlike the target-dropped block below) and have no Kali
+# package. Most are invoked by a red corpus entry — they were unaccounted until
+# test/check-corpus-commands.sh started resolving corpus commands (#208), the same class
+# of gap that let `impacket-petitpotam` ship. A few (sccmhunter, pxethiefy) are named by
+# hacktheplanet rather than the corpus, which is the same accounting obligation: this file
+# accounts for every tool the DOCS *and* the corpus name (see the target-dropped block).
 # evilginx2         → UPSTREAM (github.com/kgretzky/evilginx2, `go install` or release
 #                     binary): the AitM reverse-proxy phishing framework behind the
 #                     `aitm-phish` entry. Its lines are typed at the `evilginx>` console,
@@ -289,6 +291,21 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 #                     can read them (`tfc-agent-hijack`). NOT target-dropped, which is why
 #                     it sits here — it corrects this file's older claim that the Terraform
 #                     Cloud entries are pure REST.
+# sccmhunter        → UPSTREAM (github.com/garrettfoster13/sccmhunter, NOT on PyPI):
+#                     `pipx install git+https://github.com/garrettfoster13/sccmhunter/`.
+#                     The SCCM/MECM site-takeover + NAA-extraction toolkit in hacktheplanet's
+#                     SCCM fold. Two gotchas that make the difference between it installing
+#                     and not: the binary is `sccmhunter.py`, not a bare `sccmhunter`, and
+#                     pyproject pins its ldap3 to the ly4k fork via [tool.uv.sources], which
+#                     pip/pipx IGNORE — so the README venv route (requirements.txt) is the
+#                     fallback when the pipx one misbehaves. Wants Python >= 3.13. This is
+#                     why it is NOT wired into --install like ROADtools: a git+URL with a
+#                     Python floor and a silently-dropped dep pin is a best-effort loop that
+#                     fails quietly, and a documented manual step beats that. See #230.
+# pxethiefy         → UPSTREAM (github.com/csandker/pxethiefy, git clone + a venv):
+#                     the Linux PXE-boot-media credential thief in the same SCCM fold (the
+#                     lighter cousin of MWR's Windows PXEThief). Single script, needs
+#                     CAP_NET_RAW. The recovered blob cracks with hashcat -m 19850.
 
 # ── Target-dropped enumeration (nothing to install HERE) ──────────────────────
 # These run ON the target, not on the attacker box, so they're per-engagement
