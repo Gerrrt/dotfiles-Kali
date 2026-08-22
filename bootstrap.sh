@@ -295,6 +295,36 @@ _go_install() {
     echo "   go install $mod failed — retry by hand: GOBIN=\"\$HOME/.local/bin\" go install $mod"
 }
 
+# _install_apt_absent — the tools NO route can apt-install, on EVERY route.
+#
+# A THIRD category, and it does not obey the portable-subset rule above. That subset is
+# "(a) installs cleanly from PyPI and (b) offensive.zsh actually probes", and it runs only
+# on the non-Kali path because Kali packages everything in it. What lands here satisfies
+# (a) and NOT (b): apt-absent corpus/doc tooling that offensive.zsh never calls, installed
+# because nothing else on any route will install it.
+#
+# Called from BOTH branches of install_offensive on purpose. Hanging ROADtools off the
+# non-Kali block would have installed it on every box EXCEPT the Kali/WSL2 attacker box
+# this whole layer is built for — the one place dotfiles-Offense#231 wanted it.
+#
+# The bar for adding to this list is high, and sccmhunter is the worked example of failing
+# it (dotfiles-Offense#230): not on PyPI at all, a `pipx install git+...` with a Python 3.13
+# floor and an ldap3 fork pinned via [tool.uv.sources] that pip silently ignores. That is a
+# best-effort loop that fails quietly, which is worse than the manifest's UPSTREAM note
+# telling an operator to run one documented command. PyPI-clean, or it stays documented.
+_install_apt_absent() {
+  command -v pipx >/dev/null 2>&1 || {
+    blib_warn "pipx not found — skipping the apt-absent tools (install pipx via your OS layer)"
+    return 0
+  }
+  # ROADtools: roadrecon (Entra directory enum -> local DB + web UI) and roadtx (token
+  # manipulation / auth flows, incl. the device-code flow). Two separate PyPI packages,
+  # each with its own console_script of the same name. The corpus' Entra entries cite
+  # dirkjanm's work and then hand you Windows-only PowerShell; this is the Linux half.
+  _pipx_install roadrecon roadrecon
+  _pipx_install roadtx roadtx
+}
+
 install_offensive() {
   local off_list="$DOTFILES/install/offensive-packages.txt"
 
@@ -311,6 +341,7 @@ install_offensive() {
     }
     if ((DRY)); then
       blib_say "(dry run) would apt-install ${#off[@]} offensive packages (install/offensive-packages.txt)"
+      blib_say "(dry run) would pipx-install (apt-absent, every route): roadrecon roadtx"
       return 0
     fi
     # One password prompt up front, then keep the timestamp warm. Without this the first
@@ -325,6 +356,9 @@ install_offensive() {
     apt_install "${off[@]}"
     blib_ok "offensive packages requested: ${#off[@]}"
     blib_say "the apt list is Kali's. On a slim box some of these ship in kali-linux-default already."
+    # Kali packages nearly this whole stack, but not ROADtools — and apt is the ONLY thing
+    # this branch used to run, so the Entra half stayed missing on the very box that needs it.
+    _install_apt_absent
     return 0
   fi
 
@@ -340,6 +374,7 @@ install_offensive() {
   blib_say "  the rest of install/offensive-packages.txt is Kali-packaged; see its UPSTREAM notes"
   if ((DRY)); then
     blib_say "(dry run) would pipx-install: impacket certipy-ad netexec bloodyAD ldapdomaindump bloodhound-ce"
+    blib_say "(dry run) would pipx-install (apt-absent, every route): roadrecon roadtx"
     blib_say "(dry run) would go-install:   nuclei gobuster ffuf kerbrute"
     return 0
   fi
@@ -359,6 +394,9 @@ install_offensive() {
   else
     blib_warn "pipx not found — skipping the python tools (install pipx via your OS layer)"
   fi
+
+  # Apt-absent on this route too — it is apt-absent on EVERY route, which is the point.
+  _install_apt_absent
 
   if command -v go >/dev/null 2>&1; then
     _go_install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest nuclei
