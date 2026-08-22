@@ -71,7 +71,12 @@ paranoid `.gitignore` as backup.
 - `offensive/companion` — **a vendored `git subtree` of [dotgibson/htpx](https://github.com/dotgibson/htpx)** (provenance in `companion.lock`): the structured, ATT&CK-tagged, red↔blue-paired corpus (`entries/red|blue/*.md`) browsed with `htpx` (fzf: pick → preview attack beside its detection → fill `{{slots}}` → `clip`); dir symlinked to `~/companion`. **Same rule as `core/`: do not hand-edit the vendored tree** — it's overwritten on the next sync. Edit upstream in htpx, then run `scripts/sync-companion.sh` (pulls htpx `main` + bumps `companion.lock`; or do the `git subtree pull --prefix=offensive/companion <htpx> main --squash` + lock bump by hand). It's the **source of truth** for the paired slice; `gen-views.sh` generates the marked blocks in `hacktheplanet`/`PURPLE-TEAM.md` from the entries and `.github/workflows/companion.yml` drift-gates them (`hacktheplanet`/`PURPLE-TEAM.md` stay canonical for everything *outside* the markers)
 - `install/offensive-packages.txt` — the apt list `--install` uses **on Kali only**
 - `install/tools.lst` — the host-tool probe list: what `bootstrap.sh` reports on. A
-  command belongs here only if `offensive/offensive.zsh` probes or invokes it by bare name
+  command belongs here only if the offensive **role layer** probes or invokes it by bare
+  name — usually `offensive/offensive.zsh`, but `tmux` is there for `offensive.conf` and
+  `offensive/tmux/tmux-eng.sh`. A tool the cheatsheets merely mention does not belong
 - `OFFENSIVE-METHODOLOGY.md` — the engagement playbook
+- `aliases.md` — the role layer's helper/alias reference (the shell twin of the four
+  field references; documents `htp`/`xdev`/`evade`/`ipp`/`htpx` and the `offensive.zsh`
+  helpers, including why the openers are read-only)
 - `bootstrap.sh` — symlinks Core + the offensive role layer; probes host tools; `--install` is opt-in
 - `core/` — vendored Core (read-only here; edit upstream in dotfiles-core)

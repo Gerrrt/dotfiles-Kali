@@ -241,6 +241,8 @@ Reference
 #
 # Companion references in THIS repo (different altitudes):
 #   ~/hacktheplanet  (`htp`)   per-service copy-paste command syntax — the COMMANDS
+#   ~/companion      (`htpx`)  the structured red<->blue corpus: each attack previewed
+#                              beside its detection, {{slots}} filled, `clip`
 #   ~/exploitdev     (`xdev`)  binary exploitation: BOF/SEH/egghunter/ROP
 #   ~/evasion        (`evade`) AV/AMSI/AppLocker evasion, client-side, injection
 #   OFFENSIVE-METHODOLOGY.md   the phase -> MITRE ATT&CK -> tool map

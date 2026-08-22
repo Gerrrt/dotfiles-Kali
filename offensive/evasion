@@ -6,7 +6,9 @@ and process injection, network-filter/egress bypass, and the advanced AD abuse
 that breaching a hardened environment turns on. Companion to offensive/exploitdev
 (binary exploitation) and offensive/hacktheplanet (per-service command syntax).
 
-Folds in vim like the others: `vim ~/evasion` (or the `evade` alias), `za`/`zM`/`zR`.
+Folds in vim/neovim (modeline at the bottom wires it): `evade` to open, `za` toggle
+a fold, `zM` close all, `zR` open all. (`evade` opens read-only by design — see
+~/hacktheplanet's header; use `htp -w`-style deliberate editing if you must.)
 
 SCOPE FIRST. Evasion is for AUTHORIZED red-team / adversary-emulation engagements
 with written ROE. Coordinate with the blue team where the ROE requires it; log
@@ -147,11 +149,18 @@ Reference
 # LOLBAS   https://lolbas-project.github.io   (signed-binary execution/bypass)
 # GTFOBins https://gtfobins.github.io          (Linux binary -> escalation/exec)
 # Unprotect Project (evasion technique catalog) | MITRE ATT&CK TA0005 Defense Evasion
-# Companion files in this repo:
-#   offensive/hacktheplanet   per-service command syntax (enumeration -> access)
-#   offensive/exploitdev      binary exploitation (BOF/SEH/egghunter/shellcode)
-#   OFFENSIVE-METHODOLOGY.md  the phase -> ATT&CK -> tool map
-#   PURPLE-TEAM.md            the blue-team mirror: detections + event IDs per attack
+# Companion references in this repo (different altitudes):
+#   ~/hacktheplanet  (`htp`)   per-service command syntax (enumeration -> access)
+#   ~/companion      (`htpx`)  the structured red<->blue corpus — and the ONLY place the
+#                              C2-egress commands for the "Network-filter & egress bypass"
+#                              fold above actually live: dns-tunnel-c2, icmp-tunnel-c2,
+#                              domain-fronting-cdn, https-beacon-sliver, mtls-c2-sliver,
+#                              web-service-c2-telegram. This file has the concepts; those
+#                              entries have the command lines
+#   ~/exploitdev     (`xdev`)  binary exploitation (BOF/SEH/egghunter/shellcode)
+#   ~/ippsec         (`ipp`)   THE METHOD: recon loop, shell stabilization, unsticking playbook
+#   OFFENSIVE-METHODOLOGY.md   the phase -> ATT&CK -> tool map
+#   PURPLE-TEAM.md             the blue-team mirror: detections + event IDs per attack
 ////////////////////////////////////////
 
 # vim: set fdm=marker fmr=++++++++++++++++++++++++++++++++++++++++,//////////////////////////////////////// fdl=0 :

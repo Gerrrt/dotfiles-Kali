@@ -32,7 +32,7 @@ something already listed:
   that move faster than the repo — e.g. `kerbrute`, `katana`, `sliver`, `havoc`,
   `caldera`), and the rename/EOL notes (e.g. "netexec — successor to CrackMapExec
   (CME archived 2023)", "bloodhound-ce-python vs the LEGACY bloodhound.py",
-  "certipy-ad ESC1–ESC16"). These annotations are hand-maintained prose — a prime
+  "certipy-ad ESC1–ESC17"). These annotations are hand-maintained prose — a prime
   place for drift.
 - `offensive/offensive.zsh` — the `HAVE_*`-guarded tool set, and **`redup`'s updater
   list** (the fast-movers it refreshes: `nuclei` engine+templates, `searchsploit`,

