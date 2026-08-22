@@ -18,6 +18,22 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [v2.10.1] - 2026-08-22
+
+### Fixed
+
+- **`bloodhound-collect` now invokes the CE collector.** The Linux line ran
+  `bloodhound-python`, the binary from the legacy `bloodhound.py` package
+  (≤4.3.1), whose zips **do not ingest into BloodHound CE** — an operator could
+  clip the command, collect a full domain graph, and only then have CE reject the
+  archive. Swapped to `bloodhound-ce-python` (apt `bloodhound-ce-python`, pipx
+  `bloodhound-ce`); same fork, same `-u/-p/-d/-dc/-c` flags, so this is a name
+  swap and not a flag rewrite. The entry now also states plainly that the legacy
+  collector exists and is not CE-compatible, for anyone who already has it
+  installed and would otherwise wonder why ingest fails. The `SharpHound.exe`
+  line and the paired blue entry `bloodhound-collect-4662` are unaffected — the
+  `4662`/`1644` telemetry is identical either way. (#89)
+
 ## [v2.10.0] - 2026-08-21
 
 ### Added
