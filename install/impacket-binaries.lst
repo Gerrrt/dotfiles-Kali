@@ -1,0 +1,87 @@
+# install/impacket-binaries.lst — every `impacket-*` command Kali puts on PATH.
+#
+# WHY THIS FILE EXISTS. test/check-corpus-commands.sh is offline and REQUIRED, so it
+# cannot ask apt whether an `impacket-something` is real. It also must not ask the local
+# box: these binaries only exist where the packages are installed, and a maintainer's
+# laptop would then decide which corpus lines pass. So the roster is checked in.
+#
+# This is the list that makes `impacket-petitpotam` FAIL. The `impacket-` prefix is not a
+# licence — membership here is (dotgibson/dotfiles-Offense#208). PetitPotam is
+# topotam/PetitPotam and was never an impacket script; it shipped in a corpus entry and no
+# gate on either side could see it.
+#
+# ⚠ TWO PACKAGES, NOT ONE. The manifest lists `impacket-scripts` (57 binaries), but five
+# more — including `impacket-secretsdump` and `impacket-wmiexec`, two of the most-used —
+# come from `python3-impacket`, which impacket-scripts Depends on. A roster built from
+# impacket-scripts alone would fail exactly those two. This file is the UNION.
+#
+# ⚠ CASE IS SIGNIFICANT. Kali names each wrapper after the example file, so it is
+# `impacket-GetUserSPNs` and `impacket-getST`, not lowercase.
+#
+# REGENERATE (advisory step in .github/workflows/packages.yml, kali-rolling container):
+#   for p in impacket-scripts python3-impacket; do
+#     apt-get download "$p" && dpkg -c "$p"_*.deb | grep '/usr/bin/' |
+#       sed 's|.*/usr/bin/||; s| ->.*||'
+#   done | grep . | sort -u
+# Derived from impacket-scripts 1.10 + python3-impacket on kali-rolling, 2026-08-21.
+impacket-addcomputer
+impacket-atexec
+impacket-changepasswd
+impacket-dacledit
+impacket-dcomexec
+impacket-describeTicket
+impacket-dpapi
+impacket-DumpNTLMInfo
+impacket-esentutl
+impacket-exchanger
+impacket-findDelegation
+impacket-GetADComputers
+impacket-GetADUsers
+impacket-getArch
+impacket-Get-GPPPassword
+impacket-GetLAPSPassword
+impacket-GetNPUsers
+impacket-getPac
+impacket-getST
+impacket-getTGT
+impacket-GetUserSPNs
+impacket-goldenPac
+impacket-karmaSMB
+impacket-keylistattack
+impacket-lookupsid
+impacket-machine_role
+impacket-mimikatz
+impacket-mqtt_check
+impacket-mssqlclient
+impacket-mssqlinstance
+impacket-net
+impacket-netview
+impacket-ntfs-read
+impacket-ntlmrelayx
+impacket-owneredit
+impacket-ping
+impacket-ping6
+impacket-psexec
+impacket-raiseChild
+impacket-rbcd
+impacket-rdp_check
+impacket-reg
+impacket-registry-read
+impacket-rpcdump
+impacket-rpcmap
+impacket-sambaPipe
+impacket-samrdump
+impacket-secretsdump
+impacket-services
+impacket-smbclient
+impacket-smbexec
+impacket-smbserver
+impacket-sniff
+impacket-sniffer
+impacket-split
+impacket-ticketConverter
+impacket-ticketer
+impacket-tstool
+impacket-wmiexec
+impacket-wmipersist
+impacket-wmiquery

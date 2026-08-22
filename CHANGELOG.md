@@ -205,6 +205,37 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **`corpus commands resolve` — a gate for the question nothing asked** (#208). Two entries
+  in `coerce-petitpotam` once invoked `impacket-petitpotam` and `dfscoerce`. Neither is a
+  real command, both shipped in a released corpus, and a **human reading the file** found
+  them — because every existing gate looks somewhere else: `gen-views.sh --check`
+  byte-compares the 18 *projected* red blocks (85 of 103 are unprojected), `check-packages.sh`
+  reads the manifest and never the corpus, `companion-integrity` checks provenance rather
+  than content, and htpx's own CI checks pairing and slots rather than existence.
+  `test/check-corpus-commands.sh` resolves the first token of every command line in every
+  red entry against the manifest, an `impacket-binaries.lst` roster, and the classifications
+  in `install/corpus-commands.lst`. Offline and deterministic, so unlike `packages-check` it
+  can be **required**; wired into `make test` and its own workflow.
+  - Its `--self-test` rebuilds the pre-v2.8.0 `coerce-petitpotam` at run time and asserts
+    the gate still reddens on it — a regression guard for the gate itself, since one that
+    quietly stopped catching its own motivating bug would pass forever.
+  - `install/corpus-commands.lst` requires a line of prose on every classification, so
+    "whatever the allowlist excuses, it says so" is enforced rather than hoped for. It also
+    fails on a classification no entry uses any more, so a `companion-sync` that drops an
+    entry surfaces its dead excuse.
+  - The roster spans **two** packages: `impacket-scripts` (57 wrappers) and
+    `python3-impacket` (5 more, including `impacket-secretsdump` and `impacket-wmiexec`).
+    A roster built from `impacket-scripts` alone would have failed the two most-used
+    commands in the corpus. `packages.yml` gained an advisory step that re-derives it from
+    kali-rolling and diffs, so the checked-in copy cannot rot unnoticed.
+- **Five tools the corpus invokes and nothing accounted for**, all surfaced by the new gate
+  on its first run: `ldap-utils` (`ldapsearch`, a real apt package, now installed), plus
+  UPSTREAM entries for `evilginx2`, `MSOLSpray` and `tfc-agent` in a new
+  "Corpus-only operator tooling" block. `tfc-agent` also corrects this file's older claim
+  that the Terraform Cloud entries are pure REST. The legacy `bloodhound-python` binary is
+  now named in the BloodHound block, with the warning that the entry invoking it is wrong
+  for a CE stack — that fix routes upstream to htpx.
+
 - **A gate against leaked `RETURN` traps** (#198) — `test/check-return-traps.sh`, wired
   into `make lint` as `make trap-guard` and into CI as the `return-traps` job in
   `checks.yml`. A bash RETURN trap is a **global slot, not a function-scoped one**: armed

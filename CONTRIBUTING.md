@@ -59,7 +59,7 @@ If you add a helper that writes files, resolve its root with `_eng_writeroot`.
 ```bash
 make            # list every target
 make lint       # shellcheck + bash -n / zsh -n + markdownlint + trap discipline
-make test       # routine-filter classifier + companion view drift
+make test       # routine-filter classifier + companion view drift + corpus commands
 make bootstrap-dry
 ```
 
@@ -67,6 +67,16 @@ make bootstrap-dry
 pinned, SHA-256-verified copies from `core/scripts/tool-versions.env`, so CI is the
 authority. `make packages-check` needs apt and is advisory — the authoritative run
 is the `packages` workflow, in a `kali-rolling` container.
+
+`make corpus-commands` answers a question no other gate asks: *does every command the
+red corpus tells an operator to run actually exist?* `gen-views.sh --check` byte-compares
+the 18 **projected** entries; 85 of 103 are unprojected and were read by nothing. That is
+how `impacket-petitpotam` and `dfscoerce` shipped — neither is a real command, and a human
+found them. It resolves each command against `install/offensive-packages.txt`, the
+`impacket-binaries.lst` roster, and the classifications in `install/corpus-commands.lst`,
+where every excuse must carry its reasoning in prose. It is offline, so unlike
+`packages-check` it can be required. **When it reddens on a `companion-sync` PR the fix is
+usually upstream in htpx, not here** — see rule 2. That is [#208][i208].
 
 `make trap-guard` is the one leg with no upstream equivalent. It refuses a bash
 `trap … RETURN` whose body does not start by disarming the slot, because a RETURN
@@ -78,6 +88,7 @@ form is valid bash — shellcheck and `bash -n` both pass it. Write it as
 `return-traps` job in `checks.yml`.
 
 [i198]: https://github.com/dotgibson/dotfiles-Offense/issues/198
+[i208]: https://github.com/dotgibson/dotfiles-Offense/issues/208
 
 ## Touching `bootstrap.sh`
 
@@ -102,9 +113,10 @@ only non-apt routes.
 
 - **No direct pushes.** Every change lands through a PR (0 approvals required —
   this is a single-maintainer repo, and GitHub will not let you approve your own).
-- **10 required checks**, all of which run on *every* PR: shell lint, actionlint,
+- **11 required checks**, all of which run on *every* PR: shell lint, actionlint,
   the bootstrap test (`links-only` + `lint`), core-integrity, companion integrity,
-  companion view drift, gitleaks, markdownlint, and the routine-filer classifier.
+  companion view drift, corpus command resolution, gitleaks, markdownlint, and the
+  routine-filer classifier.
 - **Branches must be up to date** before merging, so a PR opened before a gate
   existed cannot merge on stale checks.
 - Force pushes and deletion of `main` are blocked.

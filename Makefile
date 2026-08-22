@@ -13,7 +13,7 @@
 # Run `make` with no target for the list.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help lint shellcheck markdown trap-guard test packages-check secrets \
+.PHONY: help lint shellcheck markdown trap-guard test corpus-commands packages-check secrets \
         core-check core-sync core-lock companion-check companion-sync companion-integrity \
         bootstrap-dry hooks
 
@@ -59,7 +59,17 @@ markdown: ## markdownlint repo-owned docs (pinned version, same as CI)
 test: ## Run the repo's behavioural checks
 	@./test/check-routine-filter.sh
 	@./offensive/companion/gen-views.sh --check
+	@./test/check-corpus-commands.sh --self-test
+	@./test/check-corpus-commands.sh
 	@echo "✓ tests pass"
+
+corpus-commands: ## Does every command in the red corpus resolve to something? (offline)
+	@# 85 of the corpus' 103 red entries are unprojected, so gen-views --check (which
+	@# byte-compares the 18 projected blocks) has never seen their command lines, and
+	@# check-packages.sh reads the manifest rather than the corpus. `impacket-petitpotam`
+	@# and `dfscoerce` shipped through that gap. See issue #208.
+	@./test/check-corpus-commands.sh --self-test
+	@./test/check-corpus-commands.sh
 
 packages-check: ## Does every offensive-packages.txt name still resolve on Kali? (advisory)
 	@./test/check-packages.sh || true
