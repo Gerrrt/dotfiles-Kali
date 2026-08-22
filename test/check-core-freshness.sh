@@ -56,7 +56,11 @@ lock_field() { sed -n -E "s/^$1=//p" "$LOCK" | head -n1; }
 sha="$(lock_field core_sha)"
 version="$(lock_field core_version)"
 tag="$(lock_field core_tag)"
-branch="${CORE_BRANCH:-$(lock_field core_branch)}"
+# core_ref, falling back to legacy core_branch — see scripts/sync-core.sh on why both
+# are read (dotfiles-core#453). The CORE_BRANCH env override keeps its name: it is this
+# script's own knob, not a core.lock field.
+branch="${CORE_BRANCH:-$(lock_field core_ref)}"
+[[ -n "$branch" ]] || branch="$(lock_field core_branch)"
 [[ -n "$sha" ]] || die "core_sha missing/empty in $LOCK"
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || die "core_sha is not a 40-hex commit: $sha"
 [[ -n "$branch" ]] || branch=main
@@ -65,8 +69,11 @@ upstream="${CORE_UPSTREAM:-https://github.com/$DEFAULT_REPO.git}"
 
 say "vendored $PREFIX at : $sha  (v${version:-?}, ${tag:-no tag})"
 
-# ── what does core_branch actually hold? ──────────────────────────────────────
-# NOT always a branch name, despite the field name. Three shapes occur in practice:
+# ── what does core_ref actually hold? ─────────────────────────────────────────
+# Three shapes occur in practice. The field was called core_branch until
+# dotfiles-core#453, and the rename is exactly the observation this block opened with:
+# it was NOT always a branch name, despite the field name. It is now named for what it
+# holds — the ref that was FOLLOWED — and the three shapes below are unchanged:
 #
 #   a 40-hex SHA  — the NORMAL state after a fleet sync. sync-fanout.yml pins each
 #                   PR to the exact released commit (CORE_BRANCH=<sha>) so core.lock
@@ -116,7 +123,7 @@ else
     cmp_sha="$(GLR --tags -- "$upstream" "refs/tags/$branch^{}" | awk 'NR==1{print $1}')"
     [[ -n "$cmp_sha" ]] || cmp_sha="$(GLR --tags -- "$upstream" "refs/tags/$branch" | awk 'NR==1{print $1}')"
   fi
-  [[ -n "$cmp_sha" ]] || die "core_branch '$branch' resolves to no branch OR tag in $upstream — core.lock points at something that does not exist."
+  [[ -n "$cmp_sha" ]] || die "core_ref '$branch' resolves to no branch OR tag in $upstream — core.lock points at something that does not exist."
 fi
 
 say "upstream           : $upstream ($mode)"
