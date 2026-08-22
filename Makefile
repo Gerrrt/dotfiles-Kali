@@ -1,110 +1,105 @@
-# Makefile — the discoverable entry point for dotfiles-Offense.
+# Makefile — a discoverable façade over the existing entry points.
 # ──────────────────────────────────────────────────────────────────────────────
-# This repo had no Makefile, which made several documented commands untrue:
-# core.lock's own header says "Regenerate ... with: make core-lock", CLAUDE.md
-# points at `make audit` / `make sync`, and neither target existed anywhere. The
-# gates were real but each lived behind a different hand-typed path.
-#
-# NOTE ON SCOPE: dotfiles-core's Makefile is the AUTHORING gate for Core (audit,
-# manifest, behavioral suite, release). This one is a CONSUMER's Makefile — it wires
-# the checks this repo owns and the two vendored-subtree sync paths. Anything under
-# core/ is verified upstream and is not re-gated here.
-#
-# Run `make` with no target for the list.
+# This adds NO logic: every target shells out to the real script (scripts/*.sh,
+# pre-commit), which stay the single source of truth. It exists so a newcomer can
+# type `make` and see how to lint, test, audit, and sync — instead of grepping the
+# README for scripts/ paths. The audit (`make audit`) is the one gate; CI and
+# pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help lint shellcheck markdown trap-guard test packages-check secrets \
-        core-check core-sync core-lock companion-check companion-sync companion-integrity \
-        bootstrap-dry hooks
-
-# Pinned tool versions come from the vendored Core, so local runs match CI exactly.
-CORE_PINS := core/scripts/tool-versions.env
-MARKDOWNLINT_VERSION := $(shell sed -n 's/^MARKDOWNLINT_VERSION=//p' $(CORE_PINS) 2>/dev/null)
-
-# Repo-owned sources only — the two vendored subtrees are gated by their upstreams.
-SH_FILES := $(shell git ls-files '*.sh' ':!:core/**' ':!:offensive/companion/**' 2>/dev/null)
-ZSH_FILES := $(shell git ls-files '*.zsh' ':!:core/**' ':!:offensive/companion/**' 2>/dev/null)
-MD_FILES := $(shell git ls-files '*.md' ':!:core/**' ':!:offensive/companion/**' 2>/dev/null)
+.PHONY: help setup doctor audit audit-changed test bench profile bench-atuin bench-atuin-systemd verify-atuin-guard verify-atuin-guard-autostart lint sync sync-dry fleet-drift core-integrity parity-check freshness-dashboard hooks update-hooks update-plugins update-nvim-plugins update-tool-checksums check-pins check-modern release tag publish release-notes
 
 help: ## Show this help
-	@grep -hE '^[a-z][a-z0-9_-]*:.*?## ' $(MAKEFILE_LIST) \
-	  | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+	@echo "dotfiles-core — make targets:"
+	@grep -E '^[a-z][a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
+		| sed -E 's/:.*## /\t/' | sort | awk -F'\t' '{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
-## ── gates ────────────────────────────────────────────────────────────────────
+setup: ## One-command dev bootstrap (pre-commit hooks + version doctor + audit) — start here
+	@./scripts/setup.sh
 
-lint: shellcheck markdown trap-guard ## Run every static gate (shellcheck + syntax + markdown + trap discipline)
+doctor: ## Read-only triage: are the dev tools present and matching the pins? (no install, no audit)
+	@./scripts/setup.sh --doctor
 
-shellcheck: ## shellcheck + bash -n / zsh -n over repo-owned shell
-	@command -v shellcheck >/dev/null 2>&1 \
-	  || { echo "shellcheck not installed — CI uses the pinned one from $(CORE_PINS)"; exit 0; }
-	@echo ":: shellcheck"
-	@SHELLCHECK_OPTS="-e SC1090 -e SC1091 -e SC2015 -e SC2088" shellcheck $(SH_FILES)
-	@echo ":: bash -n"
-	@for f in $(SH_FILES); do bash -n "$$f" || exit 1; done
-	@command -v zsh >/dev/null 2>&1 && { echo ":: zsh -n"; for f in $(ZSH_FILES); do zsh -n "$$f" || exit 1; done; } || true
-	@echo "✓ shell clean"
+audit: ## Run the full Core audit (manifest, exec-bits, syntax, lint, behavioral) — the one gate
+	@./scripts/audit-core.sh
 
-trap-guard: ## Refuse a RETURN trap that does not disarm itself (shellcheck cannot see this)
-	@# A bash RETURN trap is a GLOBAL slot, not a function-scoped one: armed inside a
-	@# function it survives into the CALLER's frame and fires again on ITS return, where
-	@# the local it cleans up is gone and `set -u` kills the script. That is issue #198.
-	@# Valid syntax, so shellcheck and `bash -n` both pass it, and no gate in this fleet
-	@# ever runs a real install path — hence a dedicated grep. See the script's header.
-	@./test/check-return-traps.sh
+audit-changed: ## Audit only what your git diff touches (fast dev loop; same classifier as CI)
+	@./scripts/audit-core.sh --changed
 
-markdown: ## markdownlint repo-owned docs (pinned version, same as CI)
-	@command -v npx >/dev/null 2>&1 || { echo "npx not available — skipping markdown"; exit 0; }
-	@npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) $(MD_FILES)
+test: ## Run only the behavioral tests (load-order smoke + function units)
+	@./scripts/test-core.sh
 
-test: ## Run the repo's behavioural checks
-	@./test/check-routine-filter.sh
-	@./offensive/companion/gen-views.sh --check
-	@echo "✓ tests pass"
+bench: ## Benchmark Core's contribution to zsh startup (needs hyperfine; skips if absent)
+	@./scripts/bench-core.sh
 
-packages-check: ## Does every offensive-packages.txt name still resolve on Kali? (advisory)
-	@./test/check-packages.sh || true
+profile: ## Per-module zsh startup breakdown (attributes the total cost; slowest first)
+	@./scripts/bench-core.sh --profile
 
-secrets: ## gitleaks over the working tree + full history (needs gitleaks)
-	@command -v gitleaks >/dev/null 2>&1 \
-	  || { echo "gitleaks not installed — CI installs the pinned one; see .github/workflows/checks.yml"; exit 0; }
-	@gitleaks detect --no-git --redact --verbose --exit-code 1
-	@gitleaks detect --redact --verbose --exit-code 1
+bench-atuin: ## Measure atuin write latency, daemon off vs on, under contention (needs atuin; skips if absent)
+	@./scripts/bench-atuin-daemon.sh
 
-bootstrap-dry: ## Preview the full bootstrap plan, changing nothing
-	@./bootstrap.sh --dry-run
+bench-atuin-systemd: ## Same, but through a transient systemd user unit (skips without a user bus)
+	@./scripts/bench-atuin-daemon.sh --systemd
 
-## ── vendored core/ (subtree of dotfiles-core) ────────────────────────────────
+verify-atuin-guard: ## Re-measure the silent-discard premise _core_atuin_daemon_guard rests on (0 holds / 1 moved / 3 unmeasurable)
+	@./scripts/verify-atuin-guard.sh
 
-core-check: ## Is the vendored core/ behind upstream dotfiles-core?
-	@./test/check-core-freshness.sh
+verify-atuin-guard-autostart: ## Same three verdicts for the OTHER premise: does atuin self-heal its daemon under ATUIN_DAEMON__AUTOSTART? (SPAWNS a real daemon)
+	@./scripts/verify-atuin-guard.sh --premise autostart
 
-core-sync: ## Pull Core from upstream and refresh core.lock (review + commit yourself)
+lint: audit ## Alias for `audit` (the audit IS the lint+test gate)
+
+sync: ## Subtree-pull Core into every OS repo (THE maintain button) — writes to sibling repos
 	@./scripts/sync-core.sh
 
-core-lock: ## Refresh core.lock after a MANUAL `git subtree pull` of core/
-	@./scripts/sync-core.sh --check
-	@echo
-	@echo "core.lock is written by scripts/sync-core.sh as part of the pull."
-	@echo "If you pulled by hand, re-run the pull through 'make core-sync' so the"
-	@echo "lock is stamped from the squash commit's git-subtree-split trailer."
+sync-dry: ## Show what `sync` would do, touching nothing
+	@./scripts/sync-core.sh --dry-run
 
-## ── vendored offensive/companion/ (subtree of htpx) ──────────────────────────
+fleet-drift: ## Report which OS repos (+ Windows) lag the latest RELEASED Core tag — the vendoring-drift dashboard
+	@./scripts/fleet-drift.sh
 
-companion-check: ## Is the vendored companion behind upstream htpx?
-	@./test/check-companion-freshness.sh
+core-integrity: ## Verify every OS repo's vendored core/ is pristine (not hand-edited) vs its core.lock
+	@./scripts/core-integrity.sh
 
-companion-integrity: ## Was the vendored companion hand-edited? (tree vs companion.lock)
-	@./test/check-companion-integrity.sh
+parity-check: ## Verify PARITY.md's aligned rows hold across zsh + pwsh (needs sibling dotfiles-Windows)
+	@./scripts/parity-check.sh
 
-companion-sync: ## Pull the companion from upstream htpx and refresh companion.lock
-	@./scripts/sync-companion.sh
+freshness-dashboard: ## Compose the weekly fleet-health board (drift + integrity + pins) as markdown
+	@./scripts/freshness-dashboard.sh
 
-## ── maintenance ──────────────────────────────────────────────────────────────
+hooks: ## Install the pre-commit hooks into this clone
+	@command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit not found: pip install pre-commit"; exit 1; }
+	@pre-commit install
 
-# No tool-checksums target: install/tool-versions.env and its updater moved to
-# dotfiles-Debian with the rest of the OS-native layer. This repo pins nothing —
-# `--install` uses apt on Kali, and pipx/go elsewhere, both of which verify their own
-# downloads (PyPI hashes, the Go checksum database).
+update-hooks: ## Bump pinned pre-commit hook revisions to upstream latest (pre-commit autoupdate)
+	@command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit not found: pip install pre-commit"; exit 1; }
+	@pre-commit autoupdate
 
-hooks: ## Install the local core-guard pre-commit hook into this clone
-	@bash -c 'source core/lib/ux.sh; source core/lib/bootstrap-lib.sh; blib_install_core_guard "$$PWD"'
+update-plugins: ## Roll the pinned zsh-plugin SHAs in zsh/45-plugins.zsh to upstream HEAD (deliberate bump)
+	@./scripts/update-plugins.sh
+
+update-nvim-plugins: ## Roll the pinned nvim plugin commits in nvim/lazy-lock.json forward (deliberate bump)
+	@./scripts/update-nvim-plugins.sh
+
+update-tool-checksums: ## Recompute the pinned CI tool SHA-256s in tool-versions.env after a version bump
+	@./scripts/update-tool-checksums.sh
+
+check-pins: ## Report whether the zsh-plugin + nvim pins are behind upstream (the weekly freshness gate)
+	@./scripts/update-plugins.sh --check && ./scripts/update-nvim-plugins.sh --check
+
+check-modern: ## Check CI meets the modern floor (scripts/modern-baseline.yml) — also run inside `make audit`
+	@./scripts/check-modern.sh
+
+release: ## Cut a release: bump core.version + CHANGELOG, run the audit (usage: make release VERSION=X.Y.Z)
+	@./scripts/release.sh $(VERSION)
+
+tag: ## Release phase 1: commit core.version + CHANGELOG (creates NO tag — see publish)
+	@./scripts/tag-release.sh
+
+publish: ## Release phase 2: tag origin/main + push, AFTER the release PR has merged
+	@./scripts/tag-release.sh --publish
+
+release-notes: ## Draft a GitHub Release body from Conventional Commits since the last release (needs git-cliff)
+	@command -v git-cliff >/dev/null 2>&1 || { echo "git-cliff not found: cargo install git-cliff (or scoop/pkg). Config: cliff.toml"; exit 1; }
+	@_from=$$(git log --grep='^release v' --format=%H -1); \
+	  if [ -n "$$_from" ]; then git-cliff "$$_from..HEAD"; else git-cliff; fi

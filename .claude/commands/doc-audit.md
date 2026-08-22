@@ -1,75 +1,81 @@
 ---
-description: Cross-check the offensive docs against the corpus, the package list, and the tree (report-first)
-argument-hint: "[area, optional — e.g. hacktheplanet, packages, companion — defaults to full sweep]"
-allowed-tools: Read, Grep, Glob, Bash(git ls-files:*), Bash(ls:*)
+description: Cross-check docs against reality across the dotfiles fleet
+argument-hint: "[repo-or-area, optional — defaults to full sweep]"
+allowed-tools: Task, Read, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git ls-files:*), Bash(git log:*), Bash(ls:*)
 ---
 
 # /doc-audit
 
-Find **semantic drift** between the offensive docs and what the repo actually is —
-the class of inconsistency the `companion.yml` byte-gate cannot catch, because it
-only checks that the *generated* marker blocks match their entries, not the
-hand-authored prose around them or the tooling the docs name. The red analog of
-dotfiles-core's `/doc-audit`.
+Find **semantic drift** between what the docs claim and what the system actually
+is — the class of inconsistency `scripts/audit-core.sh` cannot catch because it is
+about meaning, not structure.
 
-The goal is a **reviewable report, not edits** — report-first: flag, locate, propose;
-change nothing.
+Scope for this run: **$ARGUMENTS** (empty = full fleet sweep).
 
-Scope for this run: **$ARGUMENTS** (empty = full offensive-docs sweep).
-
-## The read-only-corpus rule (know before you propose fixes)
-
-`offensive/companion/` is a **vendored `git subtree` of dotgibson/htpx** — it is
-read-only here. A corpus fix (an entry's content, tag, or pairing) must be made
-**upstream in htpx**, not in this repo. What IS editable here: the hand-authored
-prose in `offensive/hacktheplanet` and `PURPLE-TEAM.md` *outside* the
-`companion:gen` markers, `install/offensive-packages.txt`, and `CLAUDE.md`. Route
-each finding to the right place.
+Delegate the heavy reading to the `doc-consistency` subagent so the sweep does not
+fill this conversation with file dumps — launch it with the Task tool and relay
+its report. Then, only if asked, open a PR with the fixes.
 
 ## What to check
 
 Run these cross-checks (skip any out of the requested scope):
 
-1. **Corpus ↔ flat-view coverage.** The corpus (`offensive/companion/entries/red/`,
-   `entries/blue/`) is far richer than what's projected into the flat views: only a
-   fraction of red entries appear as `# companion:gen` blocks in
-   `offensive/hacktheplanet`, and blue entries as `<!-- companion:gen -->` blocks in
-   `PURPLE-TEAM.md`. Enumerate corpus entries that have **no** generated presence in
-   the views — especially the cloud/SaaS/CI-CD slice (`aws-*`, `gcp-*`, `okta-*`,
-   `k8s-*`, `npm-*`, `pypi-*`, `gh-*`, `gl-*`, `jenkins-*`, `vault-*`, `tfc-*`,
-   `snowflake-*`, `harbor-*`, `slack-*`, `gws-*`, `cf-*`) — and judge which genuinely
-   belong in the cheatsheet vs which are intentionally corpus-only. (Adding a view
-   block is an htpx-side `gen-views.sh` change, then it syncs down.)
-2. **Hand-authored commands ↔ corpus.** A command written directly in
-   `hacktheplanet` (outside the markers) that **duplicates or contradicts** a corpus
-   entry is silent drift the byte-gate can't see. Flag prose commands that restate a
-   corpus technique differently (different flags, stale syntax) — the corpus is the
-   source of truth for the paired slice.
-3. **Docs ↔ `install/offensive-packages.txt`.** Tools named in `hacktheplanet` /
-   `OFFENSIVE-METHODOLOGY.md` / `PURPLE-TEAM.md` that are **missing** from the package
-   list (an operator following the docs won't have them), and listed packages that no
-   doc references (dead weight or an undocumented capability). Cross-check binary
-   renames (e.g. a doc invoking `crackmapexec` when the list moved to `netexec`/`nxc`).
-4. **`CLAUDE.md` "Where things are" ↔ the tree.** The `offensive/` inventory in
-   `CLAUDE.md` should match what's on disk (`git ls-files 'offensive/**'`). Flag files
-   present but undocumented, documented but absent, or a moved path.
-5. **`aliases.md` ↔ `offensive.zsh`** (if an `aliases.md` ships here) — documented
-   offensive aliases/helpers that no longer exist, or notable helpers (`redup`,
-   `ttyup`, `mkengagement`) missing from the cheatsheet.
+1. **`core.manifest` ↔ `git ls-files` ↔ `blib_link_core`.** The real three-way
+   inventory: every manifest path exists and is tracked, every tracked Core file is
+   listed (or allowlisted), and every symlinked config is actually wired by
+   `lib/bootstrap-lib.sh`. Flag files present but unwired, wired but unlisted, or in
+   the wrong layer. (The README carries no file tree — it documents behaviour, not
+   inventory — so do not look for a "Layout" section; `audit-core.sh` covers the
+   manifest↔filesystem halves mechanically, leaving the bootstrap-wiring half here.)
+2. **`aliases.md` ↔ its alias sources, in every repo that ships one.** Core's
+   `aliases.md` against `zsh/20-aliases.zsh` + `zsh/25-git.zsh`; **and each role repo's
+   `aliases.md` against its own role source** — `dotfiles-Offense/aliases.md` ↔
+   `offensive/offensive.zsh`, `dotfiles-Defense/aliases.md` ↔ `defense/defense.zsh`.
+   Every documented alias/function should exist in the source, and notable source
+   aliases/helpers (e.g. a new `redup`, `gdft`) should be documented. Flag stale,
+   renamed, or undocumented entries. (This is the fleet-wide alias-cheatsheet upkeep
+   that used to run as a separate daily routine — it lives here now.)
+3. **`PORTING-MATRIX.md` ↔ each OS repo.** For each distro, check the
+   package-manager commands and package names against that repo's
+   `install/packages.txt` and `os/<distro>.zsh`. Flag a package renamed upstream,
+   a command that drifted, or a distro the matrix and the repo disagree on.
+4. **Vendored `core/` freshness.** Read each sibling OS repo's `core.lock` and
+   compare `core_sha` / `core_version` against this repo's `core.version` and HEAD.
+   Flag any repo whose vendored Core is behind (needs `make sync`).
+5. **`CHANGELOG.md` `[Unreleased]` ↔ recent commits.** Surface user-visible
+   commits since the last release that have no changelog entry.
+6. **Cross-repo claims.** The repo count, the layer model, and install commands
+   are repeated across many READMEs and `dotfiles-web`. Flag copies that disagree.
+
+   **Mind the reference frame.** Most of `dotfiles-web` documents Core's `main`, but
+   `src/content/docs/reference/porting-matrix.md` is a **release-pinned mirror**: its
+   CI (`.github/workflows/data-freshness.yml`) diffs it against Core's latest
+   **release tag**, not `main`. Resolve the tag first, then fetch the file at it —
+   two calls, because `releases/latest` is its own endpoint and is not a valid
+   `ref` value:
+
+   ```bash
+   tag=$(gh api repos/dotgibson/dotfiles-core/releases/latest --jq .tag_name)
+   gh api "repos/dotgibson/dotfiles-core/contents/PORTING-MATRIX.md?ref=${tag}" \
+     --jq .content | tr -d '\n' | base64 -d
+   ```
+
+   Compare the page against **that**. Diffing it against `main` reports every
+   unreleased Core change as web drift, and "fixing" it re-mirrors `main` into a file
+   whose contract is the tag, turning a green check red. That exact false positive
+   shipped in the 2026-08-11 sweep (#375, finding 5). The mirror is **correct when it
+   lags `main` but matches the newest release**; it is genuinely stale only once a
+   release Core has cut is not reflected in it.
 
 ## How to report
 
-Group findings by severity, and **route each to the correct repo**:
+Group findings by severity:
 
-- **Drift (fix needed)** — a concrete mismatch, with `file:line` on both sides and the
-  one-line fix. Mark whether the fix lands **here** (view prose / packages / CLAUDE.md)
-  or **upstream in htpx** (corpus entry).
+- **Drift (fix needed)** — a concrete mismatch, with `file:line` on both sides and
+  the one-line fix.
 - **Stale (likely outdated)** — probably wrong but needs your call.
 - **Clean** — what was checked and matched, so a green run is trustworthy.
 
-Lead with your single strongest finding. "The docs, corpus projection, and package
-list are in step — no material drift this cycle" is a valid, useful result.
-
-Do not edit anything unless explicitly asked. If asked: corpus fixes go **upstream in
-htpx** (never the vendored `offensive/companion/`); view-prose, package, and
-`CLAUDE.md` fixes land here.
+Do not edit anything unless I explicitly ask. If I do, fix Core **here** (never in
+a vendored `core/`), keep `core.manifest` in step, add a `CHANGELOG.md` entry, and
+run `make audit` before proposing the PR.

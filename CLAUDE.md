@@ -1,77 +1,97 @@
-# CLAUDE.md — dotfiles-Offense
+# CLAUDE.md — dotfiles-core
 
-Project memory for Claude Code, auto-loaded every session. For the shared Core
-rules (the load order, the "is it Core?" test, the manifest contract) see
-`core/README.md` and `core/CONTRIBUTING.md`.
+Project memory for Claude Code. This file is auto-loaded every session, so it is
+the shared context that keeps every routine (and every ad-hoc edit) reasoning
+from the system's real rules instead of guessing. Keep it short and true; when a
+rule here drifts from `README.md` / `CONTRIBUTING.md`, those win — fix this.
 
 ## What this repo is
 
-`dotfiles-Offense` is the **offensive (red) Role layer** of an **eleven-repo dotfiles
-system** built on a three-layer model (Core → OS-native → Role). It is the mirror of
-`dotfiles-Defense`: engagement scaffolding and attacker tooling, stacked on whatever
-OS-native layer the box already runs.
+`dotfiles-core` is the **single source of truth** for the Core layer of a
+**eleven-repo dotfiles system** built on a three-layer model. Core is authored
+**once here** and vendored into each OS repo's `core/` via `git subtree` — so a
+defect here fans out N-way. Treat every change as if it ships to all of them,
+because it does.
 
-It used to be both layers at once — the OS-native layer for Kali *and* the offensive
-role on top. That fusion was defensible while Kali was the fleet's only Debian-family
-target; `dotfiles-Debian` now covers the family properly and accepts `ID=kali` as a
-first-class target, so the OS half moved there: the apt base list, the SHA-pinned
-out-of-band installs, the WSL bootstrap, and the zsh/git/ssh overlays.
+| Layer         | Lives in                                                               | Examples                                                           |
+| ------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Core**      | **this repo**, vendored into each OS repo's `core/`                    | zsh modules, tmux, nvim, git, starship                             |
+| **OS-native** | `dotfiles-{MacBook,Windows,Fedora,Arch,Debian,openSUSE,Alpine,Gentoo}` | package manager, clipboard, paths                                  |
+| **Role**      | `dotfiles-Offense` (offensive), `dotfiles-Defense` (defensive)         | offensive engagement + defensive detection tooling on the OS layer |
 
-**This repo is distro-agnostic and installs nothing by default.** `./bootstrap.sh`
-wires symlinks and reports which offensive tools the box has; `--install` is the
-opt-in.
+Plus `dotfiles-web` — the public Astro showcase/docs site (the system's public
+face, **not** a config layer). The canonical Core-vendoring fleet is
+`scripts/os-repos.txt`; `dotfiles-Windows` is a machine repo but vendors no
+`core/` (its host config is replicated from scratch in PowerShell, not ported).
 
-## The rule that bites
+## The rules that bite
 
-`core/` is a **vendored `git subtree` copy of [dotfiles-core](https://github.com/dotgibson/dotfiles-core)** — *not*
-editable here; changes under `core/` are overwritten on the next sync. Edit shared
-Core config **in dotfiles-core**, `make audit`, then `make sync`.
+- **Is it Core?** It belongs here **only** if it is identical on every machine
+  **and** not OS-specific **and** not offensive. Changes with the OS → the OS
+  repo. Changes with the operator → `dotfiles-Offense`. (See `CONTRIBUTING.md`.)
+- **The manifest is the contract.** `core.manifest` is the canonical inventory.
+  Adding a Core file means adding its path to `core.manifest` in the same change;
+  `scripts/audit-core.sh` enforces this both directions. Repo-meta and dev tooling
+  (docs, `.github/`, `.claude/`, `scripts/`) live in the audit's allowlist instead.
+- **Never edit vendored `core/` in an OS repo.** That tree is a copy of this repo
+  and is overwritten on the next sync. Fix it **here**, then fan out.
+- **Load order is load-bearing.** `tools → ui → options → history → aliases → git
+  → functions → fzf → bindings → plugins → op → maint → update → os → role → local`
+  (bands: Core 00-69, OS-native 70-84, Role 85-94 on Offense/Defense, host-local 95-99)
+  (the canonical order in `core.manifest`). Don't reorder casually.
+- **Exec bits are asserted.** `bin/`, `scripts/`, `tmux/scripts/`, `maint/` runners
+  are `+x`; the sourced `zsh/*.zsh` modules must stay non-executable.
+- **A user-visible change lands in `CHANGELOG.md` under `[Unreleased]`** in the
+  same commit, with a [Conventional Commits](https://www.conventionalcommits.org/)
+  message (`type(scope): summary`).
 
-Three things that actually bite on this repo:
+## The one gate
 
-- The zsh loader adds an **`offensive` stage** (`… os offensive local`) on top of
-  the Core order — band 85, linked as `85-offensive.zsh`. Keep offensive config in
-  that layer, not in `core/`.
-- **Don't reintroduce an OS layer here.** There is no `os/` directory any more. A
-  package manager, a clipboard backend, a path prepend or an `ID=` gate is a sign the
-  change belongs in `dotfiles-Debian`, which covers Kali.
-- **The three role destinations are Core's to decide, not this repo's.**
-  `blib_link_role_layer` (v4.13.1+) links `offensive/offensive.zsh` → band 85,
-  `offensive/offensive.conf` → `$CONFIG/tmux/role.conf`, and `offensive/templates/` →
-  `$CONFIG/offensive/templates`. Don't hand-roll them again — the block this replaced
-  had already drifted from Defense's copy of the same three links. `role.conf` is
-  sourced **last** by Core's `tmux.conf`, which is why the `prefix + e` binding lives
-  there rather than in an OS overlay: anything sourced earlier can have its key taken
-  back by a later `bind`.
-- **`--install` has two routes and they are not equivalent.** On Kali it apt-installs
-  `install/offensive-packages.txt`. On any other Debian-family box it installs a small
-  **portable subset** via pipx and go — and pipx's names differ from Kali's
-  (`secretsdump.py` not `impacket-secretsdump`, `certipy` not `certipy-ad`), so those
-  `HAVE_*` flags will not fire there. The bootstrap's probe knows both names; the shell
-  layer does not, yet.
+`scripts/audit-core.sh` is the single definition of "Core is healthy" (manifest
+drift, exec-bits, syntax, shellcheck, luacheck, markdownlint, behavioral suite).
+CI, pre-commit, and `make audit` all call it. **Green it before you push** — a red
+tree must never be vendored out.
 
-**WSL2 is NAT'd** — a listener/reverse shell isn't LAN-reachable until mirrored
-networking is enabled in the *Windows-side* `%UserProfile%\.wslconfig`
-(`networkingMode=mirrored`), **not** `/etc/wsl.conf`. That still bites operationally,
-but the WSL config itself now lives in `dotfiles-Debian/wsl/`.
+```bash
+make audit          # the full gate
+make audit-changed  # only what your diff touches (fast loop)
+make sync           # fan Core out to every OS repo (after a green audit)
+```
 
-Keep all engagement data in `~/engagements` (outside the repo); the repo ships a
-paranoid `.gitignore` as backup.
+Run `make` with no target for the discoverable list of entry points.
 
-## Where things are
+To cut a release, follow `RELEASE-RUNBOOK.md` (exact commands for Core, the OS-repo
+rollout, and htpx); `RELEASE-STRATEGY.md` is the policy behind it.
 
-- `offensive/` — engagement scaffolding (the role layer)
-- `offensive/hacktheplanet` — CTF/HTB/engagement command cheatsheet (field reference under `OFFENSIVE-METHODOLOGY.md`); folds by section in vim, symlinked to `~/hacktheplanet`, opened with `htp`
-- `offensive/exploitdev` — binary-exploitation companion (stack/SEH overflows, egghunters, shellcode, DEP/ASLR, PE backdooring, plus a vulnserver command→bug→technique map as the practice target); same vim-fold UX, symlinked to `~/exploitdev`, opened with `xdev`
-- `offensive/evasion` — defense-evasion companion (AV/AMSI/AppLocker bypass, client-side macro access, process injection, egress/C2, advanced AD); symlinked to `~/evasion`, opened with `evade`
-- `offensive/ippsec` — **the method**: workflow habits + signature moves from IppSec's HTB catalog (the "always be running recon" loop, shell stabilization, the scripted `cmd.Cmd` pseudo-shell, the unsticking playbook) — the altitude *above* the command refs; same vim-fold UX, symlinked to `~/ippsec`, opened with `ipp`. Reusable starting points in `offensive/templates/`: `pseudo-shell.py`, plus `engagement.md`/`finding.md` scaffolds. Helpers in `offensive/offensive.zsh`: `mkengagement` (dated engagement tree), `eng` (fzf engagement switcher — the shell twin of the `prefix+e` tmux popup), `bhce` (NetExec → BloodHound CE), `nmapsweep`, `ttyup`, `note`, `logshell` (`script(1)` audit-trail recorder), `lhost`, `hethttp` (quick delivery web server on `0.0.0.0`, advertises the reachable callback URL via `lhost`), `cde`, `rocks`, `redup` (manual, opt-in refresh of the fast-moving offensive tools — nuclei/katana/searchsploit; attacker box only, never mid-engagement)
-- `offensive/offensive.conf` — the role layer's tmux bits (the `prefix + e` engagement popup), linked to `~/.config/tmux/role.conf` and sourced last by Core
-- `offensive/tmux/tmux-eng.sh` — fuzzy engagement-session switcher (the offensive twin of Core's `tmux-sesh.sh`), invoked by the `prefix + e` popup in `offensive/offensive.conf`
-- `PURPLE-TEAM.md` — defensive mirror of `hacktheplanet`: Splunk/Sentinel detections + Windows event-ID reference per attack (from TrustedSec's Actionable Purple Teaming, BH USA 2023)
-- `offensive/companion` — **a vendored `git subtree` of [dotgibson/htpx](https://github.com/dotgibson/htpx)** (provenance in `companion.lock`): the structured, ATT&CK-tagged, red↔blue-paired corpus (`entries/red|blue/*.md`) browsed with `htpx` (fzf: pick → preview attack beside its detection → fill `{{slots}}` → `clip`); dir symlinked to `~/companion`. **Same rule as `core/`: do not hand-edit the vendored tree** — it's overwritten on the next sync. Edit upstream in htpx, then run `scripts/sync-companion.sh` (pulls htpx `main` + bumps `companion.lock`; or do the `git subtree pull --prefix=offensive/companion <htpx> main --squash` + lock bump by hand). It's the **source of truth** for the paired slice; `gen-views.sh` generates the marked blocks in `hacktheplanet`/`PURPLE-TEAM.md` from the entries and `.github/workflows/companion.yml` drift-gates them (`hacktheplanet`/`PURPLE-TEAM.md` stay canonical for everything *outside* the markers)
-- `install/offensive-packages.txt` — the apt list `--install` uses **on Kali only**
-- `install/tools.lst` — the host-tool probe list: what `bootstrap.sh` reports on. A
-  command belongs here only if `offensive/offensive.zsh` probes or invokes it by bare name
-- `OFFENSIVE-METHODOLOGY.md` — the engagement playbook
-- `bootstrap.sh` — symlinks Core + the offensive role layer; probes host tools; `--install` is opt-in
-- `core/` — vendored Core (read-only here; edit upstream in dotfiles-core)
+## Maintenance routines (`.claude/`)
+
+On-demand routines that automate the judgment-heavy chores `audit-core.sh` can't:
+
+- `/doc-audit` — cross-check prose against reality across the fleet (docs ↔
+  manifest ↔ code ↔ each OS repo). Delegates to the `doc-consistency` subagent.
+- `/tool-scout` — research the modern-CLI stack for newer/better tools and major
+  features worth adopting. Delegates to the `tool-scout` subagent.
+- `/freshness-triage` — review open dependency-bump PRs (zsh plugins, nvim lock,
+  actions) against upstream changelogs and flag breaking changes.
+- `/runtime-freshness` — decide whether the **pinned** language runtimes in
+  `mise/config.toml` (python/ruby/java/lua) are due to cross a pin, weighing EOL
+  calendars and tooling compatibility against the maint job's `mise outdated --bump`
+  nudge. Report-first.
+- `/modernize` — scout the next CI modernization floor (newly-EOL runners, deprecated
+  action runtimes, new hardening dimensions) and propose bumps to `modern-baseline.yml`.
+- `/release-readiness` — go/no-go before a Core release: unreleased work, audit status,
+  version coherence, fleet drift → a READY-to-cut-vX.Y.Z / HOLD verdict.
+- `/release-notes` — draft the next release's notes from Conventional Commits (git-cliff, or
+  the first-party `gen-release-notes.sh`) for curation into `CHANGELOG.md`.
+- `/shell-review` — read the week's changed `zsh`/`bash` for runtime footguns lint can't catch
+  (tmux/terminal-state, docs-vs-reality overclaims, quoting, `set -e`/subshell/`exec` traps,
+  idempotency, startup-cost regressions).
+- `/drift-triage` — interpret `fleet-drift`'s red rows into ranked, per-repo remediation (how
+  many releases behind, what's missing, the exact `make sync` / `nvim-sync.ps1` to run).
+- `/os-package-availability` — audit an OS repo's package list for renamed/dropped/moved
+  packages vs upstream + `PORTING-MATRIX.md`. Shipped as the reusable
+  `.github/workflows/claude-routines-call.yml`, which each OS repo consumes as a 3–5 line
+  `@v4` caller (the `lint-call.yml` idiom) instead of a per-repo copy.
+
+Each routine **reports first** and only proposes changes; nothing is vendored out
+without a green `make audit`.
