@@ -32,6 +32,9 @@ python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindu
 #                    # non-Kali pipx route installs under. Field-reference line: hacktheplanet, AD fold
 enum4linux-ng
 smbmap
+ldap-utils           # `ldapsearch` — raw directory queries. The corpus' ldap-recon entry runs it
+#                    # directly, and it is the fallback whenever nxc's ldap module hides the attribute
+#                    # you actually need. Surfaced by test/check-corpus-commands.sh (#208)
 bloodyad             # raw-LDAP shadow-creds / DACL / RBCD / attribute writes (+ autobloody to auto-exploit a BloodHound-graphed path)
 gpp-decrypt          # decrypt the GPP cpassword blob from SYSVOL Groups.xml (the decrypt step of the GPP attack); ships in kali-linux-default, list it for slim installs
 freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NAME CHURN: FreeRDP 2 was freerdp2-x11/xfreerdp; FreeRDP 3 shipped as freerdp3-x11/xfreerdp3 so both could coexist; Debian then dropped the suffix again (Jan 2026) — freerdp-x11 provides `xfreerdp` and it IS FreeRDP 3. Both binaries come out of the `freerdp3` source pkg (`freerdp` as a source pkg died in 2018), and freerdp3-x11 is NOT transitional — it still ships a real /usr/bin/xfreerdp3 alongside. On an older snapshot install freerdp3-x11 and run xfreerdp3. Ships in kali-linux-default, list it for slim installs
@@ -54,6 +57,11 @@ freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NA
 bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pkg
 #                    # is the LEGACY (≤4.3.1) collector — its zips don't ingest into CE
 #                    # nxc's --bloodhound module also collects (see offensive.zsh `bhce`)
+#                    # ⚠ that legacy package installs the binary as `bloodhound-python`, and the
+#                    # corpus entry `bloodhound-collect` still invokes THAT name. Deliberately not
+#                    # installed here — CE is what this layer stands up — but named so the accounting
+#                    # is honest and test/check-corpus-commands.sh can resolve it. The entry itself is
+#                    # wrong for a CE stack; the fix routes upstream to dotgibson/htpx (#208)
 # rusthound-ce      → UPSTREAM (cargo install rusthound-ce): a single static Rust
 #                     binary that emits CE-ingestible JSON — the fast ALTERNATE to
 #                     bloodhound-ce-python on large domains (no Python chain to drop on
@@ -262,6 +270,25 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 #                     that does not contain it.
 # hate_crack        → UPSTREAM (github.com/trustedsec/hate_crack): chains dict → rules
 #                     → mask automatically. Referenced as a comment in hacktheplanet.
+
+# ── Corpus-only operator tooling, not in apt ──────────────────────────────────
+# These run on the ATTACKER box (unlike the target-dropped block below), are invoked by a
+# red corpus entry, and have no Kali package. They were unaccounted until
+# test/check-corpus-commands.sh started resolving corpus commands (#208) — the same class
+# of gap that let `impacket-petitpotam` ship.
+# evilginx2         → UPSTREAM (github.com/kgretzky/evilginx2, `go install` or release
+#                     binary): the AitM reverse-proxy phishing framework behind the
+#                     `aitm-phish` entry. Its lines are typed at the `evilginx>` console,
+#                     not at a shell. ⚠ credential-harvesting infrastructure — written ROE
+#                     and an authorized engagement, never a lab shortcut.
+# MSOLSpray         → UPSTREAM (github.com/dafthack/MSOLSpray, PowerShell): the M365/Entra
+#                     password spray in `valid-accounts-cloud`. Operator-side but
+#                     WINDOWS-side, like AADInternals above — nothing to install on Linux.
+# tfc-agent         → UPSTREAM (HashiCorp release binary): the Terraform Cloud agent, run
+#                     on infrastructure YOU control so a workspace's runs execute where you
+#                     can read them (`tfc-agent-hijack`). NOT target-dropped, which is why
+#                     it sits here — it corrects this file's older claim that the Terraform
+#                     Cloud entries are pure REST.
 
 # ── Target-dropped enumeration (nothing to install HERE) ──────────────────────
 # These run ON the target, not on the attacker box, so they're per-engagement

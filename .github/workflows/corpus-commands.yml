@@ -1,0 +1,55 @@
+# .github/workflows/corpus-commands.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# Does every command the red corpus tells an operator to run actually exist?
+#
+# Its own workflow rather than a job inside companion.yml: that file's name, header and
+# concurrency group are specifically about the gen-views source-of-truth bridge, and a
+# separate workflow earns its own required-check name. Same precedent as routine-filter.yml
+# — small, repo-owned, one script invocation.
+#
+# companion.yml byte-compares the 18 PROJECTED red blocks against their entries; 85 of 103
+# red entries are unprojected and it has never seen their command lines. check-packages.sh
+# resolves the manifest, never the corpus. `impacket-petitpotam` and `dfscoerce` shipped
+# through the gap between them. See issue #208.
+# ──────────────────────────────────────────────────────────────────────────────
+name: corpus-commands
+
+# Unfiltered so it can be a REQUIRED check: a workflow skipped by `paths:` produces no
+# check run, which leaves a required status pending forever. The job is offline — no apt,
+# no network, no dependency on the runner's own tooling — and takes about a second.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: corpus-commands-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: corpus commands resolve (check-corpus-commands)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No shellcheck step here on purpose: check-corpus-commands.sh is repo-owned *.sh
+      # outside core/ and offensive/companion/, so the lint workflow already checks it with
+      # the PINNED shellcheck from core/scripts/tool-versions.env. Duplicating it with the
+      # runner's unpinned copy would only invite drift.
+      #
+      # The self-test runs FIRST and is the regression guard: it rebuilds the pre-v2.8.0
+      # coerce-petitpotam and asserts the gate still reddens on it. A gate that stopped
+      # catching the bug it was written for would otherwise pass silently forever.
+      - name: assert the #208 escapes still redden the gate
+        run: ./test/check-corpus-commands.sh --self-test
+
+      - name: assert every red-corpus command resolves
+        run: ./test/check-corpus-commands.sh

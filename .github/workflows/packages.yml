@@ -82,3 +82,41 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
           # Advisory: see the header. Findings land in the summary, not in a red X.
           exit 0
+
+      # The required corpus-commands gate reads install/impacket-binaries.lst, a CHECKED-IN
+      # roster, because it must stay offline. This is the other half of that bargain: the
+      # advisory job that already has a kali-rolling container keeps the roster honest.
+      # Two packages, not one — impacket-scripts ships 57 wrappers and python3-impacket
+      # (which it Depends on) ships the rest, including impacket-secretsdump.
+      - name: Refresh the impacket roster and diff it (advisory)
+        run: |
+          set -uo pipefail
+          cd "$(mktemp -d)" || exit 0
+          for p in impacket-scripts python3-impacket; do
+            apt-get download "$p" >/dev/null 2>&1 || continue
+          done
+          for f in ./*.deb; do
+            [ -e "$f" ] || continue
+            dpkg -c "$f" | grep '/usr/bin/' | sed 's|.*/usr/bin/||; s| ->.*||'
+          done | grep . | sort -u >/tmp/roster.new
+          cd "$GITHUB_WORKSPACE" || exit 0
+          if [ ! -s /tmp/roster.new ]; then
+            echo "### ⚠️ impacket roster: could not download the packages, skipped" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          grep -vE '^\s*(#|$)' install/impacket-binaries.lst | sort -u >/tmp/roster.old
+          if diff -u /tmp/roster.old /tmp/roster.new >/tmp/roster.diff; then
+            echo "### ✅ install/impacket-binaries.lst matches kali-rolling" >>"$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### ⚠️ install/impacket-binaries.lst drifted from kali-rolling"
+              echo ""
+              echo "A new script means the corpus may now name something the gate would reject;"
+              echo "a removed one means the gate may still be blessing a command that is gone."
+              echo ""
+              echo '```diff'
+              cat /tmp/roster.diff
+              echo '```'
+            } >>"$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
