@@ -45,9 +45,25 @@ release line.
 
 ### Fixed
 
+- **Four field-reference commands could not run as written** (#213, #212).
+  `hacktheplanet` invoked `nmap --script=msrpc-dcom-interface-activation`, which is not a
+  script nmap ships — verified against nmap 7.99 on kali-rolling, where the only msrpc NSE
+  is `msrpc-enum` (already the line directly above). Dropped rather than replaced: there is
+  nothing to replace it with. `exploitdev` invoked `!mona egghunter`, which is not a mona
+  command — `egg` is, and `-c` (NtAccessCheckAndAuditAlarm) is one of *its* options; the two
+  lines collapse into one. `hacktheplanet` also credited `--dc` to impacket/certipy when it
+  is kerbrute's idiom — impacket and certipy use `-dc-ip`, as every impacket line in that
+  file already does. The same misattribution in this file's #187 entry is corrected with it.
+- **`exploitdev` presented `hexyl` as installed when no fleet layer ships it.** The note
+  claimed it was "Kali-only in this stack (not in Core)"; it is in Core, Kali apt (no such
+  package exists) and `install/offensive-packages.txt` alike — nowhere. `offensive.zsh`
+  probes `HAVE_HEXYL` but nothing installs it, so the bad-char *verification* step silently
+  needed a tool the operator did not have. Now says so, with an `xxd` fallback, and points
+  at the dotfiles-core#395 deferral.
+
 - **Two `hacktheplanet` commands could not run as written** (#187). `rusthound-ce` was
-  invoked with `--dc <ip_address>`; RustHound-CE has no such flag — that is the
-  impacket/certipy idiom — and takes `-i/--ldapip` for the DC IP or `-f/--ldapfqdn` for its
+  invoked with `--dc <ip_address>`; RustHound-CE has no such flag — that is kerbrute's
+  idiom (impacket/certipy use `-dc-ip`) — and takes `-i/--ldapip` for the DC IP or `-f/--ldapfqdn` for its
   FQDN. And two pivot lines invoked bare `proxychains`, which is **not a binary on this
   layer's own box**: the manifest ships `proxychains4`, that package installs only
   `/usr/bin/proxychains4`, and its `Provides: proxychains` is a virtual-package relation, so
@@ -187,6 +203,22 @@ release line.
   `core.lock`.
 
 ### Changed
+
+- **Three of the four field references now point at the corpus.** `exploitdev`, `ippsec`
+  and `evasion` listed their sibling references but omitted `~/companion` (`htpx`), which
+  `hacktheplanet` has always carried. `evasion` was the sharpest case: its
+  "Network-filter & egress bypass (C2 channels)" fold is prose-only by design, and the six
+  entries holding the actual commands (`dns-tunnel-c2`, `icmp-tunnel-c2`,
+  `domain-fronting-cdn`, `https-beacon-sliver`, `mtls-c2-sliver`, `web-service-c2-telegram`)
+  live only in the corpus — with no route to them from the doc that needed them most. Its
+  footer is also restyled to match the other three (`~/name` + alias, not `offensive/name`).
+- **`evasion` opened with bare `vim`.** It told you to run `vim ~/evasion`, bypassing the
+  read-only opener that exists so an errant `:w` cannot publish engagement data — the one
+  reference of the four that did. Now leads with `evade`, matching `exploitdev`.
+- **`hacktheplanet` gained the two commands the corpus had and it did not** (#212).
+  The coercion fold described "many vectors" but never showed the MS-DFSNM one, and the
+  pivot fold described ligolo-ng in prose with no command line at all. Both are now present,
+  so the header's claim that these entries are "covered better below" holds again.
 
 - **The last OS-layer file is gone, and the role wiring is Core's now.** `os/kali.conf`
   carried the `prefix + e` engagement popup as *role* config living in an *OS* overlay

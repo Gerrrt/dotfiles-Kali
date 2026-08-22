@@ -19,7 +19,7 @@ offensive capability.
 Read what the repo already tracks so you don't propose something in use:
 `install/offensive-packages.txt` (the offensive inventory — read the `# UPSTREAM`
 go-install/installer list and the rename/EOL annotations like "CME archived 2023",
-"bloodhound.py is LEGACY", "certipy-ad ESC1–ESC16"), `offensive/offensive.zsh` (the
+"bloodhound.py is LEGACY", "certipy-ad ESC1–ESC17"), `offensive/offensive.zsh` (the
 `HAVE_*` tool set and `redup`'s fast-mover updater list: `nuclei`, `searchsploit`,
 `kerbrute`), and `install/packages.txt` (the OS-native base stack).
 
