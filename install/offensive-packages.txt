@@ -18,6 +18,10 @@ nmap
 rustscan             # fast port sweep that hands off to nmap -sC -sV; ships in kali-linux-default, list it for slim installs
 responder
 mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
+#                    # NOTE: upstream FROZEN (last commit Feb 2022; Kali has shipped 0.3.0 since May 2024).
+#                    # Unlike kerbrute and havoc below, this one carried no freeze note — an omission, not a
+#                    # judgement. Keep it: the technique is a Windows DEFAULT, not a bug, so it still fires and
+#                    # there is no maintained successor to move to. Frozen because it is finished, not abandoned.
 coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/ShadowCoerce) — the piece that KICKS the relay/ESC8 chain (responder/ntlmrelayx have no trigger of their own)
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
@@ -53,8 +57,10 @@ bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pk
 # rusthound-ce      → UPSTREAM (cargo install rusthound-ce): a single static Rust
 #                     binary that emits CE-ingestible JSON — the fast ALTERNATE to
 #                     bloodhound-ce-python on large domains (no Python chain to drop on
-#                     a host). Not in Kali apt; not a redup fast-mover (collectors aren't
-#                     daily-churn). Complement, not replacement.
+#                     a host). Not in Kali apt; not a redup fast-mover — but NOT because collectors
+#                     sit still (v2.4.91 -> v2.5.2 inside seven weeks). The real reason is mechanical:
+#                     it is a CARGO install with no self-updater, and redup's go_fast_movers loop is
+#                     go-only. Complement, not replacement.
 # SharpHound (the C# collector) is dropped on the target, not installed here.
 
 # ── Web app / API ─────────────────────────────────────────────────────────────
@@ -96,13 +102,26 @@ cifs-utils           # provides `mount.cifs` — the SMB-445 fold's `mount -t ci
 #                    # mount in the GPP-cpassword block. smbclient BROWSES a share; mounting one is a separate
 #                    # package, and nothing else in this file pulls it
 bind9-dnsutils       # provides BOTH `dig` and `nslookup` — the DNS-53 zone-transfer fold and the OSINT NS/MX/TXT lines.
-#                    # NAME CHURN: the old name `dnsutils` is a TRANSITIONAL binary off the same bind9 source — gone from
-#                    # trixie, back only in sid, and the sole Kali metapackage still naming it is kali-linux-wsl. Pin the
+#                    # NAME CHURN: the old name `dnsutils` is a TRANSITIONAL binary off the same bind9 source — VIRTUAL-ONLY
+#                    # in trixie (provided by bind9-dnsutils, not installable as itself), a real transitional package only in
+#                    # sid, and the sole Kali metapackage still naming it is kali-linux-wsl. Pin the
 #                    # durable name: bind9-dnsutils is what kali-linux-headless (and so kali-linux-default) actually pulls
+netcat-traditional   # `nc` — the reverse-shell listener that is the PRIMARY command of that whole fold
+#                    # (hacktheplanet's `rlwrap nc -lvnp 9001`, exploitdev's handler lines). It was named only
+#                    # INSIDE rlwrap's comment below and listed nowhere, which is exactly the accounting gap
+#                    # `ftp`/`nfs-common` are listed to close. TRADITIONAL, not netcat-openbsd, deliberately:
+#                    # Kali installs traditional and points the `nc` alternative at it, and the documented
+#                    # `-lvnp` form is a traditional idiom — OpenBSD's nc rejects `-p` alongside `-l`, so
+#                    # installing that variant could flip the alternative and break the line above
+nasm                 # `nasm` — exploitdev's hand-rolled shellcode fold (`nasm -f elf32`), and what
+#                    # `msf-nasm_shell` shells out to. Already pulled by metasploit-framework, so this is
+#                    # accounting rather than a gap — but nothing else in this file named it
+binutils             # `objdump` — the opcode-extraction step of that same fold. Base-system (rustc, python3
+#                    # and dpkg all pull it), listed for the same reason
 
 # ── Fold-primary tools Kali does NOT ship by default ──────────────────────────
 # The block above is the "already on the box, listed for slim installs" case. These
-# five are the opposite and that is why they get their own block: NO Kali metapackage
+# six are the opposite and that is why they get their own block: NO Kali metapackage
 # names them (checked against kali-meta's debian/control), so the hacktheplanet line
 # that invokes each one fails on a STOCK box, not just a slim one. That makes them the
 # only entries here whose absence is a real gap rather than an accounting nicety.
@@ -110,11 +129,20 @@ mariadb-client       # `mysql` — Databases fold (MySQL/MariaDB 3306)
 postgresql-client    # `psql` — Databases fold (PostgreSQL 5432)
 redis-tools          # `redis-cli` — Databases fold (Redis 6379)
 mingw-w64            # `i686-w64-mingw32-gcc` — the Windows cross-compile in the searchsploit-fixups
-#                    # fold. The sharpest of the five: build-essential gives you NATIVE gcc only, so
+#                    # fold. The sharpest of the six: build-essential gives you NATIVE gcc only, so
 #                    # nothing else on the box covers it
+gdb                  # `gdb` — exploitdev's Linux debugging fold. Verified absent from a stock kali-rolling
+#                    # box: gcc only SUGGESTS it, and no metapackage names it, so `gdb -q ./vuln` fails on a
+#                    # default install. (pwndbg/GEF sit on top of it and stay lab setup, not a package here.)
 gcc-multilib         # `gcc -m32` — the 32-bit half of that SAME fold, two lines below the mingw one.
 #                    # Identical failure mode and the identical reason: build-essential's gcc is native
 #                    # x86-64 and has no 32-bit libs, so the old-PoC rebuild dies on <bits/libc-header-start.h>
+# hexyl is deliberately NOT here, and the absence is the whole point: there is no `hexyl`
+# package in Kali at all (apt-cache policy/madison/search all come back empty), so listing
+# it would hand test/check-packages.sh a name that cannot resolve. exploitdev's bad-char
+# VERIFY step invokes it and install/tools.lst probes it detect-only, both pending
+# dotgibson/dotfiles-core#395. Until Core lands it, `cargo install hexyl` by hand — or use
+# the `xxd` fallback exploitdev now names.
 
 # ── Recon / OSINT ─────────────────────────────────────────────────────────────
 amass
@@ -168,25 +196,32 @@ sliver               # Go C2, the open-source standard — APT-PACKAGED, and lon
 #                    # Ships sliver-client + sliver-server — the binary names offensive.zsh
 #                    # already probes and aliases, so only this manifest lagged; retires the
 #                    # old `curl https://sliver.sh/install | sudo bash`.
-#                    # apt runs ~a patch behind upstream — fine for a C2 you re-profile anyway.
+#                    # apt runs TWO patches behind: kali froze at 1.7.1-0kali4 in Mar 2026, while upstream
+#                    # had already cut 1.7.2 and 1.7.3 that Feb — i.e. the migration shipped a build that
+#                    # was stale on arrival. Fine for a C2 you re-profile anyway, but it is not "~a patch".
 adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver + Qt client, and
 #                    # the actively-developed slot now that havoc below is frozen. In kali apt.
 #                    # ⚠ its DEFAULT server profiles are heavily fingerprinted — publicly
 #                    # scanned/tracked and seen in real intrusions. Profile it before you use
 #                    # it; that's a reason to configure it, not a reason to skip it.
-#                    # ⚠ CURRENCY: apt ships a git SNAPSHOT (1.1~git20260208, migrated Mar 2026)
-#                    # and upstream publishes ZERO GitHub releases — it rolls on `main` (last
-#                    # push Aug 2026). So the active C2 slot sits ~6 months behind HEAD with no
-#                    # tag to judge staleness by, and profile churn is exactly what an old
-#                    # snapshot misses — which is what the warning above depends on.
+#                    # ⚠ CURRENCY: apt ships a git SNAPSHOT (1.1~git20260208, migrated Mar 2026).
+#                    # Upstream's Releases PAGE is empty, but TAGS are not: v1.0 (2026-01-03), then
+#                    # v1.1 and v1.2 (both 2026-03-04). Nor does it roll on `main` — `main` last moved
+#                    # 2026-03-04 and work lands on version branches (dev-v1.3 May 2026, testing-v2.0
+#                    # Aug 2026; that Aug push is testing-v2.0, not main). So the apt snapshot predates
+#                    # the v1.1 tag (Debian ordering sorts 1.1~git20260208 BEFORE 1.1), sits a minor
+#                    # behind tagged v1.2, and two behind what is in flight — and there IS a tag to
+#                    # judge that by. Profile churn is exactly what an old snapshot misses, which is
+#                    # what the warning above depends on.
 # havoc             → UPSTREAM build (github.com/HavocFramework/Havoc).
 #                     NOTE: upstream ARCHIVED (Feb 2026; last push Dec 2025). Kali still ships
 #                     havoc 0.6~git20251218, so it's FROZEN, not gone — same honest status as
 #                     kerbrute above. Keep it for existing muscle memory; new work goes to
 #                     `adaptixc2`.
 # caldera           → UPSTREAM/docker (adversary emulation, ATT&CK-mapped). Moved MITRE →
-#                     APACHE (apache/caldera; donated to the Incubator May 2026, mitre/caldera
-#                     redirects). Active — the slow release cadence is that transition, not EOL.
+#                     APACHE (apache/caldera; donated to the Incubator 2025-12-19, with the in-tree
+#                     rebrand following Jul 2026; mitre/caldera redirects). Still no Apache release —
+#                     the last is v5.3.0 (Apr 2025). Active — that cadence is the transition, not EOL.
 
 # Covert-channel egress — the corpus' dns-tunnel-c2 / icmp-tunnel-c2 entries. Test them
 # against your OWN infrastructure; a real egress path out of a client network is a finding,
@@ -216,10 +251,15 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # rockyou on corporate password policy, but that apt does not carry:
 # exrex             → UPSTREAM (pip install exrex): regex → every matching string.
 #                     Season+Year lists in hacktheplanet's targeted-wordlist block.
-# PACK (kwp,        → UPSTREAM (github.com/iphelix/pack): keyboard-walk generator +
-#  statsgen,          mask profiler. statsgen/maskgen profile a real dump's masks so
-#  maskgen)           you crack within THIS org's policy. Python 2 era — run from the
-#                     clone, no apt package.
+# PACK (statsgen,   → UPSTREAM (github.com/iphelix/pack): mask profiler. statsgen/maskgen
+#  maskgen)           profile a real dump's masks so you crack within THIS org's policy.
+#                     Python 2 era — run from the clone, no apt package. PACK ships
+#                     statsgen/maskgen/policygen/rulegen and NO kwp — see the next line.
+# kwp               → UPSTREAM (github.com/hashcat/kwprocessor): the keyboard-walk
+#                     generator, hashcat's own tool and not part of PACK. hacktheplanet's
+#                     `kwp basechars/… keymaps/… routes/…` invocation is verbatim
+#                     kwprocessor; following a pointer to iphelix/pack lands you in a repo
+#                     that does not contain it.
 # hate_crack        → UPSTREAM (github.com/trustedsec/hate_crack): chains dict → rules
 #                     → mask automatically. Referenced as a comment in hacktheplanet.
 

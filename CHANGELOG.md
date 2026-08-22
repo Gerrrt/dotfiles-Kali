@@ -45,6 +45,24 @@ release line.
 
 ### Fixed
 
+- **`kwp` was attributed to the wrong project** (#213). The manifest filed it under
+  `PACK (kwp, statsgen, maskgen) → github.com/iphelix/pack`. PACK ships
+  statsgen/maskgen/policygen/rulegen and no `kwp` — `kwp` is hashcat's kwprocessor, and
+  `hacktheplanet`'s invocation is verbatim kwprocessor. Following the old pointer landed you
+  in a repo that does not contain the tool. Split onto its own UPSTREAM line.
+- **`exploitdev`'s Linux toolchain was unmanifested** (#212, #213). `gdb`, `nasm` and
+  `objdump` are invoked by that reference and appeared nowhere in the package list. Resolved
+  by checking a real kali-rolling box rather than guessing: `nasm` (via metasploit-framework)
+  and `binutils` are already pulled transitively, so they go in the accounting block, while
+  **`gdb` is genuinely absent** — gcc only *suggests* it — so it joins the "Kali does NOT
+  ship by default" block, whose stated test it meets exactly.
+- **`nc` was named only inside another package's comment** (#212). netcat is the primary
+  command of the reverse-shell fold and was listed nowhere. Added as
+  **`netcat-traditional`**, not `netcat-openbsd` as the audit suggested: Kali installs
+  traditional and points the `nc` alternative at it, and the documented `nc -lvnp` form is a
+  traditional idiom — OpenBSD's nc rejects `-p` alongside `-l`, so that variant could have
+  flipped the alternative and broken the very line it was meant to support.
+
 - **Four field-reference commands could not run as written** (#213, #212).
   `hacktheplanet` invoked `nmap --script=msrpc-dcom-interface-activation`, which is not a
   script nmap ships — verified against nmap 7.99 on kali-rolling, where the only msrpc NSE
@@ -203,6 +221,20 @@ release line.
   `core.lock`.
 
 ### Changed
+
+- **Five currency annotations corrected** (#211). `adaptixc2`'s said upstream publishes zero
+  releases so there is "no tag to judge staleness by" and that it rolls on `main` — both
+  false: v1.0/v1.1/v1.2 are tagged, `main` last moved 2026-03-04, and work is on version
+  branches. That premise was load-bearing for the fingerprinted-default-profiles warning
+  above it. `sliver`'s apt lag is two patches, not "~a patch". `caldera` entered the Apache
+  Incubator 2025-12-19, not May 2026. `rusthound-ce`'s "collectors aren't daily-churn"
+  reasoning is dead (v2.4.91 → v2.5.2 in seven weeks) — the conclusion survives for a
+  mechanical reason instead: cargo, no self-updater, and redup's loop is go-only. And
+  `mitm6` finally gets the FROZEN note that `kerbrute` and `havoc` already carried.
+- **`hexyl`'s absence from the manifest is now recorded there.** It is not a Kali package at
+  all, so listing it would hand `check-packages.sh` an unresolvable name; the deferral to
+  dotgibson/dotfiles-core#395 is written down instead, so the packages list and
+  `install/tools.lst` agree.
 
 - **Three of the four field references now point at the corpus.** `exploitdev`, `ippsec`
   and `evasion` listed their sibling references but omitted `~/companion` (`htpx`), which
