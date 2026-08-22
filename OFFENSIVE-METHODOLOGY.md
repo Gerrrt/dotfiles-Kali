@@ -45,8 +45,10 @@ on **written authorization and a defined scope**.
 > CI-CD supply chain (Jenkins, GitHub/GitLab runners, npm/PyPI, Terraform Cloud,
 > Vault), plus the Impact tactic and the C2 tradecraft past the one row above, live in
 > the **companion corpus** — `htpx` (`~/companion`), where each attack is paired with
-> its detection. Roughly two-thirds of the corpus is that material and none of it is
-> projected into `hacktheplanet` or `PURPLE-TEAM.md`; the corpus is the map for it.
+> its detection. That material is **69 of the 103 red entries (67%) and 76 of the 101
+> blue (75%)** — 145 of 204 overall — and none of it is projected into
+> `hacktheplanet` or `PURPLE-TEAM.md`; the corpus is the map for it. (Counts are
+> hand-maintained per `companion-sync`; both files carry the same caveat.)
 > The CLIs those entries invoke are accounted for in
 > [`install/offensive-packages.txt`](install/offensive-packages.txt).
 

@@ -45,6 +45,27 @@ release line.
 
 ### Fixed
 
+- **The corpus-coverage counts were stale in three files** (found while verifying #212,
+  which had reported them as correct). `hacktheplanet` and `PURPLE-TEAM.md` claimed 92 red /
+  90 blue entries; the htpx **v2.10.0** sync added 11 of each and the headers were never
+  updated — actual is **103 red / 101 blue**. The decomposition went stale with them: the
+  cloud/SaaS/CI-CD bucket is 56 (not ~55), C2-egress/Impact is 13 (not ~12), and **7 Linux
+  persistence/privesc/credential-access entries had no bucket at all**.
+- **Two red entries and their blue pairs are projected nowhere and belong to no category.**
+  `bloodhound-collect` and `ldap-recon` are both `Active Directory — discovery`, squarely
+  inside the "richer prose here" subject area but absent from its list; their pairs
+  `bloodhound-collect-4662` / `ldap-recon-4662` key off event 4662, which is
+  `PURPLE-TEAM.md`'s own criterion for projecting. `hacktheplanet`'s claim that an
+  unprojected entry is "not a gap in the generator" was therefore false. Both files now name
+  the gap instead of implying it cannot exist.
+- **`rdp-hijack-tscon` was listed as "covered better below"; it is covered *equally*.** Its
+  two commands are byte-identical to the prose ones. Noted rather than silently kept.
+- `OFFENSIVE-METHODOLOGY.md`'s "roughly two-thirds of the corpus" replaced with the measured
+  figure — 69/103 red (67%) and 76/101 blue (75%).
+
+All three files now carry the same caveat: these counts are hand-maintained, they go stale
+on every `companion-sync`, and the corpus is authoritative when they disagree.
+
 - **`kwp` was attributed to the wrong project** (#213). The manifest filed it under
   `PACK (kwp, statsgen, maskgen) → github.com/iphelix/pack`. PACK ships
   statsgen/maskgen/policygen/rulegen and no `kwp` — `kwp` is hashcat's kwprocessor, and
