@@ -171,6 +171,20 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 #                     Windows/PowerShell host rather than Kali. Operator-side external recon
 #                     (unauth, pre-access), which is why it lives here and not in the
 #                     target-dropped section.
+# ROADtools         → UPSTREAM (PyPI `roadrecon` + `roadtx`) and the ONE upstream tool this
+#  (roadrecon,        file names that `--install` REALLY INSTALLS: bootstrap's
+#   roadtx)           _install_apt_absent pipx-installs both on every route, Kali included.
+#                     dirkjanm's Entra toolkit — roadrecon enumerates the directory into a
+#                     local DB + web UI, roadtx does token manipulation and auth flows
+#                     (device code among them). It is here rather than in the corpus-only
+#                     block below because no red entry invokes it YET: the corpus cites
+#                     ROADtools as device-code-phish's `source:` and then runs AADInternals
+#                     PowerShell, so the Linux half is documented in hacktheplanet's M365
+#                     fold and the entry itself is fixed upstream in htpx. Every OTHER
+#                     UPSTREAM line in this file is a note telling YOU to go install
+#                     something; this one is not, and the asymmetry is deliberate — nothing
+#                     on any route apt-installs it, so the bootstrap does. See
+#                     dotgibson/dotfiles-Offense#231.
 
 # ── Cloud / SaaS / CI-CD ──────────────────────────────────────────────────────
 # This block exists for the COMPANION CORPUS, not for hacktheplanet. ~55 of the corpus'

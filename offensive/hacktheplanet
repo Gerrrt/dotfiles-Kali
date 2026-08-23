@@ -118,6 +118,23 @@ Invoke-AADIntReconAsOutsider -Domain <domain> | Format-Table   # AADInternals: f
 #   --enum --validate-teams --usernames users.txt
 #   --spray --passwords pw.txt --sleep-min 60 --sleep-max 80 --shuffle-users --jitter 150
 # Log retention scales w/ license: E5/G5 1yr + MailItemsAccessed/Send; E3 90d & thinner.
+
+# ROADtools — the LINUX half of all this. Everything above wants a Windows/PowerShell
+# host (AADInternals is a pwsh module, TeamFiltration is dotnet); roadrecon and roadtx are
+# pipx-installed on every route by `bootstrap.sh --install`, so they run from this box.
+# Post-auth directory enum -> local SQLite -> browsable web UI on 127.0.0.1:5000:
+roadrecon auth -u <user>@<domain> -p <password>    # also: --device-code, --refresh-token, --as-app
+roadrecon gather                                    # dumps the tenant into roadrecon.db
+roadrecon gui                                       # then browse http://127.0.0.1:5000 (--host/--port to move it)
+# roadtx is the token side — auth flows and token exchange. The device-code flow (the one
+# the corpus' device-code-phish entry describes with AADInternals PowerShell) is a FLAG on
+# gettokens, not a subcommand — it prints the user code, then polls for the tokens:
+roadtx gettokens --device-code -r msgraph           # `auth` is an alias for gettokens
+roadtx interactiveauth -u <user>@<domain> -p <password>   # Selenium-driven auth (handles MFA prompts)
+roadtx refreshtokento -r msgraph                    # swap the cached refresh token to another resource/client
+roadtx describe                                     # decode the token in .roadtools_auth — CHECK THE SCOPES first
+# Tokens land in .roadtools_auth in $PWD: that is ENGAGEMENT DATA, so run these under
+# $ENGAGEMENT (mkengagement/eng), never inside a checkout.
 ////////////////////////////////////////
 
 
