@@ -57,11 +57,11 @@ freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NA
 bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pkg
 #                    # is the LEGACY (≤4.3.1) collector — its zips don't ingest into CE
 #                    # nxc's --bloodhound module also collects (see offensive.zsh `bhce`)
-#                    # ⚠ that legacy package installs the binary as `bloodhound-python`, and the
-#                    # corpus entry `bloodhound-collect` still invokes THAT name. Deliberately not
-#                    # installed here — CE is what this layer stands up — but named so the accounting
-#                    # is honest and test/check-corpus-commands.sh can resolve it. The entry itself is
-#                    # wrong for a CE stack; the fix routes upstream to dotgibson/htpx (#208)
+#                    # ⚠ that legacy package installs the binary as `bloodhound-python` (from
+#                    # `bloodhound.py`), whose zips do NOT ingest into a CE stack. Deliberately not
+#                    # installed here — CE is what this layer stands up. The corpus' bloodhound-collect
+#                    # entry used to invoke the legacy name; htpx v2.10.1 (#89) swapped it to
+#                    # bloodhound-ce-python, so nothing red-side names the legacy binary any more.
 # rusthound-ce      → UPSTREAM (cargo install rusthound-ce): a single static Rust
 #                     binary that emits CE-ingestible JSON — the fast ALTERNATE to
 #                     bloodhound-ce-python on large domains (no Python chain to drop on
