@@ -43,9 +43,6 @@ blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest g
      Their blue pairs (bloodhound-collect-4662, ldap-recon-4662) are the same gap on
      the other side: both key off event 4662, which is PURPLE-TEAM.md's own criterion
      for projecting, and neither projects. Read them with `htpx` until that is fixed.
-     ⚠ bloodhound-collect additionally invokes `bloodhound-python`, the LEGACY (<=4.3.1)
-     collector whose zips do NOT ingest into BloodHound CE — see the BloodHound fold
-     below, which uses bloodhound-ce-python. Fix routes upstream to htpx.
 
 So an unprojected red entry is richer prose here (1), corpus-only tradecraft this file
 doesn't cover (2, 3) — or one of the two known gaps above.

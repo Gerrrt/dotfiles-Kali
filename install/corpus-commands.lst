@@ -53,7 +53,6 @@ kerbrute           upstream               # frozen at v1.0.3 (2019); release bin
 evilginx           upstream               # evilginx2 AitM proxy — go install / release binary, never packaged
 MSOLSpray          upstream               # PowerShell M365 spray, run operator-side from a Windows host
 tfc-agent          upstream               # Terraform Cloud agent, run on infrastructure YOU control
-bloodhound-python  upstream               # ⚠ LEGACY (<=4.3.1) collector; CE needs bloodhound-ce-python. See #208
 
 # ── interactive prompts, kept verbatim because that is what the operator sees ──
 evilginx>          repl:evilginx          # evilginx2's console prompt, not a shell command
