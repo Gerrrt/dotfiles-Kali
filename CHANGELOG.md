@@ -205,6 +205,17 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **SCCM/MECM is now covered — it was a total blank** (#230). `grep -ri sccm` over the
+  repo used to return nothing, despite site-server takeover and Network Access Account
+  extraction being mainstream AD attack surface. Added a `SCCM / MECM` fold to
+  `hacktheplanet` (discovery -> NAA over the network or from a compromised client -> site
+  takeover -> PXE boot-media creds), a `Cred access` row in the methodology map, and
+  `sccmhunter` + `pxethiefy` UPSTREAM annotations in `install/offensive-packages.txt`
+  (whose corpus-only block widened to admit doc-named operator tooling). sccmhunter is
+  documented, not wired into `--install`: it is not on PyPI, its git install carries a
+  Python 3.13 floor and an ldap3 fork pin pip drops silently, so a documented manual step
+  beats a best-effort loop that fails quietly. Every command verified against upstream.
+
 - **`corpus commands resolve` — a gate for the question nothing asked** (#208). Two entries
   in `coerce-petitpotam` once invoked `impacket-petitpotam` and `dfscoerce`. Neither is a
   real command, both shipped in a released corpus, and a **human reading the file** found

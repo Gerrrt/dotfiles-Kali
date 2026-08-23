@@ -32,7 +32,7 @@ on **written authorization and a defined scope**.
 | **Recon** | Reconnaissance (TA0043) | amass, subfinder, dnsx, bbot, theharvester, masscan | `recon/` |
 | **Scanning / enum** | Discovery (TA0007) | `nmapsweep`, nxc (smb/ldap/winrm), enum4linux-ng, ldapdomaindump (apt: python3-ldapdomaindump) | `scans/` |
 | **Initial access** | Initial Access (TA0001) | nuclei/httpx-toolkit/katana (katana: `go install`, not apt), ffuf/feroxbuster, sqlmap, Burp, responder | `web/`, `exploit/` |
-| **Cred access** | Credential Access (TA0006) | nxc, impacket (secretsdump), responder, hashcat/john, certipy-ad | `loot/creds`, `loot/hashes` |
+| **Cred access** | Credential Access (TA0006) | nxc, impacket (secretsdump), responder, hashcat/john, certipy-ad, sccmhunter (SCCM/MECM NAA + site takeover; upstream, not apt) | `loot/creds`, `loot/hashes` |
 | **AD attack-path mapping** | Discovery / PrivEsc | **`bhce`** → BloodHound CE, bloodhound-ce-python, SharpHound | `loot/bloodhound` |
 | **Lateral movement** | Lateral Movement (TA0008) | nxc (exec over smb/winrm/mssql), impacket-psexec, evil-winrm | `notes.md` |
 | **Privilege escalation** | Privilege Escalation (TA0004) | certipy-ad (AD CS), BloodHound paths, impacket | — |
