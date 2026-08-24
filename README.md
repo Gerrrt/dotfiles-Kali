@@ -85,11 +85,11 @@ The full docs live on the [documentation site][docs]; the defensive mirror is
 
 The system is three layers; this repo is the third:
 
-| Layer | Lives in | Owns |
-| --- | --- | --- |
-| **Core** | [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core), vendored under `core/` | zsh, tmux, nvim, git, starship — identical everywhere |
-| **OS-native** | a separate repo — [`dotfiles-Debian`](https://github.com/dotgibson/dotfiles-Debian) for Kali/Debian/Ubuntu | package manager, clipboard, paths |
-| **Role (offensive)** | `offensive/` — **this repo** | engagement scaffolding + workspace workflow |
+| Layer                | Lives in                                                                                                   | Owns                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Core**             | [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core), vendored under `core/`                      | zsh, tmux, nvim, git, starship — identical everywhere |
+| **OS-native**        | a separate repo — [`dotfiles-Debian`](https://github.com/dotgibson/dotfiles-Debian) for Kali/Debian/Ubuntu | package manager, clipboard, paths                     |
+| **Role (offensive)** | `offensive/` — **this repo**                                                                               | engagement scaffolding + workspace workflow           |
 
 ### Languages
 
