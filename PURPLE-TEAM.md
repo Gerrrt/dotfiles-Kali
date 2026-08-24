@@ -640,21 +640,21 @@ index=main EventCode=5145 Relative_Target_Name="protected_storage"
 
 ## Windows Event ID quick reference
 
-| ID | Meaning | Shows up for |
-|----|---------|--------------|
-| 4624 / 4625 | logon success / failure | spray, lateral movement, relay |
-| 4648 | logon w/ explicit creds | runas, LDAP recon fan-out |
-| 4662 | directory-service object access | **DCSync** |
-| 4688 | process creation | LOLBAS, obfuscation, hijack, recon binaries |
-| 4720 / 4722 | account created / enabled | persistence |
-| 4769 | Kerberos TGS request | **Kerberoasting** (RC4 downgrade) |
-| 4771 | Kerberos pre-auth failed (`0x18`) | Kerbrute / AS-REP probing |
-| 4886 / 4887 | cert requested / issued | AD CS abuse (SAN mismatch) |
-| 5136 | directory object modified | `userCertificate` writes, ACL abuse |
-| 5145 | detailed file-share access | coercion pipes, remote secretsdump |
-| 5156 | WFP connection allowed | NFS/SMB/LDAP flow detection (firewall) |
-| 7045 | service installed | psexec, RDP-hijack service |
-| Sysmon 1 / 8 / 10 | proc create / CreateRemoteThread / process access | injection, migration, LSASS access |
+| ID                | Meaning                                           | Shows up for                                |
+| ----------------- | ------------------------------------------------- | ------------------------------------------- |
+| 4624 / 4625       | logon success / failure                           | spray, lateral movement, relay              |
+| 4648              | logon w/ explicit creds                           | runas, LDAP recon fan-out                   |
+| 4662              | directory-service object access                   | **DCSync**                                  |
+| 4688              | process creation                                  | LOLBAS, obfuscation, hijack, recon binaries |
+| 4720 / 4722       | account created / enabled                         | persistence                                 |
+| 4769              | Kerberos TGS request                              | **Kerberoasting** (RC4 downgrade)           |
+| 4771              | Kerberos pre-auth failed (`0x18`)                 | Kerbrute / AS-REP probing                   |
+| 4886 / 4887       | cert requested / issued                           | AD CS abuse (SAN mismatch)                  |
+| 5136              | directory object modified                         | `userCertificate` writes, ACL abuse         |
+| 5145              | detailed file-share access                        | coercion pipes, remote secretsdump          |
+| 5156              | WFP connection allowed                            | NFS/SMB/LDAP flow detection (firewall)      |
+| 7045              | service installed                                 | psexec, RDP-hijack service                  |
+| Sysmon 1 / 8 / 10 | proc create / CreateRemoteThread / process access | injection, migration, LSASS access          |
 
 ## Honey tokens (build these before you're attacked)
 
