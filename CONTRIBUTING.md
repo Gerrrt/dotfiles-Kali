@@ -7,12 +7,12 @@ The README's three rules in full, plus how to actually run the gates.
 This repo stacks **three** layers, and most mistakes here are "right change, wrong
 layer". The test:
 
-| If it… | It belongs in |
-| --- | --- |
-| is identical on every machine | **Core** — [dotfiles-core](https://github.com/dotgibson/dotfiles-core), *not here* |
-| changes with the OS (apt, paths, clipboard, WSL) | **[dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian)**, *not here* — it covers Kali |
-| changes with the operator (engagements, tradecraft) | `offensive/` |
-| is a paired red↔blue attack/detection entry | **htpx** — [dotgibson/htpx](https://github.com/dotgibson/htpx), *not here* |
+| If it…                                              | It belongs in                                                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| is identical on every machine                       | **Core** — [dotfiles-core](https://github.com/dotgibson/dotfiles-core), *not here*               |
+| changes with the OS (apt, paths, clipboard, WSL)    | **[dotfiles-Debian](https://github.com/dotgibson/dotfiles-Debian)**, *not here* — it covers Kali |
+| changes with the operator (engagements, tradecraft) | `offensive/`                                                                                     |
+| is a paired red↔blue attack/detection entry         | **htpx** — [dotgibson/htpx](https://github.com/dotgibson/htpx), *not here*                       |
 
 ## 2. Never hand-edit a vendored subtree
 
