@@ -77,8 +77,19 @@ packages-check: ## Does every offensive-packages.txt name still resolve on Kali?
 secrets: ## gitleaks over the working tree + full history (needs gitleaks)
 	@command -v gitleaks >/dev/null 2>&1 \
 	  || { echo "gitleaks not installed — CI installs the pinned one; see .github/workflows/checks.yml"; exit 0; }
-	@gitleaks detect --no-git --redact --verbose --exit-code 1
-	@gitleaks detect --redact --verbose --exit-code 1
+	@# -c core/gitleaks.toml — ONE POLICY FILE, Core's, the rule Core's own reusable
+	@# lint-call.yml secrets leg states, and the one .github/workflows/checks.yml here already
+	@# passes. Without it these two ran the STOCK rule set, so this target and this repo's own
+	@# CI measured by different policies (dotgibson/dotfiles-core#623). Several stock rules
+	@# match on credential-shaped POSITION rather than content — curl-auth-user fires on
+	@# anything in curl's basic-auth credential slot — so a variable reference, which is the
+	@# SECURE shape because the value never enters the file, was reported as a leak. That is
+	@# not hypothetical: the vendored core/CHANGELOG.md documents that very allowlist, so the
+	@# stock scan flagged Core's explanation of the rule as a violation of it. It matters more
+	@# on the second line, which reads full HISTORY: a false positive there cannot be fixed
+	@# forward, only by a rewrite, so it would wedge this target permanently.
+	@gitleaks detect --no-git -c core/gitleaks.toml --redact --verbose --exit-code 1
+	@gitleaks detect -c core/gitleaks.toml --redact --verbose --exit-code 1
 
 bootstrap-dry: ## Preview the full bootstrap plan, changing nothing
 	@./bootstrap.sh --dry-run
