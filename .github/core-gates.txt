@@ -1,0 +1,13 @@
+# .github/core-gates.txt — how this repo satisfies dotfiles-core's reusable gates.
+#
+# ONE LINE PER GATE THIS REPO DOES NOT CALL. Anything that calls the reusable workflow is
+# derived from its own `uses:` line and needs no entry here (dotgibson/dotfiles-core#607).
+#
+#   <gate> own  <how it is satisfied here>
+#   <gate> none <why this repo does not need it>
+#
+# The value is entirely in these lines: without them a rollout audit cannot tell
+# "not covered" from "covered elsewhere", which has already produced two issues filed in
+# good faith against gates this repo does satisfy (#154, #178).
+
+claude-routines-call own claude-routines.yml runs /tool-scout and /doc-audit headless on a weekly cron, one cron per routine, report-first. The reusable carries os-package-availability; this repo's package list is offensive-packages.txt and is gated by its own packages.yml instead.
