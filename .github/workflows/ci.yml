@@ -1,0 +1,42 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: shellcheck + syntax
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning htpx gen-views.sh install.sh scripts/auto-tag.sh
+          bash -n htpx gen-views.sh install.sh scripts/auto-tag.sh
+      - name: drift gate (standalone — no flat-view targets)
+        run: ./gen-views.sh --check
+      - name: pairing graph + slot coverage
+        run: |
+          fail=0
+          for f in entries/red/*.md entries/blue/*.md; do
+            id=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="id"{print $2;exit}' "$f")
+            pair=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$f")
+            # A DECLARED hole must say why. `pair: null` is a legitimate schema value and
+            # this gate has always accepted it — but a bare null is indistinguishable from
+            # an oversight, so the only way to triage one was to read the prose and hope
+            # the author left a reason there. Requiring pair_note: makes the corpus
+            # self-explaining and stops declared holes being re-triaged every time someone
+            # counts the two directories (#97).
+            if [ "$pair" = "null" ]; then
+              note=$(awk '/^---/{n++;next} n==1 && /^pair_note:/{found=1} n==1 && found && /^[a-z_]+:/ && !/^pair_note:/{exit} n==1 && found{print}' "$f" | tail -n +2 | tr -d ' \n')
+              [ -n "$note" ] || { echo "UNEXPLAINED pair: null — $id needs a pair_note: saying why"; fail=1; }
+              continue
+            fi
+            mate=$(grep -rl "^id: *$pair\$" entries | head -1)
+            back=$([ -n "$mate" ] && awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$mate")
+            [ "$back" = "$id" ] || { echo "BROKEN PAIR: $id -> $pair (back=$back)"; fail=1; }
+          done
+          u=$(comm -23 <(grep -rho '{{[a-z_]*}}' entries|sort -u) <(grep -o "'{{[a-z_]*}}'" htpx|tr -d "'"|sort -u))
+          [ -z "$u" ] || { echo "UNHANDLED slots:"; echo "$u"; fail=1; }
+          exit $fail
