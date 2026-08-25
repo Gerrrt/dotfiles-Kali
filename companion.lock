@@ -7,10 +7,10 @@
 # and update companion_sha below to the new git-subtree-split commit.
 companion_repo=dotgibson/htpx
 companion_branch=main
-companion_sha=421c6a9a74c4c2ba52144a9e55bb844b9328bbe1
+companion_sha=b80741fdc07406ac652866c903530caf0f778acf
 # Human-readable provenance, mirroring core.lock's core_version/core_tag. Neither is
 # load-bearing — companion_sha is the only field the tooling compares — but without
 # them "which htpx is this?" needed a network round-trip. Refreshed by
 # scripts/sync-companion.sh; `unknown` just means the sync could not resolve a tag.
 companion_version=2.10.1
-companion_tag=v2.10.1
+companion_tag=v2.10.1-6-gb80741f

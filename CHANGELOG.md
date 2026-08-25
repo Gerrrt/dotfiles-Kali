@@ -205,6 +205,26 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **The SMB enum fold and its detection are now entry-backed.** `companion.lock`
+  bumps to htpx `b80741f`, which pairs `smb-enum-nxc` with a new `smb-enum-5145` blue
+  entry ([htpx#97](https://github.com/dotgibson/htpx/issues/97)), and both sides are
+  wrapped in `companion:gen` markers: the nxc commands in `hacktheplanet`'s SMB fold,
+  and the detection in `PURPLE-TEAM.md`'s recon section.
+
+  The hacktheplanet block is the notable half. Those five `nxc smb` lines have been
+  hand-written since the file existed, and the entry upstream carried only three of them
+  — so wrapping them would have silently deleted `--loggedon-users` and the `/24` spray.
+  htpx#100 widened the entry to the full fold with its inline comments matched, which
+  makes `render_red` reproduce the existing lines **byte for byte**: the diff to
+  `hacktheplanet` here is the two marker lines and nothing else. That is the bar for
+  putting a marker around prose that was already good — the tempting shortcut, wrap it
+  and let the generator win, loses content nobody notices for months.
+
+  This sync also brings `pair_note:`
+  ([htpx#98](https://github.com/dotgibson/htpx/pull/98)), which the vendored copy
+  predated: an entry carrying `pair: null` must now say why, and upstream CI rejects one
+  that does not.
+
 - **ROADtools is now installed by `--install`, on every route** (#231). Entra/M365
   tooling in this layer was entirely Windows-side (AADInternals, TeamFiltration,
   MSOLSpray); the corpus even cited dirkjanm's ROADtools as `device-code-phish`'s

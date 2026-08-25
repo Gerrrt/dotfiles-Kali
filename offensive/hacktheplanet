@@ -347,11 +347,13 @@ enum4linux-ng -A <ip_address>            # -ng is the maintained rewrite
 nbtscan -r <ip_address>
 
 # NetExec — users/shares/policy in one shot:
+# companion:gen smb-enum-nxc
 nxc smb <ip_address> -u '' -p '' --shares           # null session
 nxc smb <ip_address> -u <user> -p <password> --users --groups --shares --pass-pol
 nxc smb <ip_address> -u <user> -p <password> --loggedon-users
 nxc smb <ip_address>/24 -u <user> -p <password>     # spray a cred across the subnet (reuse = bread & butter)
 nxc smb <ip_address>    -u <user> -H <NThash>       # pass-the-hash
+# companion:end smb-enum-nxc
 
 sudo mount -t cifs //<ip_address>/<share> /mnt -o username=<user>,password=<password>
 

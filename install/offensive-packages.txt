@@ -167,7 +167,8 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 #                     via OneDrive (hacktheplanet's M365 enum line). Not in apt — git clone.
 # AADInternals      → UPSTREAM (PowerShell Gallery: `Install-Module AADInternals`): the Entra ID
 #                     toolkit behind hacktheplanet's `Invoke-AADIntReconAsOutsider` line and the
-#                     corpus' device-code-phish entry. Not apt — a pwsh module, and it wants a
+#                     corpus' device-code-phish entry, which invokes
+#                     `Get-AADIntAccessTokenForMSGraph`. Not apt — a pwsh module, and it wants a
 #                     Windows/PowerShell host rather than Kali. Operator-side external recon
 #                     (unauth, pre-access), which is why it lives here and not in the
 #                     target-dropped section.
@@ -176,11 +177,13 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps i
 #   roadtx)           _install_apt_absent pipx-installs both on every route, Kali included.
 #                     dirkjanm's Entra toolkit — roadrecon enumerates the directory into a
 #                     local DB + web UI, roadtx does token manipulation and auth flows
-#                     (device code among them). It is here rather than in the corpus-only
-#                     block below because no red entry invokes it YET: the corpus cites
-#                     ROADtools as device-code-phish's `source:` and then runs AADInternals
-#                     PowerShell, so the Linux half is documented in hacktheplanet's M365
-#                     fold and the entry itself is fixed upstream in htpx. Every OTHER
+#                     (device code among them). It USED to be here rather than in the
+#                     corpus-only block below because no red entry invoked it: the corpus
+#                     cited ROADtools as device-code-phish's `source:` and then ran only
+#                     AADInternals PowerShell. htpx fixed that entry — it now carries
+#                     `roadtx gettokens --device-code` as the Linux half of the flow — so the
+#                     corpus does invoke it, and corpus-commands.lst classifies it against
+#                     this line. The placement is unchanged; only the reason is. Every OTHER
 #                     UPSTREAM line in this file is a note telling YOU to go install
 #                     something; this one is not, and the asymmetry is deliberate — nothing
 #                     on any route apt-installs it, so the bootstrap does. See
