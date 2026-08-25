@@ -1,5 +1,5 @@
 ---
-description: Judgment review of the htpx red↔blue corpus — ATT&CK correctness, pairing fidelity, coverage holes, detection quality (report-first)
+description: Judgment review of the htpx red↔blue corpus — ATT&CK correctness, pairing fidelity, red command correctness, coverage holes, detection quality (report-first)
 argument-hint: "[tactic, platform, or detection-backend — optional, e.g. credential_access, aws, kql-entra-signin]"
 allowed-tools: Read, Grep, Glob, WebSearch, WebFetch, Bash(git ls-files:*), Bash(git log:*)
 ---
@@ -10,8 +10,9 @@ Review the **quality and coverage** of the paired red↔blue corpus in
 `entries/red/` and `entries/blue/` — the judgment half of the corpus gate.
 `.github/workflows/ci.yml` already *enforces* the mechanical half on every change,
 so this routine does **not** re-check what CI already proves. It reviews what an
-awk script cannot: are the ATT&CK tags **correct**, does a blue entry actually
-**detect** the red technique it's paired with, and is the coverage honest.
+awk script cannot: are the ATT&CK tags **correct**, does the red command actually
+**run** what it claims, does a blue entry actually **detect** the red technique
+it's paired with, and is the coverage honest.
 
 The goal is a **reviewable report, not edits** — like every routine in this fleet,
 report-first: propose, rank, and link; change nothing.
@@ -62,7 +63,38 @@ entry carries `attack: {tactic, techniques}`, `detection`, `event_ids`, `pair`.
    as a missing pair.
 5. **Detection quality / duplication.** Is a blue detection too broad (alert
    fatigue) or too brittle (trivially evaded)? Are two entries near-duplicates that
-   should merge? Is a `source:` provenance stale or a claim unsupported?
+   should merge? Is a `source:` provenance stale or a claim unsupported — and does
+   it credit **the toolkit the command actually shows**? (`device-code-phish`
+   credited ROADtools for releases while running an AADInternals cmdlet.)
+6. **Red command correctness — nothing else in this repo reads it.** All 103 red
+   entries carry a fenced command block and no gate validates its contents: CI's
+   checks are structural (pairing, slots, byte-drift, shell lint) and *projection is
+   not the variable* — v2.8.1's `wmi-subscription` **was** projected and the
+   byte-gate stayed green, because it asserts the flat view matches the entry, not
+   that either names a real tool. So read the fence. For every binary invoked: does
+   it **exist under that exact name** (a package's `Provides:` is not a binary —
+   `proxychains` ships only as `proxychains4`), and is it the **right** one where a
+   project has forked or renamed (`bloodhound-ce-python` vs legacy
+   `bloodhound-python`, `netexec` vs `crackmapexec`)? Do the **flags and subcommands
+   exist on that tool**, and does the invocation do what the prose claims? Does
+   `platform:` match what the fence actually runs on — the same read settles it.
+   Flag fabricated invocations, superseded binaries, and commands whose telemetry
+   **cannot produce the signal the paired blue entry keys on** (a red line spraying
+   Kerberos AS-REQ emits `4771`; a blue entry keying only on `4625` never fires).
+
+   Two rules, both learned the hard way here:
+
+   - **Do not guess a name.** You have no shell to test with — `command -v` and
+     `apt-file` are not available to this routine and none of these tools are
+     installed — so verify against the **upstream project, its docs, or a package
+     index** via `WebSearch`/`WebFetch`, and cite what you checked. The v2.8.1
+     review called `proxychains` "probably fine … one `command -v` settles it" and
+     guessed the nxc module was an underscore typo; both guesses were wrong in the
+     same direction: worse. If you cannot verify, say **needs-a-human-look** rather
+     than proposing a replacement.
+   - **Deleting can beat correcting.** `wmi-subscription`'s fabricated module was
+     removed, not substituted — the nearest real thing would have made the entry
+     describe a different technique. Propose deletion when no true equivalent exists.
 
 ## How to report
 

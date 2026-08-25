@@ -22,7 +22,17 @@ jobs:
           for f in entries/red/*.md entries/blue/*.md; do
             id=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="id"{print $2;exit}' "$f")
             pair=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$f")
-            [ "$pair" = "null" ] && continue
+            # A DECLARED hole must say why. `pair: null` is a legitimate schema value and
+            # this gate has always accepted it — but a bare null is indistinguishable from
+            # an oversight, so the only way to triage one was to read the prose and hope
+            # the author left a reason there. Requiring pair_note: makes the corpus
+            # self-explaining and stops declared holes being re-triaged every time someone
+            # counts the two directories (#97).
+            if [ "$pair" = "null" ]; then
+              note=$(awk '/^---/{n++;next} n==1 && /^pair_note:/{found=1} n==1 && found && /^[a-z_]+:/ && !/^pair_note:/{exit} n==1 && found{print}' "$f" | tail -n +2 | tr -d ' \n')
+              [ -n "$note" ] || { echo "UNEXPLAINED pair: null — $id needs a pair_note: saying why"; fail=1; }
+              continue
+            fi
             mate=$(grep -rl "^id: *$pair\$" entries | head -1)
             back=$([ -n "$mate" ] && awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$mate")
             [ "$back" = "$id" ] || { echo "BROKEN PAIR: $id -> $pair (back=$back)"; fail=1; }

@@ -9,6 +9,10 @@ attack:
 platform: [cloud]
 source: GCP post-access recon (blast-radius mapping)
 pair: null
+pair_note: >-
+  Read-only recon whose only telemetry is GCP Data Access logs, which are off by
+  default and rarely collected. A blue entry here would document telemetry most
+  estates do not have, so this ships unpaired by decision, not by oversight.
 ---
 
 Once a token or service-account key lands, map the blast radius before touching
