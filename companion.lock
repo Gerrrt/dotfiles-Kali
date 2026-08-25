@@ -12,5 +12,24 @@ companion_sha=b80741fdc07406ac652866c903530caf0f778acf
 # load-bearing — companion_sha is the only field the tooling compares — but without
 # them "which htpx is this?" needed a network round-trip. Refreshed by
 # scripts/sync-companion.sh; `unknown` just means the sync could not resolve a tag.
+#
+# ── THIS SHA NEED NOT MATCH dotfiles-Defense'S ─────────────────────────────────
+# Defense is the OTHER consumer of the same corpus, and it tracks htpx differently: it
+# does not vendor anything, it names a commit in detections/htpx.pin and fetches it at
+# gate time. So the fleet holds TWO independently-pinned htpx revisions, advanced by two
+# different triggers — this one by htpx's fan-out on a RELEASE TAG (or a manual
+# scripts/sync-companion.sh), Defense's by a reviewed manual bump.
+#
+# They drift apart routinely, and that is FINE. A release fans out here automatically and
+# leaves Defense's pin where it is until someone bumps it deliberately — which is the
+# point of Defense pinning at all: its gates' verdict must not move on their own. The lag
+# is self-correcting at the next bump.
+#
+# It is written down because the mismatch LOOKS like a bug when you first meet it —
+# PURPLE-TEAM.md rendering one snapshot of the corpus while Defense's HTPX-COVERAGE.md
+# describes another, with both repos' gates green. Neither is wrong; they are just
+# describing different revisions. Do NOT "fix" it by forcing the two to track, which would
+# put Defense's pin on htpx's release cadence instead of on a reviewed decision.
+# dotgibson/dotfiles-Offense#251.
 companion_version=2.10.1
 companion_tag=v2.10.1-6-gb80741f
