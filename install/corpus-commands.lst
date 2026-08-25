@@ -52,6 +52,8 @@ vault              upstream               # BUSL-licensed, so HashiCorp's repo r
 kerbrute           upstream               # frozen at v1.0.3 (2019); release binary or `go install`
 evilginx           upstream               # evilginx2 AitM proxy — go install / release binary, never packaged
 MSOLSpray          upstream               # PowerShell M365 spray, run operator-side from a Windows host
+Get-AADIntAccessTokenForMSGraph  upstream  # AADInternals cmdlet, operator-side from Windows (manifest, AADInternals)
+roadtx             upstream               # ROADtools' token half; pipx-installed by bootstrap on every route
 tfc-agent          upstream               # Terraform Cloud agent, run on infrastructure YOU control
 
 # ── interactive prompts, kept verbatim because that is what the operator sees ──

@@ -6,7 +6,7 @@ event_ids: []
 attack:
   tactic: TA0006
   techniques: [T1528]
-source: dirkjanm (ROADtools) & Secureworks CTU, device-code phishing
+source: Dr. Nestori Syynimaa (AADInternals), dirkjanm (ROADtools) & Secureworks CTU, device-code phishing
 pair: device-code-phish
 ---
 

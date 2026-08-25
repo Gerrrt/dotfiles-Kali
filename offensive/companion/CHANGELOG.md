@@ -18,6 +18,141 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [Unreleased]
+
+### Added
+
+- **`smb-enum-nxc` is paired — `entries/blue/smb-enum-5145.md`.** The other half of #97,
+  kept out of the schema change so it was not held behind new detection content. The
+  `pair_note:` said "unpaired pending a detection entry", and this is that entry.
+
+  The detection was never the hard part: `dotfiles-Defense` has carried
+  `detections/sigma/discovery/host_enum_srvsvc_wkssvc_5145.yml` for months, and its own
+  validation note already named this red entry as the way to reproduce it. The corpus
+  simply had nothing to put beside the attack. Ported to SPL, it keys on the `srvsvc` /
+  `wkssvc` RPC pipes over `IPC$` — the transport for `NetShareEnum`, `NetSessionEnum` and
+  `NetWkstaUserEnum` — and counts **distinct hosts per principal**, because breadth
+  across hosts is what separates an enumeration pass from a user browsing a share.
+
+  That pipe set is disjoint from the corpus's two other 5145 detections
+  (`coercion-5145` on spoolss/efsrpc/lsarpc/netlogon/lsass; `dpapi-backupkey-5145` on
+  protected_storage). Same event ID, different RPC interface, different technique — the
+  entry says so explicitly so nobody consolidates the three later.
+
+  `pair_note:` is removed from the red entry rather than reworded: it described a hole
+  that no longer exists, and leaving it would be the same defect #98 fixed, pointed the
+  other way. `gcp-enum-recon` is now the corpus's only unpaired entry, on its merits.
+
+  (#97)
+
+- **`pair_note:` — a declared hole now has to say why it is a hole.** `pair: null` is a
+  legitimate schema value and the pairing gate has always accepted it, correctly. But a
+  bare `null` is indistinguishable from an oversight, so the only way to triage one was
+  to read the entry's prose and hope the author had left a reason there. That is how
+  `gcp-enum-recon` and `smb-enum-nxc` came to be re-triaged every time someone counted
+  `entries/red/` against `entries/blue/` and got 103 vs 101.
+
+  Worth being precise about what was actually wrong: **both entries did already state
+  their reason**, in prose, and they are the only two in the corpus that do. This was a
+  deliberate, consistently-applied decision — not an oversight. What it was not was
+  machine-readable, and a directory count cannot read prose. `pair_note:` promotes the
+  words that were already written into frontmatter, and CI now rejects an unexplained
+  `null`, so the next declared hole cannot be silent.
+
+  - `gcp-enum-recon` — stays unpaired on its merits: its only telemetry is GCP Data
+    Access logs, which are off by default and rarely collected, so a blue entry would
+    document telemetry most estates do not have.
+  - `smb-enum-nxc` — unpaired **pending** a detection entry, and the note says so. This
+    one is genuinely detectable (5145 share access, the auth-burst pattern) and
+    `dotfiles-Defense` already carries `host_enum_srvsvc_wkssvc_5145.yml`. Authoring the
+    blue entry is tracked separately in #97 rather than held behind this schema change.
+
+  (#97)
+
+### Fixed
+
+- **The README's corpus count had drifted by twelve.** It said "90 paired
+  attack/detection concepts", which was exact when it was written — 92 red entries, two
+  of them unpaired — and then eleven pairs landed without it. Recomputed from the tree:
+  **102 paired, one unpaired.** A count is the cheapest thing to leave stale and the
+  first number a reader trusts, which is the same reasoning that put a gate on
+  `dotfiles-Defense`'s gate-list counts.
+
+- **`device-code-phish` credited ROADtools for an AADInternals command.** Its
+  `source:` read `dirkjanm (ROADtools) & Secureworks CTU` while the only line in the
+  fence was `Get-AADIntAccessTokenForMSGraph -UseDeviceCode -SaveToCache` — the
+  `Get-AADInt*` prefix is the tell, that is Dr. Nestori Syynimaa's AADInternals, and
+  ROADtools contributed nothing to the entry as written. The paired
+  `device-code-signin` carried the byte-identical `source:` string and inherited the
+  same error; both now credit AADInternals, ROADtools, and Secureworks CTU, and both
+  still match each other byte for byte.
+
+  `platform:` was `[windows, cloud]`, which told a Linux operator the technique
+  wasn't for them — false. The device-code flow is fully Linux-runnable, so the
+  entry now carries `[windows, linux, cloud]` and a `roadtx` line that earns it:
+  `roadtx gettokens --device-code -r msgraph`. That invocation was checked against
+  upstream rather than transcribed on trust — `gettokens` and `--device-code` are
+  real, and `msgraph` is a genuine key in roadlib's `WELLKNOWN_RESOURCES`
+  (`https://graph.microsoft.com/`), where the plausible-looking `graph` is **not**.
+  Omitting `-c` falls back to roadtx's default Azure CLI client, so the line runs as
+  written.
+
+  The two commands share **one** fence, not two. Every one of the 103 red entries
+  has exactly one fenced block, and `gen-views.sh`'s `render_red` projects only the
+  first (`c == 1`) — a second fence would have silently dropped the Linux line if
+  this entry were ever projected. `bloodhound-collect` is the same Windows-plus-Linux
+  case and already solves it with a single `sh` fence and `#` headers; this follows
+  precedent exactly. `device-code-phish` is not projected into any flat view today,
+  so there is no drift to regenerate. (#91)
+
+### Changed
+
+- **`smb-enum-nxc` now carries the whole nxc fold, not a three-line excerpt.** It was
+  missing `--loggedon-users` and the `/24` credential spray that
+  `dotfiles-Offense`'s `hacktheplanet` has always shown in the same section, so the
+  entry was a subset of the flat file it is supposed to be canonical for. With the two
+  lines added and the inline comments matched, `gen-views.sh` renders the entry
+  byte-identical to those lines — which is what lets Offense wrap them in a
+  `companion:gen` marker without losing content. The `/24` form is also the one the new
+  paired detection keys on, so omitting it hid the link the pair exists to show.
+
+- **`/corpus-review` now reads red entries' command lines.** Nothing in this repo
+  did. All 103 red entries carry a fenced command block, and every gate around them
+  is structural or consistency-only — the pairing graph, `{{slot}}` coverage,
+  `gen-views.sh --check`, shellcheck. The routine's five dimensions read `attack`,
+  `platform`, `pair`, `detection`, and `event_ids`, and never looked inside the
+  fence. Four command-line defects shipped across three releases
+  (`wmi-subscription`, `ntlm-relay-ntlmrelayx`, `coerce-petitpotam`,
+  `bloodhound-collect`) and a human or a downstream routine caught every one.
+
+  The fix is a sixth dimension, not more projection. v2.8.1 already settled that:
+  `wmi-subscription` **was** projected into `hacktheplanet` and the byte-gate stayed
+  green anyway, because it asserts the flat view matches the entry, not that either
+  names a real tool. Projection is orthogonal to this class of bug. The new
+  dimension asks whether each binary exists under that exact name (a `Provides:` is
+  not a binary), whether it is the *right* one where a project has forked or renamed,
+  whether the flags and subcommands are real, whether `platform:` matches what the
+  fence runs on, and whether the command's telemetry can produce the signal the
+  paired blue entry keys on. Dimension 5's `source:` clause was sharpened in the same
+  pass to ask whether provenance credits the toolkit the command actually shows —
+  #91 was exactly that defect, and dimension 5 as written did not catch it.
+
+  Two constraints are written in. **Do not guess a name**: the routine has no shell,
+  `command -v` and `apt-file` are not available to it and none of these tools are
+  installed, so verification is documentation-based via `WebSearch`/`WebFetch` and
+  must cite what was checked — v2.8.1 records a review that guessed twice and was
+  wrong in the same direction both times. And **deleting can beat correcting**, as
+  `wmi-subscription`'s fabricated module showed: substituting the nearest real thing
+  would have made the entry describe a different technique. No tool-permission
+  changes were needed; `WebSearch`/`WebFetch` were already granted in both
+  `corpus-review.md` and `claude-routines.yml`.
+
+  A mechanical tier-1 resolver in *this* repo — binary-exists checking in `ci.yml`
+  rather than only downstream in `dotfiles-Offense` — is deliberately still open. It
+  needs a package-index source of truth for tools the runner cannot install, which is
+  design work rather than an increment. htpx is the source of truth, so a defect
+  caught downstream has already shipped. (#93)
+
 ## [v2.10.1] - 2026-08-22
 
 ### Fixed
