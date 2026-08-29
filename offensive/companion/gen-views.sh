@@ -206,7 +206,12 @@ for t in "${TARGETS[@]}"; do
       echo "gen-views: DRIFT in $t — a generated block is out of date with its entry:" >&2
       diff -u "$file" <(printf '%s\n' "$generated") | sed 's/^/  /' >&2 || true
       echo "  fix: run offensive/companion/gen-views.sh and commit the result." >&2
-      rc=1
+      # Drift must never DOWNGRADE a structural failure recorded by an earlier target.
+      # rc was a plain assignment, so a missing-entry 2 on PURPLE-TEAM.md followed by
+      # drift on hacktheplanet exited 1 — which is exactly the shape of a rename
+      # release, and would let a caller that keys on 2 wave it through. Severity is
+      # sticky: 2 > 1 > 0.
+      ((rc == 2)) || rc=1
     else
       echo "gen-views: $t up to date"
     fi
