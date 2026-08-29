@@ -18,7 +18,7 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
-## [Unreleased]
+## [v3.0.1] - 2026-08-28
 
 ### Fixed
 
