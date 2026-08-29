@@ -8,7 +8,7 @@ attack:
   techniques: [T1558.004]
 platform: [windows, network]
 source: hacktheplanet §"User enum (no creds) + AS-REP roast (no-preauth accounts)"
-pair: asrep-probing-4771
+pair: asrep-roast-4768
 ---
 
 Accounts with "do not require Kerberos pre-auth" set hand you a crackable AS-REP.

@@ -108,7 +108,7 @@ index=main EventCode=4625 NOT (Source_Network_Address IN ("-","127.0.0.1"))
 ```
 <!-- companion:end password-spray-4625 -->
 
-<!-- companion:gen asrep-probing-4771 -->
+<!-- companion:gen asrep-roast-4768 -->
 **Detect AS-REP roast (4768 no-preauth)**
 
 Detect on the invariant, not the IOC. The roastable AS-REP is a *successful*
@@ -135,7 +135,7 @@ succeeds. It is `password-spray-4625`'s primary query, at a threshold tuned for 
 lower-threshold copy here only doubles the alerts on someone else's finding. Pivot to that
 entry when the two fire together — enumeration followed by roasting is one operator working
 through the domain.
-<!-- companion:end asrep-probing-4771 -->
+<!-- companion:end asrep-roast-4768 -->
 
 <!-- companion:gen kerberoasting-4769 -->
 **Detect Kerberoasting (4769 RC4 TGS)**
