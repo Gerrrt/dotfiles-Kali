@@ -1,5 +1,5 @@
 ---
-id: asrep-probing-4771
+id: asrep-roast-4768
 title: Detect AS-REP roast (4768 no-preauth)
 detection: splunk-spl
 event_ids: [4768]

