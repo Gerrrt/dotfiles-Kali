@@ -52,8 +52,12 @@ _have amass        && HAVE_AMASS=1
 # C2 / emulation
 _have sliver-client && HAVE_SLIVER=1
 _have msfconsole    && HAVE_MSF=1
-# No HAVE_CALDERA probe: Caldera ships no `caldera` binary (it's the UPSTREAM/docker
-# entry in install/offensive-packages.txt), so `_have caldera` could never fire.
+# No HAVE_CALDERA probe — but NOT because the binary is missing: the kali package does
+# install /usr/bin/caldera, so `_have caldera` would fire fine. The reason is
+# install/tools.lst's actual membership rule: a tool earns a probe only when THIS file
+# probes or invokes it by bare name, and nothing here does. (The old note claimed Caldera
+# ships no `caldera` binary and pointed at an UPSTREAM/docker manifest entry; both were
+# wrong, and the manifest now carries it as a plain apt line.)
 # Cracking
 _have hashcat      && HAVE_HASHCAT=1
 _have john         && HAVE_JOHN=1
@@ -447,11 +451,14 @@ rocks() {
 
 # ── redup — MANUAL offensive-tool refresh (opt-in; NEVER automatic) ───────────
 # apt owns the packaged tools (`up` / `sudo apt upgrade`); THIS refreshes the fast-movers
-# that carry their OWN updater and rot between apt syncs — nuclei's engine + templates
-# (templates move daily), katana's crawler engine and searchsploit's exploit-DB, plus any
-# go-installed fast-movers registered in go_fast_movers below — an empty array today, see
-# the note there. Run it DELIBERATELY on your attacker box — NEVER on a client/engagement
-# host mid-op, where updating a tool under a working chain is exactly how you break it.
+# that carry their OWN updater and rot between apt syncs — nuclei's TEMPLATES (they move
+# daily) plus its engine ONLY where that build has `-update`: Kali patches the engine
+# self-updater out because apt owns the binary, so there redup refreshes templates alone
+# and neither runs nor tallies the engine step. Then katana's crawler engine and
+# searchsploit's exploit-DB, plus any go-installed fast-movers registered in
+# go_fast_movers below — an empty array today, see the note there. Run it DELIBERATELY on
+# your attacker box — NEVER on a client/engagement host mid-op, where updating a tool
+# under a working chain is exactly how you break it.
 # Each step is guarded by tool presence (command -v, not _have — that's unfunctioned at
 # load). It only ever runs each tool's own updater; it installs nothing new and touches
 # no engagement data.
@@ -459,21 +466,47 @@ redup() {
   emulate -L zsh
   if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
     print -- "redup — manually refresh the fast-moving offensive tools (opt-in, attacker box only,"
-    print -- "        never mid-engagement): nuclei engine+templates, katana, and searchsploit's"
-    print -- "        exploit-DB. apt-packaged tools update via 'up'."
+    print -- "        never mid-engagement): nuclei templates always, its engine only where that"
+    print -- "        build carries -update (Kali's packaged nuclei does not — apt owns it), plus"
+    print -- "        katana and searchsploit's exploit-DB. apt-packaged tools update via 'up'."
     return 0
   fi
   print -P "%F{yellow}⚠ redup: manual offensive-tool refresh — attacker box only, never mid-engagement.%f"
   local updated=0 failed=0
 
-  # nuclei — engine + templates. Count a step only when its updater EXITS 0; a failure
-  # prints a hint and is tallied, so the summary can't read green on a silent failure.
+  # nuclei — templates always, engine where the build supports it. Count a step only when
+  # its updater EXITS 0; a failure prints a hint and is tallied, so the summary can't read
+  # green on a silent failure.
+  #
+  # TEMPLATES are UNCONDITIONAL — `-ut/-update-templates` exists in every build and is the
+  # daily-moving half. The ENGINE step is PROBED, because Kali PATCHES `-update` OUT of its
+  # packaged nuclei: apt owns that binary, so self-updating it is not nuclei's job there.
+  # Kali's `-h` UPDATE section carries only `-ut/-update-templates`, `-ud/-update-template-dir`
+  # and `-duc/-disable-update-check`. The old unconditional `nuclei -update` therefore failed
+  # on EVERY Kali run and tallied a failure for a step that was never available — the summary
+  # read "1 failed" on a completely healthy box, which is the exact miscount the comment above
+  # exists to prevent. A non-Kali Debian gets nuclei from `go install` (bootstrap.sh) and THAT
+  # build does carry `-update`, so the flag is probed rather than assumed.
+  #
+  # THE PROBE MATCHES A WHOLE TOKEN, not a substring. A bare `grep -- -update` matches
+  # `-update-templates`, `-update-template-dir` AND `-disable-update-check` — three hits on the
+  # very Kali help that proves the flag is absent — and would conclude it exists. So: preceded
+  # by start-of-line, whitespace, or the `,` goflags puts between the short and long form;
+  # followed by whitespace, `,` or end-of-line. `-update-templates` fails on the trailing side
+  # (next char is `-`), `-disable-update-check` on the leading side (preceding char is `e`).
+  # An upstream build renders the pair as `-up, -update`, so both alternatives fire there.
+  # `-h` exits 0 and prints to stdout on Kali; 2>&1 is kept so a build that banners to
+  # stderr still probes.
   if command -v nuclei >/dev/null 2>&1; then
-    print -P "%F{cyan}» nuclei — engine + templates%f"
-    if nuclei -update -silent 2>/dev/null || nuclei -update 2>/dev/null; then
-      ((updated++))
+    print -P "%F{cyan}» nuclei — templates (+ engine where the build supports it)%f"
+    if nuclei -h 2>&1 | grep -qE '(^|[[:space:],])-(up|update)([[:space:],]|$)'; then
+      if nuclei -update -silent 2>/dev/null || nuclei -update 2>/dev/null; then
+        ((updated++))
+      else
+        print -P "  %F{red}✗ nuclei engine update failed%f"; ((failed++))
+      fi
     else
-      print -P "  %F{red}✗ nuclei engine update failed%f"; ((failed++))
+      print -- "  – engine self-update not in this build (apt owns it) — templates only"
     fi
     if nuclei -update-templates -silent 2>/dev/null || nuclei -update-templates 2>/dev/null; then
       ((updated++))

@@ -15,7 +15,14 @@
 # ── Network / Active Directory ────────────────────────────────────────────────
 netexec              # nxc — successor to CrackMapExec (CME archived 2023)
 nmap
-rustscan             # fast port sweep that hands off to nmap -sC -sV; ships in kali-linux-default, list it for slim installs
+# rustscan          → UPSTREAM (cargo install rustscan): fast port sweep that hands off to
+#                     nmap -sC -sV — hacktheplanet's `rustscan -a <ip> --ulimit 5000 -- -sC -sV`.
+#                     NOT in kali-rolling: absent from main, contrib and non-free alike. Kali's
+#                     packaging sits in kali-DEV at 2.4.1-0kali1 and has not migrated, while
+#                     upstream is 4.7.4 — so apt cannot supply it on any box today. The line that
+#                     was here also claimed it "ships in kali-linux-default"; that metapackage's
+#                     Depends does not name it, so both halves were wrong. Re-check
+#                     pkg.kali.org/pkg/rustscan and restore the apt line if 2.4.1 migrates.
 responder
 mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 #                    # NOTE: upstream FROZEN (last commit Feb 2022; Kali has shipped 0.3.0 since May 2024).
@@ -98,7 +105,11 @@ httpx-toolkit        # ProjectDiscovery httpx — bare 'httpx' apt pkg is the py
 # following the port folds) has the primary command of each fold in PATH.
 onesixtyone          # SNMP community-string sweep (SNMP-161 fold)
 snmp                 # provides snmpwalk / snmpbulkwalk (SNMP-161 fold)
-snmp-check           # human-readable SNMP enumeration (SNMP-161 fold)
+snmpcheck            # human-readable SNMP enumeration (SNMP-161 fold). PACKAGE is `snmpcheck`,
+#                    # the BINARY it ships is `/usr/bin/snmp-check` — the same package/binary split
+#                    # as httpx-toolkit and python3-ldapdomaindump above. The manifest carried the
+#                    # binary name, which resolves against nothing: `snmp-check` is in no Kali
+#                    # component. hacktheplanet's `snmp-check <ip> -c public` was always correct.
 smtp-user-enum       # SMTP VRFY/EXPN/RCPT user enum (SMTP-25 fold)
 ssh-audit            # SSH algorithm/config audit (SSH-22 fold)
 dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold)
@@ -156,7 +167,13 @@ gcc-multilib         # `gcc -m32` — the 32-bit half of that SAME fold, two lin
 amass
 subfinder
 dnsx
-bbot                 # recon engine (pipx/upstream if the repo build lags)
+# bbot              → UPSTREAM (pipx install bbot): recon engine. NOT packaged in Kali at all —
+#                     absent from main/contrib/non-free and pkg.kali.org 404s, so this is not
+#                     suite drift. The line that was here named `bbot` as an apt package with a
+#                     "(pipx/upstream if the repo build lags)" hedge that implied a repo build
+#                     exists; none ever has. Same unresolvable-name class the hexyl note below
+#                     exists to forbid. install/tools.lst's `bbot` probe and HAVE_BBOT stay
+#                     correct either way — pipx puts a bare `bbot` on PATH.
 theharvester
 masscan
 exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps it current. Ships in kali-linux-default; list it so a slim box (and redup) has it
@@ -243,10 +260,16 @@ adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver
 #                     havoc 0.6~git20251218, so it's FROZEN, not gone — same honest status as
 #                     kerbrute above. Keep it for existing muscle memory; new work goes to
 #                     `adaptixc2`.
-# caldera           → UPSTREAM/docker (adversary emulation, ATT&CK-mapped). Moved MITRE →
-#                     APACHE (apache/caldera; donated to the Incubator 2025-12-19, with the in-tree
-#                     rebrand following Jul 2026; mitre/caldera redirects). Still no Apache release —
-#                     the last is v5.3.0 (Apr 2025). Active — that cadence is the transition, not EOL.
+caldera              # adversary emulation, ATT&CK-mapped — APT-PACKAGED, and the `→ UPSTREAM/docker`
+#                    # pointer that was here was simply wrong: kali-rolling carries `caldera`
+#                    # (5.3.0-0kali1) and it installs /usr/bin/caldera, a wrapper around server.py.
+#                    # Same error class this file already records fixing for sliver above.
+#                    # ⚠ it pulls a ~70 MB Python dependency chain and is in NO kali-linux-*
+#                    # metapackage, so a slim box really does need this line.
+#                    # Moved MITRE → APACHE (apache/caldera; donated to the Incubator 2025-12-19,
+#                    # with the in-tree rebrand following Jul 2026; mitre/caldera redirects). Still
+#                    # no Apache release — the last is v5.3.0 (Apr 2025). Active — that cadence is
+#                    # the transition, not EOL.
 
 # Covert-channel egress — the corpus' dns-tunnel-c2 / icmp-tunnel-c2 entries. Test them
 # against your OWN infrastructure; a real egress path out of a client network is a finding,
@@ -358,6 +381,13 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # WINDOWS to produce an artifact. None is in Kali apt, none belongs in a Linux apt
 # list, and a lab Windows VM is the real prerequisite — so they are named here for
 # the accounting and deliberately shipped nowhere.
+# The exploitdev doc's WINDOWS DEBUGGER STACK is the same case and gets the same
+# treatment: Immunity Debugger + mona.py, x64dbg and WinDbg (offensive/exploitdev:21-26)
+# are invoked by name throughout that file, all run on the lab Windows VM, and none is in
+# Kali apt. Only the LINUX half of that stack is packaged, and it is already accounted for
+# — see the `gdb` line under "Fold-primary tools Kali does NOT ship by default" above, whose
+# own comment puts pwndbg/GEF on the lab-setup side of the line. Named here so the
+# doc→manifest accounting is complete; nothing to install on this side either way.
 # The corpus' Impact entries (inhibit-recovery-vssadmin, service-stop-preransom,
 # ransomware-encrypt-files, resource-hijack-xmrig) drive Windows BUILT-INS on the
 # target — vssadmin, wbadmin, bcdedit, sc, taskkill. Nothing to install, and the

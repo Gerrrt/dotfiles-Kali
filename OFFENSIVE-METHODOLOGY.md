@@ -45,8 +45,8 @@ on **written authorization and a defined scope**.
 > CI-CD supply chain (Jenkins, GitHub/GitLab runners, npm/PyPI, Terraform Cloud,
 > Vault), plus the Impact tactic and the C2 tradecraft past the one row above, live in
 > the **companion corpus** — `htpx` (`~/companion`), where each attack is paired with
-> its detection. That material is **69 of the 103 red entries (67%) and 76 of the 101
-> blue (75%)** — 145 of 204 overall — and none of it is projected into
+> its detection. That material is **69 of the 103 red entries (67%) and 76 of the 102
+> blue (75%)** — 145 of 205 overall — and none of it is projected into
 > `hacktheplanet` or `PURPLE-TEAM.md`; the corpus is the map for it. (Counts are
 > hand-maintained per `companion-sync`; both files carry the same caveat.)
 > The CLIs those entries invoke are accounted for in
@@ -99,9 +99,10 @@ now owns the compose file under an XDG config dir.
 - No target lists, creds, or loot. Same reason.
 - No C2 server is vendored. Sliver and AdaptixC2 are now apt packages (so `up`
   carries them); Caldera stays an install *pointer* — it carries its own update
-  cadence, and it moved from MITRE to the **Apache Incubator** (May 2026, now
-  `apache/caldera`; `mitre/caldera` redirects), so the slower release rhythm is
-  that transition rather than EOL. Configuring any of them is per-engagement work, and
+  cadence, and it moved from MITRE to the **Apache Incubator** (donated 2025-12-19,
+  with the in-tree rebrand following Jul 2026; now `apache/caldera`, and
+  `mitre/caldera` redirects), so the slower release rhythm is that transition
+  rather than EOL. Configuring any of them is per-engagement work, and
   AdaptixC2's shipped defaults are fingerprinted, so treat "installed" as the
   starting line.
 

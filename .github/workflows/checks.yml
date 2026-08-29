@@ -8,6 +8,14 @@
 #   companion — tamper check on the SECOND vendored subtree. core-integrity.yml
 #               guards core/; offensive/companion/ had freshness and view-drift but
 #               nothing asserting the vendored tree still matches companion.lock.
+#   views     — the corpus counts quoted in hacktheplanet, PURPLE-TEAM.md and
+#               OFFENSIVE-METHODOLOGY.md are hand-typed prose about a VENDORED subtree,
+#               and two of those files carry their own caveat that the numbers go stale
+#               on every companion-sync. They did, twice (#261, #262 — and CHANGELOG
+#               records the same fix once already, for the v2.10.0 sync). No existing
+#               gate can see it: gen-views.sh --check byte-compares block CONTENT and
+#               has no opinion on how many blocks exist, and markdownlint cannot tell
+#               101 from 102. This job is that caveat, executed.
 #   traps     — refuses a bash RETURN trap that does not disarm itself (issue #198).
 #               A RETURN trap is a GLOBAL slot: armed in a function it survives into the
 #               caller's frame and fires again on ITS return, aborting the script under
@@ -212,3 +220,68 @@ jobs:
             } >>"$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+
+  view-counts:
+    name: view counts (prose vs vendored corpus)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No toolchain step and no fetch-depth: the gate needs git, grep and sed, all of
+      # which the runner has, and it reads `git ls-files` plus three files at THIS commit
+      # — never history — so the default shallow checkout is exactly right.
+      #
+      # exit 2 = a stale count (the signal), 1 = the gate could not run or an anchor no
+      # longer matches its sentence, 0 = clean or a graceful skip. Branch on the code so
+      # the summary distinguishes "your prose is stale" from "you rewrote the sentence the
+      # gate measures" — telling a maintainer the wrong one is how a prose gate gets
+      # deleted instead of fixed.
+      - name: Assert the views still state the corpus's real counts
+        run: |
+          set -uo pipefail
+          rc=0
+          out="$(./test/check-view-counts.sh 2>&1)" || rc=$?
+          printf '%s\n' "$out"
+          case "$rc" in
+            0)
+              echo "### ✅ the view counts match the vendored corpus" >>"$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              {
+                echo "### ❌ a hand-typed corpus count has gone stale"
+                echo ""
+                echo '```'
+                printf '%s\n' "$out"
+                echo '```'
+                echo ""
+                echo "The tree is right and the prose is wrong. Fix the numbers in the repo-owned"
+                echo "view files — \`offensive/hacktheplanet\`, \`PURPLE-TEAM.md\`,"
+                echo "\`OFFENSIVE-METHODOLOGY.md\` — and **never** in \`offensive/companion/\`,"
+                echo "which is a git-subtree copy of dotgibson/htpx and is overwritten by the next"
+                echo "\`scripts/sync-companion.sh\`."
+                echo ""
+                echo "The semantic buckets beside them (56 cloud/SaaS/CI-CD, 13 C2-egress/Impact,"
+                echo "7 Linux, 69 no-event-ID, 76 blue corpus-only, 67%/75%) are **not** checked by"
+                echo "this gate — nothing in the entries marks an entry \"cloud\". Re-read those by"
+                echo "hand while you are in the file."
+              } >>"$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            *)
+              {
+                echo "### ❌ view-counts could not run (exit $rc)"
+                echo ""
+                echo '```'
+                printf '%s\n' "$out"
+                echo '```'
+                echo ""
+                echo "This is a **gate** failure, not a stale count: usually an anchor phrase that no"
+                echo "longer matches because the sentence was rewritten. Re-anchor it in"
+                echo "\`test/check-view-counts.sh\` in the same PR as the rewrite."
+              } >>"$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+          esac
