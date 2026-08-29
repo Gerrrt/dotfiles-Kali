@@ -34,16 +34,31 @@ set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ENTRIES="$HERE/entries"
-REPO="$(cd -- "$HERE/../.." && pwd)"
+# Host repo root — the base that TARGETS/$COMPANION_TARGETS resolve against. This was
+# `$HERE/../..`, which hardcoded the ONE depth the script is vendored at
+# (<offense>/offensive/companion). Standalone in htpx the script sits at the repo root, so
+# `../..` resolved two levels ABOVE it — harmless with the default targets (they do not
+# exist here, so they skip), but it silently broke $COMPANION_TARGETS: a caller pointing at
+# a sibling checkout got "target not present, skipping" and exit 0 against a file that was
+# really there. Ask git instead, which is right at any vendoring depth. (#106)
+if ! REPO="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || [[ -z "$REPO" ]]; then
+  # No git (release tarball, vendored archive): fall back to the layout. Two levels up ONLY
+  # when we are actually at the vendored prefix; otherwise the script is at the repo root.
+  if [[ "$HERE" == */offensive/companion ]]; then
+    REPO="$(cd -- "$HERE/../.." && pwd)"
+  else
+    REPO="$HERE"
+  fi
+fi
 
 # The flat files that carry generated blocks (paths relative to the repo root).
 # PURPLE-TEAM.md takes blue detections (HTML markers); hacktheplanet takes red
 # attacks (`#` markers). HOST-AGNOSTIC: this list is the default for the Offense host,
 # but a consumer can override it via $COMPANION_TARGETS (space/newline-separated,
-# repo-root-relative) — so the same script works when this dir is vendored into a
-# different repo, or runs standalone (no flat views) where it simply finds nothing
-# to do. A listed target that doesn't exist on disk is SKIPPED with a notice rather
-# than failing, which is what makes the standalone case green.
+# resolved against the repo root, or absolute) — so the same script works when this dir
+# is vendored into a different repo, or runs standalone (no flat views) where it simply
+# finds nothing to do. A listed target that doesn't exist on disk is SKIPPED with a
+# notice rather than failing, which is what makes the standalone case green.
 if [[ -n "${COMPANION_TARGETS:-}" ]]; then
   # honor both space- and newline-separated lists (fold newlines to spaces first)
   read -r -a TARGETS <<<"${COMPANION_TARGETS//$'\n'/ }"
@@ -173,7 +188,10 @@ build_file() {
 
 rc=0
 for t in "${TARGETS[@]}"; do
-  file="$REPO/$t"
+  # Relative targets resolve against the repo root (the documented contract); an absolute
+  # path is taken as-is rather than glued onto $REPO, where it became "$REPO//abs/path"
+  # and skipped silently. (#106)
+  if [[ "$t" == /* ]]; then file="$t"; else file="$REPO/$t"; fi
   # A configured target that isn't present is skipped, not fatal — so a standalone
   # checkout (just entries + this script, no flat views) passes cleanly. In a host
   # that DOES ship the flat file, it exists, so it's always checked.
