@@ -1,31 +1,66 @@
+# .github/workflows/auto-tag.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# RELEASE AUTOMATION for htpx — turn a CHANGELOG bump into a tag + GitHub Release.
+#
+# htpx is the SOURCE OF TRUTH for the red<->blue paired corpus; dotfiles-Offense
+# vendors it at offensive/companion/ via git subtree. CHANGELOG.md is the version
+# source: when the first `## [vX.Y.Z]` heading names a version that has no matching
+# git tag yet, this workflow (via scripts/auto-tag.sh) creates the annotated tag and
+# publishes a GitHub Release whose body is that CHANGELOG section.
+#
+# Idempotent: pushing main again when the top version is already tagged is a no-op —
+# scripts/auto-tag.sh exits 0 without re-tagging or re-releasing. It only fails (exit
+# non-zero) on a REAL error: a tag-create/push failure, or a `gh release create` that
+# errors after the tag is on origin.
+#
+# AUTH: the built-in GITHUB_TOKEN (contents: write) is enough here — it can push a tag
+# and create a Release IN THIS REPO. The cross-repo fan-out to dotfiles-Offense is a
+# SEPARATE workflow (sync-fanout.yml) that needs a FLEET_SYNC_TOKEN, because the
+# built-in token cannot write to another repo.
+#
+# This is the FIRST link in the release chain:
+#   push CHANGELOG bump to main → auto-tag (this) tags + releases vX.Y.Z
+#     → sync-fanout (workflow_run on this completing) opens the Offense sync PR.
+# ──────────────────────────────────────────────────────────────────────────────
 name: auto-tag
 
-# Cut THIS repo's own next vX.Y.Z release tag when a vendored subtree lands new content
-# on main. Delegates to the reusable workflow in dotfiles-core — one definition of the
-# version math + tagging (scripts/auto-tag.sh): PATCH-bump by default, idempotent (a
-# no-op when HEAD is already tagged vX.Y.Z), and it tags in CI so this repo's own tag
-# stops drifting from what it vendors. Pinned @v4.
-#
-# Kali is the exception in the fleet: it carries TWO vendored lines, not one — the
-# `core/` subtree (from dotfiles-core) AND the `offensive/companion/` subtree (from
-# htpx, provenance in companion.lock, synced by scripts/sync-companion.sh). Both are
-# releasable, so both must cut a tag; watching only `core/**` (the copy-pasted default
-# from the OS repos) silently dropped every companion bump (G6). Watch all three.
 on:
   push:
     branches: [main]
     paths:
-      - 'core/**'
-      - 'offensive/companion/**'
-      - 'companion.lock'
+      - CHANGELOG.md
+      - scripts/auto-tag.sh
+      - .github/workflows/auto-tag.yml
+  # Manual re-run (e.g. after fixing a CHANGELOG heading); same idempotent no-op
+  # when the top version is already tagged.
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write # push the tag + create the GitHub Release
 
 concurrency:
   group: auto-tag-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: false # never interrupt a tag/release mid-flight
 
 jobs:
   tag:
-    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v5
+    # First-party only — never tag/release from a fork. The push trigger is already
+    # pinned to `branches: [main]`; the explicit default-branch guard below also
+    # covers workflow_dispatch, which can be launched against ANY ref. We only ever
+    # cut tags/releases from the default branch.
+    if: >-
+      github.repository_owner == 'dotgibson' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Full history + tags: auto-tag.sh checks whether the CHANGELOG version is
+      # already tagged, and persisted credentials (checkout default) let it push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Cut the release tag + GitHub Release (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }} # gh release create needs a token
+        run: ./scripts/auto-tag.sh --push --release
