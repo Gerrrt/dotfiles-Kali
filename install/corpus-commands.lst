@@ -39,7 +39,7 @@ nxc                pkg:netexec            # NetExec's binary kept the short name
 aws                pkg:awscli             # Kali ships AWS CLI v2 as `awscli`; the binary is bare `aws`
 az                 pkg:azure-cli          # the Entra/Azure CLI: package azure-cli, binary `az`
 docker             pkg:docker.io          # Debian names the engine package docker.io; the binary is `docker`
-dnscat2-client     pkg:dnscat2            # one package ships dnscat2-client AND dnscat2-server
+dnscat             pkg:dnscat2            # dnscat2's client binary is bare `dnscat`; one package ships it AND the server
 printerbug         pkg:krbrelayx          # krbrelayx's MS-RPRN trigger; apt drops the .py (see the manifest note)
 ligolo-agent       pkg:ligolo-ng          # the target half of ligolo-ng; ligolo-proxy is the attacker half
 unshadow           pkg:john               # john-the-ripper ships it; it is not a package of its own
