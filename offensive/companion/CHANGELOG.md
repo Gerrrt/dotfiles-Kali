@@ -18,6 +18,40 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [Unreleased]
+
+### Fixed
+
+- **`gen-views.sh` resolved the repo root at one hardcoded depth, so
+  `$COMPANION_TARGETS` silently checked nothing.** `REPO` was `$HERE/../..`, which is
+  right where the script actually lives in `dotfiles-Offense`
+  (`offensive/companion/`) and wrong everywhere else. Standalone in htpx the script
+  sits at the repo root, so `../..` resolved two levels *above* the checkout.
+
+  With the default targets that was invisible — they do not exist here, so they skip
+  and the drift gate stays green either way. It mattered for the one case #106 wants:
+  pointing the script at a local `dotfiles-Offense` checkout to pre-flight its
+  `companion:gen` markers before a release. Both natural spellings —
+  `../dotfiles-Offense/PURPLE-TEAM.md` and an absolute path — printed
+  `target not present, skipping` and **exited 0** against a file that was really
+  there. A pre-flight built on that would have reported success while checking
+  nothing, which is worse than no pre-flight.
+
+  `REPO` now comes from `git rev-parse --show-toplevel`, which is correct at any
+  vendoring depth rather than at one assumed one. Without git (a release tarball) it
+  falls back to the layout: two levels up only when the script is actually at
+  `*/offensive/companion`, otherwise the script's own directory. Absolute
+  `$COMPANION_TARGETS` entries are also taken as-is instead of being glued onto
+  `$REPO` as `$REPO//abs/path`.
+
+  Behaviour is unchanged everywhere it was already correct: the vendored copy in
+  Offense resolves the same root it always did (verified against that repo — both
+  flat views still render byte-identical), and htpx's own `--check` still skips both
+  absent targets and exits 0. What changes is only that a target the caller *names*
+  is now found. A target that is named but genuinely missing is still skipped rather
+  than fatal — that is what keeps the standalone case green, and #106 tracks whether
+  a caller should be able to opt out of it.
+
 ## [v3.0.0] - 2026-08-28
 
 ### Added
