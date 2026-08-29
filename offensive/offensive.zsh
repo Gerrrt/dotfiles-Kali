@@ -458,7 +458,9 @@ rocks() {
 # searchsploit's exploit-DB, plus any go-installed fast-movers registered in
 # go_fast_movers below — an empty array today, see the note there. Run it DELIBERATELY on
 # your attacker box — NEVER on a client/engagement host mid-op, where updating a tool
-# under a working chain is exactly how you break it.
+# under a working chain is exactly how you break it. On Kali the searchsploit step makes
+# that warning stronger than it sounds: `searchsploit -u` there is an APT TRANSACTION,
+# not a data-dir refresh, so redup can move package state on the box it runs on.
 # Each step is guarded by tool presence (command -v, not _have — that's unfunctioned at
 # load). It only ever runs each tool's own updater; it installs nothing new and touches
 # no engagement data.
@@ -518,14 +520,32 @@ redup() {
   fi
 
   # searchsploit — exploit-DB refresh (only counted on success).
-  # The Kali package keeps its git checkout under /usr/share/exploitdb, which is
-  # root-owned: a bare `searchsploit -u` there fails on permissions. Escalate only
-  # when the tree actually isn't writable, so a user-local checkout (or a box where
-  # you own it) still updates without a password prompt.
+  #
+  # EXIT 6 IS SUCCESS, NOT FAILURE. `searchsploit -u` returns 6 after ANY successful
+  # update — its own header documents it ("Exit code '6' means updated packages (APT,
+  # brew or Git)") and its update path ends in a bare `exit 6` on every route. A plain
+  # `if searchsploit -u` therefore treats a completely successful refresh as a failure
+  # and tallies it, which is the SAME miscount as the nuclei engine step above: the
+  # summary reads red on a healthy box. So the status is captured and 0 and 6 both count.
+  # Anything else is a real failure and is still reported.
+  #
+  # WHAT `-u` ACTUALLY DOES depends on how exploitdb was installed, and on Kali it is NOT
+  # the git pull this comment used to describe. The script probes
+  # `apt-cache search "^exploitdb$"` FIRST and, on a hit, runs
+  # `sudo apt update && sudo apt -y install exploitdb`; it reaches its `git pull` branch
+  # only when apt AND brew both miss. So on a Kali deb install this step moves APT STATE —
+  # a stronger reason for the never-mid-engagement warning above, not a weaker one.
+  #
+  # The writability probe below is kept, but note what it is FOR: it matters on a
+  # user-local or /opt git checkout (and on non-Kali), where a root-owned tree makes a
+  # bare `searchsploit -u` fail on permissions. On the deb route it is inert — searchsploit
+  # calls `sudo` itself inside its apt path, so the escalation here is redundant rather
+  # than wrong. Escalate only when the tree really isn't writable, so a checkout you own
+  # still updates without a password prompt.
   if command -v searchsploit >/dev/null 2>&1; then
     print -P "%F{cyan}» searchsploit — exploit-DB refresh%f"
     local -a ss_cmd=(searchsploit -u)
-    local ss_db
+    local ss_db ss_rc
     for ss_db in /usr/share/exploitdb /opt/exploitdb; do
       if [[ -d "$ss_db" && ! -w "$ss_db" ]] && command -v sudo >/dev/null 2>&1; then
         print -- "  ($ss_db is not writable — using sudo)"
@@ -533,10 +553,12 @@ redup() {
         break
       fi
     done
-    if "${ss_cmd[@]}"; then
+    "${ss_cmd[@]}"
+    ss_rc=$?
+    if (( ss_rc == 0 || ss_rc == 6 )); then
       ((updated++))
     else
-      print -P "  %F{red}✗ searchsploit -u failed%f"; ((failed++))
+      print -P "  %F{red}✗ searchsploit -u failed (exit $ss_rc)%f"; ((failed++))
     fi
   else
     print -- "  – searchsploit not installed — skipping"
@@ -559,7 +581,16 @@ redup() {
   # go-installed, apt-ABSENT fast-movers (see install/offensive-packages.txt UPSTREAM
   # notes). REINSTALL-ONLY: each tool is guarded by its OWN binary, so redup never installs
   # something new — it only re-fetches @latest for a tool you already have. Curated to the
-  # go-ONLY tools; apt-packaged ones (gobuster/ffuf) update via `up`. `go` must be present.
+  # go-ONLY tools; apt-packaged ones (gobuster/ffuf) are `up`'s job, not this list's. `go`
+  # must be present.
+  #
+  # That is a claim about OWNERSHIP, not about currency, and the old wording ("update via
+  # `up`") blurred the two. apt owns those binaries, so `up` is the only correct route and
+  # they stay out of here — but it does NOT follow that apt keeps them CURRENT. ffuf is the
+  # standing counter-example: kali sits on 2.1.0 (imported Jan 2024) while upstream, quiet
+  # for three years, resumed and is on 2.2.x. That gap is still apt's to close, not redup's;
+  # `go install`-ing over a packaged binary just leaves two ffufs and no clarity about which
+  # one is on PATH. (gobuster IS current, so the pair reads more reassuringly than it should.)
   #
   # The list is EMPTY by design: kerbrute (the former sole entry) is upstream-frozen (last
   # release v1.0.3, Dec 2019), so `go install …/kerbrute@latest` every run just re-fetched

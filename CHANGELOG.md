@@ -45,6 +45,62 @@ release line.
 
 ### Fixed
 
+- **`redup` counted every successful `searchsploit -u` as a failure.** The step ran
+  `if searchsploit -u; then …`, but searchsploit exits **6**, not 0, after any
+  successful update — its own header documents it ("Exit code '6' means updated
+  packages (APT, brew or Git)") and its update routine ends in a bare `exit 6` on
+  every route (apt, brew and git alike). So a completely successful refresh printed
+  `✗ searchsploit -u failed` and was tallied, making the summary read red on a healthy
+  box. This is the **same miscount** as the nuclei engine step below, one step further
+  down the same function, and it survived that fix. The exit status is now captured
+  and both 0 and 6 count as success; anything else still reports, and now prints the
+  code. Found while correcting the step's prose for
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 8 — the report
+  called this a comment-only fix.
+- **`redup`'s searchsploit comment described a code path that does not run on Kali.**
+  It explained the `sudo` escalation as a permissions problem on a root-owned git
+  checkout under `/usr/share/exploitdb`. On a deb install `searchsploit -u` never
+  reaches its `git pull`: it probes `apt-cache search "^exploitdb$"` first and, on a
+  hit, runs `sudo apt update && sudo apt -y install exploitdb`, escalating on its own.
+  The writability probe is kept — it is still correct for a user-local or `/opt`
+  checkout and on non-Kali — but it is now documented as inert on the deb route. The
+  consequence strengthens the never-mid-engagement warning rather than softening it:
+  the step can move **apt state**, not just refresh a data directory.
+- **Five more annotations routed you around a package apt already ships** — the same
+  error class as caldera below, found by re-verifying every `→ UPSTREAM` name in the
+  manifest against apt rather than by any report. None of the five appears in
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260):
+  - `evilginx2` was annotated `→ UPSTREAM (go install or release binary)` **and** filed
+    under the block headed "Operator-side tooling, **not in apt**", whose preamble says
+    outright that these "have no Kali package". kali-rolling ships `evilginx2`
+    (`3.3.0+ds1-0kali1`), which *is* upstream's latest release (v3.3.0, Apr 2024). Now a
+    plain apt line in Credential attacks, ROE warning intact.
+  - `name-that-hash` was annotated `→ UPSTREAM (pip install name-that-hash)`. Kali ships
+    it (`1.11.0-0kali1`). The decision to leave it uninstalled stands on its own merits;
+    only the packaging pointer was wrong.
+  - `pspy` was annotated `→ UPSTREAM (release binary)` in a block whose premise is
+    "per-engagement downloads rather than apt packages". Kali ships `pspy`
+    (`1.2.1-0kali1`). Here the conclusion survives for a **sharper** reason than the
+    block gave: what apt ships is a host-arch, dynamically-linked Debian Go build
+    (`Depends: libc6`), while what you upload to a target is upstream's *static*
+    pspy32/pspy64. So the release binary really is the per-engagement download — just
+    not because "there is no package".
+  - `PowerUp.ps1` was annotated `→ UPSTREAM (PowerSploit …)`. Kali packages it: the
+    `powersploit` package (`3.0.0+git20200817-0kali1`) drops the script at
+    `/usr/share/windows-resources/powersploit/Privesc/PowerUp.ps1` — the **same pattern
+    as `mimikatz`**, a Linux package whose payload is Windows content you copy to the
+    target. It is pulled in by `kali-linux-headless`, so it is already present on a
+    default box. Still not an apt line of its own, but "fetch it from GitHub" was wrong.
+  - The evasion payload-build paragraph asserted "**None is in Kali apt**" of its five
+    tools. `donut` is packaged (`1.1-0kali3+b1`, `/usr/bin/donut`) and is the one member
+    whose generator runs natively on **Linux**, so the paragraph's "all run operator-side
+    on WINDOWS" was wrong about it too. It stays unlisted as a judgement, not because apt
+    cannot supply it. `macro_pack`, `PowerUpSQL`, `sRDI`, `ConfuserEx` and `ScareCrow`
+    are genuinely absent, as claimed.
+- **`caldera` is in `kali-linux-large`.** The note added with the caldera fix below
+  claimed it is "in NO `kali-linux-*` metapackage"; `apt-cache rdepends caldera` says
+  otherwise. It is absent from `kali-linux-default`, which is what the line was
+  reaching for, so the conclusion (a default box needs this line) is unchanged.
 - **`redup`'s nuclei engine step could never succeed on Kali.** It ran
   `nuclei -update` unconditionally, but Kali patches that flag out of its packaged
   nuclei — apt owns the binary, so self-updating it is not nuclei's job there. Kali's
@@ -388,6 +444,55 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Changed
 
+- **`ptunnel-ng` added beside `ptunnel`, not instead of it.** `ptunnel-ng`
+  (`utoni/ptunnel-ng`, redirected from `lnslbrty`) is the maintained fork and kali's
+  `1.43-2` *is* its latest upstream release, so it is the one to reach for. The original
+  `ptunnel` line stays for one mechanical reason: the corpus entry
+  `entries/red/icmp-tunnel-c2.md` invokes the bare `ptunnel` binary, and
+  `test/check-corpus-commands.sh` — offline and **required** — resolves that name against
+  the manifest, so dropping the line reds a blocking gate. `ptunnel-ng` cannot cover for
+  it either: it ships only `/usr/bin/ptunnel-ng`, with no `ptunnel` binary and no
+  alternatives symlink. Retargeting the entry is an upstream change in
+  [htpx](https://github.com/dotgibson/htpx) — `entries/` is a vendored subtree — and it
+  is a **rewrite, not a rename**: the two are not flag-compatible, `-lp/-da/-dp` having
+  become `-l/-r/-R`.
+- **The covert-egress block now carries a status per tool.** It read as though all four
+  were current upstreams; not one is. `iodine` is a full release behind (kali `0.7.0-13`
+  vs upstream `v0.8.0`); `dnscat2` is frozen at its own last release (`v0.07`, 2016 — so
+  apt is *not* behind, there is simply nothing newer); `ptunnel` is frozen at `0.72`;
+  `icmpsh` is dead (last push 2018, never released).
+- **`sliver`'s currency note no longer hardcodes a patch count.** "TWO patches behind"
+  was accurate when written and wrong within five months. It now states the shape — apt
+  froze at `1.7.1-0kali4` while upstream kept releasing — and points at
+  `sliver-server version` instead of a number that rots.
+- **Freeze and archive statuses added where the file asserted none.** `PrintSpoofer`
+  (archived Sep 2024) was the last unmarked freeze in the target-dropped block; `hashid`
+  is frozen at Jun 2022 while the line calls it "the cracking entrypoint"; the evasion
+  payload-build paragraph carried no status for any of its five tools (`macro_pack` and
+  `ScareCrow` archived, `Donut` alive, `sRDI` static since 2023). Each is **kept** — these
+  target behaviours and formats that have not moved — with the reason stated.
+- **The `ConfuserEx` pointer now names the `mkaring` fork.** Canonical
+  `yck1509/ConfuserEx` is archived and has not moved since 2019, so a bare "ConfuserEx"
+  landed a reader in a dead repo — the failure the kwp-vs-`iphelix/pack` note already
+  guards against elsewhere in the file.
+- **`ligolo-ng` loses its "(upstream if repo build lags)" hedge.** Kali tracks it closely
+  (`0.9.1-0kali1` within ~2 weeks of upstream `v0.9.1`), so the hedge invited a hand-built
+  pivot that is almost never warranted.
+- **The `hexyl` note's reason is narrower than it claimed.** "There is no `hexyl` package
+  in Kali at all" is false: the `rust-hexyl` source package, which builds a `hexyl` binary
+  package, has been imported into and removed from kali-rolling repeatedly (0.4.0, 0.5.1,
+  0.7.0, 0.8.0, most recently 0.16.0-4), following Debian testing. It is out **right now**,
+  so the conclusion — keep it out, it would hand `check-packages.sh` an unresolvable name
+  — is unchanged, but it can return without warning.
+- **`rusthound-ce`'s version pair replaced with its cadence.** The quoted
+  `v2.4.91 -> v2.5.2 in seven weeks` had itself gone stale (seven releases shipped in the
+  eight weeks to Aug 2026). The mechanical reason it stays out of `redup` — cargo, no
+  self-updater, `go_fast_movers` is go-only — is unchanged.
+- **`redup`'s ffuf/gobuster note now separates ownership from currency.** "apt-packaged
+  ones (gobuster/ffuf) update via `up`" implied apt keeps them current. apt *owns* them,
+  so `up` is the only correct route and neither belongs in `go_fast_movers` — but kali's
+  ffuf is `2.1.0` (Jan 2024) against an upstream that resumed releasing at `2.2.x`. The
+  routing claim stands; the currency implication does not.
 - **`packages.yml` now emits `::warning::` annotations** as well as its job summary. It
   stays advisory — Kali is rolling, and a package that vanishes mid-migration must not red
   an unrelated PR — but summary-only proved to be the same as silent: three unresolvable
