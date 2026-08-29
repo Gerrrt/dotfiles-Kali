@@ -73,7 +73,9 @@ bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pk
 #                     binary that emits CE-ingestible JSON — the fast ALTERNATE to
 #                     bloodhound-ce-python on large domains (no Python chain to drop on
 #                     a host). Not in Kali apt; not a redup fast-mover — but NOT because collectors
-#                     sit still (v2.4.91 -> v2.5.2 inside seven weeks). The real reason is mechanical:
+#                     sit still: it releases in BURSTS (seven of them in the eight weeks to Aug
+#                     2026). A concrete version pair used to be quoted here and rotted inside two
+#                     months, so the cadence is the durable claim. The real reason is mechanical:
 #                     it is a CARGO install with no self-updater, and redup's go_fast_movers loop is
 #                     go-only. Complement, not replacement.
 # SharpHound (the C# collector) is dropped on the target, not installed here.
@@ -156,9 +158,14 @@ gdb                  # `gdb` — exploitdev's Linux debugging fold. Verified abs
 gcc-multilib         # `gcc -m32` — the 32-bit half of that SAME fold, two lines below the mingw one.
 #                    # Identical failure mode and the identical reason: build-essential's gcc is native
 #                    # x86-64 and has no 32-bit libs, so the old-PoC rebuild dies on <bits/libc-header-start.h>
-# hexyl is deliberately NOT here, and the absence is the whole point: there is no `hexyl`
-# package in Kali at all (apt-cache policy/madison/search all come back empty), so listing
-# it would hand test/check-packages.sh a name that cannot resolve. exploitdev's bad-char
+# hexyl is deliberately NOT here, and the absence is the whole point: `apt install hexyl`
+# does not resolve on Kali today, so listing it would hand test/check-packages.sh a name
+# that cannot resolve. The REASON is narrower than this note used to claim ("there is no
+# hexyl package in Kali at all"): the source package `rust-hexyl` — which builds a `hexyl`
+# binary package — has been imported into and removed from kali-rolling REPEATEDLY (0.4.0,
+# 0.5.1, 0.7.0, 0.8.0, most recently 0.16.0-4), following Debian testing each time. It is
+# out right now, which is why the conclusion holds; it can come back without warning, so
+# re-check before assuming this note is still current. exploitdev's bad-char
 # VERIFY step invokes it and install/tools.lst probes it detect-only, both pending
 # dotgibson/dotfiles-core#395. Until Core lands it, `cargo install hexyl` by hand — or use
 # the `xxd` fallback exploitdev now names.
@@ -171,12 +178,20 @@ dnsx
 #                     absent from main/contrib/non-free and pkg.kali.org 404s, so this is not
 #                     suite drift. The line that was here named `bbot` as an apt package with a
 #                     "(pipx/upstream if the repo build lags)" hedge that implied a repo build
-#                     exists; none ever has. Same unresolvable-name class the hexyl note below
+#                     exists; none ever has. Same unresolvable-name class the hexyl note above
 #                     exists to forbid. install/tools.lst's `bbot` probe and HAVE_BBOT stay
 #                     correct either way — pipx puts a bare `bbot` on PATH.
 theharvester
 masscan
-exploitdb            # searchsploit — offline Exploit-DB CLI; redup -u keeps it current. Ships in kali-linux-default; list it so a slim box (and redup) has it
+exploitdb            # searchsploit — offline Exploit-DB CLI; `redup` refreshes it. Ships in
+#                    # kali-linux-default; list it so a slim box (and redup) has it.
+#                    # ⚠ on a DEB install `searchsploit -u` is an APT TRANSACTION, not a git pull:
+#                    # the script probes `apt-cache search "^exploitdb$"`, finds it, and runs
+#                    # `sudo apt update && sudo apt -y install exploitdb` (escalating on its own),
+#                    # falling through to its git branch only where apt AND brew both miss. So the
+#                    # refresh can move apt STATE, not just a data dir — which is why redup's
+#                    # warning is "never mid-engagement" and not merely "it re-downloads exploits".
+#                    # It also exits 6, not 0, after any successful update; see redup's note.
 # TeamFiltration    → UPSTREAM: not in apt (dotnet) — github.com/Flangvik/TeamFiltration
 #                     (M365/Entra enum + password spray + exfil; the tool behind
 #                     hacktheplanet's M365 flow)
@@ -238,9 +253,15 @@ sliver               # Go C2, the open-source standard — APT-PACKAGED, and lon
 #                    # Ships sliver-client + sliver-server — the binary names offensive.zsh
 #                    # already probes and aliases, so only this manifest lagged; retires the
 #                    # old `curl https://sliver.sh/install | sudo bash`.
-#                    # apt runs TWO patches behind: kali froze at 1.7.1-0kali4 in Mar 2026, while upstream
-#                    # had already cut 1.7.2 and 1.7.3 that Feb — i.e. the migration shipped a build that
-#                    # was stale on arrival. Fine for a C2 you re-profile anyway, but it is not "~a patch".
+#                    # ⚠ CURRENCY: apt runs SEVERAL RELEASES behind and the gap keeps widening.
+#                    # Kali froze at 1.7.1-0kali4 in Mar 2026 and has not moved since; upstream had
+#                    # already cut 1.7.2 and 1.7.3 when that migration landed, so it shipped a build
+#                    # that was stale on arrival, and has kept releasing (past 1.7.6 by Aug 2026)
+#                    # with implant and stability fixes each time. Deliberately NOT written as a
+#                    # patch COUNT: this note used to say "TWO patches behind" and that number was
+#                    # wrong within five months. Check `sliver-server version` against upstream's
+#                    # releases page before an op instead. Fine for a C2 you re-profile anyway —
+#                    # but it is not "~a patch", and the implant is the half that ages.
 adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver + Qt client, and
 #                    # the actively-developed slot now that havoc below is frozen. In kali apt.
 #                    # ⚠ its DEFAULT server profiles are heavily fingerprinted — publicly
@@ -264,8 +285,10 @@ caldera              # adversary emulation, ATT&CK-mapped — APT-PACKAGED, and 
 #                    # pointer that was here was simply wrong: kali-rolling carries `caldera`
 #                    # (5.3.0-0kali1) and it installs /usr/bin/caldera, a wrapper around server.py.
 #                    # Same error class this file already records fixing for sliver above.
-#                    # ⚠ it pulls a ~70 MB Python dependency chain and is in NO kali-linux-*
-#                    # metapackage, so a slim box really does need this line.
+#                    # ⚠ it pulls a ~70 MB Python dependency chain. It IS in kali-linux-large
+#                    # (this note previously said "in NO kali-linux-* metapackage" — verified
+#                    # wrong via `apt-cache rdepends caldera`), but NOT in kali-linux-default,
+#                    # so a default or slim box still needs this line.
 #                    # Moved MITRE → APACHE (apache/caldera; donated to the Incubator 2025-12-19,
 #                    # with the in-tree rebrand following Jul 2026; mitre/caldera redirects). Still
 #                    # no Apache release — the last is v5.3.0 (Apr 2025). Active — that cadence is
@@ -273,19 +296,63 @@ caldera              # adversary emulation, ATT&CK-mapped — APT-PACKAGED, and 
 
 # Covert-channel egress — the corpus' dns-tunnel-c2 / icmp-tunnel-c2 entries. Test them
 # against your OWN infrastructure; a real egress path out of a client network is a finding,
-# not a toy. All apt except icmpsh:
+# not a toy. All apt except icmpsh. Only ptunnel-ng is a CURRENT upstream; the other four
+# are frozen, dead, or a release behind, so each carries its status below rather than
+# letting the block read as if they were all live:
 iodine               # IP-over-DNS to a zone you delegate (you run the authoritative NS)
+#                    # NOTE: apt is a full RELEASE behind — kali ships 0.7.0-13 while upstream's
+#                    # latest tag is v0.8.0. Upstream is alive (commits into 2025), just slow to
+#                    # release, and the protocol has not moved — 0.7.0 still interoperates.
 dnscat2              # DNS C2 — provides dnscat2-client + dnscat2-server
-ptunnel              # proxy a TCP session inside ICMP echo
+#                    # NOTE: upstream FROZEN — v0.07 (2016) is still its LAST release, and kali's
+#                    # 0.07-0kali2 IS that release. Commits trickled on to 2024 without cutting a
+#                    # new one, so apt is not behind here; there is simply nothing newer to have.
+#                    # Same honest status as mitm6 above — keep it, the technique is the tool.
+ptunnel              # proxy a TCP session inside ICMP echo.
+#                    # NOTE: FROZEN — Stødle's original stopped at 0.72 and kali's 0.72-4 is it.
+#                    # SUPERSEDED by ptunnel-ng below, which is where new work should go. This
+#                    # line stays for one mechanical reason: the corpus still invokes the bare
+#                    # `ptunnel` binary (entries/red/icmp-tunnel-c2.md), and
+#                    # test/check-corpus-commands.sh — offline and REQUIRED — resolves that name
+#                    # against THIS file, so dropping the line reds a blocking gate. Retire it
+#                    # once that entry moves, which is an upstream change in dotgibson/htpx:
+#                    # entries/ is a vendored subtree and must not be hand-edited here.
+ptunnel-ng           # the MAINTAINED fork (utoni/ptunnel-ng, redirected from lnslbrty) — this is
+#                    # the one to reach for. kali 1.43-2 IS upstream's latest release (v1.43), so
+#                    # apt is CURRENT here, unlike every other line in this block.
+#                    # ⚠ NOT a drop-in rename: it is not flag-compatible with ptunnel. The
+#                    # original's `-lp/-da/-dp` became `-l/-r/-R` —
+#                    #   ptunnel    -p <proxy> -lp <port> -da 127.0.0.1 -dp 22
+#                    #   ptunnel-ng -p <proxy> -l  <port> -r  127.0.0.1 -R  22
+#                    # — so retargeting the corpus entry is a REWRITE, not a sed. It also ships
+#                    # only /usr/bin/ptunnel-ng: no `ptunnel` binary and no alternatives symlink,
+#                    # which is the other half of why the line above cannot just be replaced.
 # icmpsh            → UPSTREAM (github.com/bdamele/icmpsh): the ICMP reverse shell paired with
 #                     ptunnel in the corpus entry. Not packaged in Kali — git clone.
+#                     NOTE: DEAD — last push 2018-04-06 and it has never cut a release. Kept
+#                     because the victim-side one-liner still runs and nothing has replaced it.
 
 # ── Credential attacks ────────────────────────────────────────────────────────
-hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in kali-linux-default
-# name-that-hash    → UPSTREAM (pip install name-that-hash): the alternate identifier
-#                     hacktheplanet offers beside hashid. Ranks candidate modes with
-#                     hashcat/john numbers instead of a bare list — nicer output, same
-#                     job, so it stays optional rather than a second installed default.
+hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in
+#                    # kali-linux-default.
+#                    # NOTE: upstream FROZEN (psypanda/hashID — not archived, but no commit since
+#                    # Jun 2022) while this line calls it "the cracking entrypoint", so say so.
+#                    # Keep it, and keep it as the entrypoint: it matches hash FORMATS, and those
+#                    # do not churn — a 2022 table still identifies NTLM, krb5 and bcrypt fine.
+#                    # What a frozen table misses is NEW formats; that is when you reach for the
+#                    # maintained alternative on the next line. Annotated for the same reason
+#                    # kerbrute, mitm6 and havoc are.
+# name-that-hash    → IN KALI APT (1.11.0-0kali1), and deliberately NOT installed. The pointer
+#                     here used to read "UPSTREAM (pip install name-that-hash)", which was wrong
+#                     the same way caldera's UPSTREAM/docker pointer was: it routed an operator to
+#                     pip for something apt already ships. The DECISION is unchanged and stands on
+#                     its own — it is the alternate identifier hacktheplanet offers beside hashid,
+#                     ranking candidate modes with hashcat/john numbers instead of a bare list,
+#                     which is nicer output for the same job, so it stays optional rather than a
+#                     second installed default. It is also the MAINTAINED half of the pair — commits
+#                     to Dec 2025 (bee-san/Name-That-Hash, redirected from HashPals) against
+#                     hashID's Jun 2022 freeze — so if you add one extra identifier, make it this
+#                     one: `sudo apt install name-that-hash`, no pip involved.
 hashcat
 john                 # john-the-ripper
 hydra
@@ -310,6 +377,20 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 #                     that does not contain it.
 # hate_crack        → UPSTREAM (github.com/trustedsec/hate_crack): chains dict → rules
 #                     → mask automatically. Referenced as a comment in hacktheplanet.
+evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish` corpus entry.
+#                    # Its lines are typed at the `evilginx>` console, not at a shell.
+#                    # ⚠ credential-harvesting infrastructure — written ROE and an authorized
+#                    # engagement, never a lab shortcut. (Installing it is still fine; see this
+#                    # file's header — installing ≠ permission to use.)
+#                    # MOVED HERE from the "Operator-side tooling, not in apt" block, where it was
+#                    # annotated `→ UPSTREAM (go install or release binary)`. Both the pointer and
+#                    # the block membership were wrong: kali-rolling ships `evilginx2`
+#                    # (3.3.0+ds1-0kali1), which IS upstream's latest release (v3.3.0, Apr 2024),
+#                    # so building it by hand bought nothing. Same error class as caldera and
+#                    # name-that-hash above — a manifest that sends you upstream for something apt
+#                    # already carries. No kali-linux-* metapackage short of
+#                    # kali-linux-everything pulls it (not default, not large), so a normal box
+#                    # really does need this line.
 
 # ── Operator-side tooling, not in apt ─────────────────────────────────────────
 # These run on the ATTACKER box (unlike the target-dropped block below) and have no Kali
@@ -318,11 +399,6 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # of gap that let `impacket-petitpotam` ship. A few (sccmhunter, pxethiefy) are named by
 # hacktheplanet rather than the corpus, which is the same accounting obligation: this file
 # accounts for every tool the DOCS *and* the corpus name (see the target-dropped block).
-# evilginx2         → UPSTREAM (github.com/kgretzky/evilginx2, `go install` or release
-#                     binary): the AitM reverse-proxy phishing framework behind the
-#                     `aitm-phish` entry. Its lines are typed at the `evilginx>` console,
-#                     not at a shell. ⚠ credential-harvesting infrastructure — written ROE
-#                     and an authorized engagement, never a lab shortcut.
 # MSOLSpray         → UPSTREAM (github.com/dafthack/MSOLSpray, PowerShell): the M365/Entra
 #                     password spray in `valid-accounts-cloud`. Operator-side but
 #                     WINDOWS-side, like AADInternals above — nothing to install on Linux.
@@ -360,11 +436,37 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # pspy              → UPSTREAM (github.com/DominicBreuker/pspy, release binary): watch
 #                     processes and cron fire WITHOUT root. The manual counterpart to
 #                     linpeas in ippsec's privesc loop, which names the two together.
-# PowerUp.ps1       → UPSTREAM (PowerSploit, unmaintained since 2020): Invoke-AllChecks
-#                     in the Windows privesc fold. Kept because the checks still hold;
+#                     ⚠ THE PACKAGING NOTE IS NARROWER THAN IT LOOKS. Kali DOES have a `pspy`
+#                     package (1.2.1-0kali1 = upstream's latest release), so this block's blanket
+#                     premise — "per-engagement downloads rather than apt packages" — is not true
+#                     of pspy. The CONCLUSION still holds, and for a sharper reason than the block
+#                     header gives: what apt ships is a Debian Go build for the HOST arch,
+#                     dynamically linked (`Depends: libc6`, /usr/bin/pspy + the Go source under
+#                     /usr/share/gocode). What you upload to a target is upstream's STATIC
+#                     pspy32/pspy64 release binary, which runs on a box whose arch and libc you do
+#                     not control. So apt's copy is for watching YOUR OWN box; the release binary
+#                     is still the per-engagement download. Fetch it upstream — that part was
+#                     right, just not because "there is no package".
+# PowerUp.ps1       → APT, via the `powersploit` package — NOT an upstream fetch. This entry
+#                     said "UPSTREAM (PowerSploit …)", but kali packages it
+#                     (3.0.0+git20200817-0kali1) and drops the script at
+#                     /usr/share/windows-resources/powersploit/Privesc/PowerUp.ps1. That is the
+#                     SAME pattern as mimikatz above: a Linux package whose payload is Windows
+#                     content you copy to the target, not something you run here. Deliberately
+#                     still not an apt line — `powersploit` is pulled in by kali-linux-headless,
+#                     so it is ALREADY on a default Kali box, and nothing in this layer invokes
+#                     it — but "go fetch it from GitHub" was wrong.
+#                     Invoke-AllChecks in the Windows privesc fold. PowerSploit itself is
+#                     ARCHIVED (unmaintained since 2020). Kept because the checks still hold;
 #                     winPEAS covers the same ground on a modern box.
 # PrintSpoofer64.exe→ UPSTREAM (github.com/itm4n/PrintSpoofer, release binary): the spoolss
 #                     named-pipe SeImpersonate -> SYSTEM path in the Windows privesc fold.
+#                     NOTE: upstream ARCHIVED (read-only since Sep 2024; last push 2020-09-10).
+#                     Keep it — SeImpersonate -> SYSTEM is a Windows PRIVILEGE MODEL, not a bug
+#                     someone will patch out, so a 2020 binary still fires. Annotated for the same
+#                     reason mitm6 above is: this was the last unmarked freeze in the block, an
+#                     omission rather than a judgement. GodPotato below is the live alternative
+#                     when spoolss is disabled, not a replacement for this one.
 # GodPotato         → UPSTREAM (github.com/BeichenDream/GodPotato, release binary): the DCOM
 #                     variant of the same abuse, for when spoolss is disabled. Pick the build
 #                     matching the target's .NET version (GodPotato-NET2/3.5/4).
@@ -377,10 +479,28 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # target-dropped, so it sits with the other M365 tools under Recon / OSINT above.
 # The evasion doc's payload-BUILD tooling is NOT listed here either, and is not
 # target-dropped: macro_pack (offensive/evasion:30), PowerUpSQL (:124), and the
-# Donut / sRDI / ConfuserEx / ScareCrow loaders (:62-63) all run operator-side on
-# WINDOWS to produce an artifact. None is in Kali apt, none belongs in a Linux apt
-# list, and a lab Windows VM is the real prerequisite — so they are named here for
-# the accounting and deliberately shipped nowhere.
+# Donut / sRDI / ConfuserEx / ScareCrow loaders (:62-63) run operator-side to produce
+# an artifact, and most of them need WINDOWS to do it — a lab Windows VM is the real
+# prerequisite, so they are named here for the accounting and shipped nowhere.
+# ⚠ "None is in Kali apt" is what this paragraph used to say, and it is NOT true —
+# `donut` is packaged (1.1-0kali3+b1, /usr/bin/donut) and is the one member of the set
+# whose generator runs natively on LINUX, so `sudo apt install donut` really does get
+# you it. It stays unlisted as a judgement (the evasion doc names it; nothing in this
+# layer invokes it) rather than because apt cannot supply it. The rest genuinely are
+# absent: macro_pack, PowerUpSQL, sRDI, ConfuserEx and ScareCrow all return nothing.
+# Their UPSTREAM statuses, which this block carried for none of them:
+#   macro_pack   ARCHIVED — read-only, last push Aug 2024.
+#   ScareCrow    ARCHIVED — read-only, last push Aug 2023.
+#   Donut        alive — commits into 2025.
+#   sRDI         static — NOT archived, but untouched since Nov 2023.
+#   ConfuserEx   ⚠ USE THE `mkaring` FORK (github.com/mkaring/ConfuserEx, alive into 2024).
+#                The canonical `yck1509/ConfuserEx` is ARCHIVED and has not moved since
+#                2019, so a bare "ConfuserEx" pointer lands a reader in a dead repo —
+#                exactly the failure the kwp-vs-iphelix/pack note above exists to prevent.
+# ARCHIVED does not mean unusable here: these build artifacts against Windows formats that
+# have not changed, so they still produce working output. It means nobody is fixing them
+# when a format, a .NET runtime or a signature finally does move — which for evasion
+# tooling is the half that ages fastest. Budget for replacing them, not for repairing them.
 # The exploitdev doc's WINDOWS DEBUGGER STACK is the same case and gets the same
 # treatment: Immunity Debugger + mona.py, x64dbg and WinDbg (offensive/exploitdev:21-26)
 # are invoked by name throughout that file, all run on the lab Windows VM, and none is in
@@ -396,7 +516,11 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # ── Pivoting / tunneling ──────────────────────────────────────────────────────
 proxychains4
 chisel
-ligolo-ng            # modern reverse-tunnel pivot (upstream if repo build lags)
+ligolo-ng            # modern reverse-tunnel pivot. The "(upstream if repo build lags)" hedge that
+#                    # was here is gone: kali tracks this one closely (0.9.1-0kali1 landed within
+#                    # ~2 weeks of upstream's v0.9.1), so the hedge invited an upstream build that
+#                    # is almost never warranted — and hand-built pivots are exactly the thing you
+#                    # do not want diverging from the implant you tested with.
 socat
 rlwrap               # readline wrapper for the reverse-shell listener (rlwrap nc -lvnp …); ships in kali-linux-default, list it for slim installs
 
