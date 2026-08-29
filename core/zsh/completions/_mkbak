@@ -1,3 +1,0 @@
-#compdef mkbak
-# Completion for Core's `mkbak` (zsh/functions.zsh): the file to back up.
-_arguments '1:file:_files'
