@@ -55,7 +55,7 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > here (CI rejects a hand-edit). Everything outside the markers is hand-authored.
 >
 > **Scope: this map is the Windows Security / Sysmon mirror.** Every section below
-> keys off a Windows event ID, which is why only 23 of the companion's 101 blue
+> keys off a Windows event ID, which is why only 24 of the companion's 102 blue
 > entries project here. The other 78 mostly detect in logs this file has no section for —
 > AWS CloudTrail, GCP audit logs, Entra sign-in/audit, Okta system log, GitHub/GitLab
 > audit, Vault audit device, Snowflake account usage — plus the C2-egress and Impact
@@ -70,8 +70,10 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > real gap rather than part of the split, and it mirrors exactly the two unprojected
 > red entries `hacktheplanet` now flags. Read them with `htpx` until it is closed.
 >
-> These counts are hand-maintained and go stale on every `companion-sync` — they last
-> moved for htpx v2.10.0. If they disagree with
+> These counts are hand-maintained and go stale on every `companion-sync`. No htpx version
+> is named here on purpose — one stamped into prose rots the way these counts did;
+> `companion.lock` names the vendored revision. `make view-counts` checks them now, so a
+> stale number is CI's problem rather than a reader's; if they disagree with
 > `ls offensive/companion/entries/blue | wc -l`, this file is wrong, not the corpus.
 
 ### Recon / credential access

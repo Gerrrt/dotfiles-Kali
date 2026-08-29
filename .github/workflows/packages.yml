@@ -17,7 +17,17 @@
 # days mid-migration through no fault of this repo, and a hard failure would then
 # red every unrelated PR. The job always succeeds and writes its findings to the job
 # summary; treat a non-empty list as a to-do, not a broken build. (If you later want
-# it blocking, drop the `|| true` on the final step — nothing else needs to change.)
+# it blocking, drop the `exit 0` at the end of the resolve step — nothing else needs
+# to change. There is no `|| true` anywhere in this file; an older version of this
+# note said there was.)
+#
+# ⚠ SUMMARY-ONLY WAS NOT ENOUGH, so the step ALSO emits ::warning:: annotations. A job
+# summary is a page you have to go looking for, and nobody did: `bbot` sat in the
+# manifest as an apt name that resolves in NO Kali component, and `rustscan` and
+# `snmp-check` sat beside it, while this job dutifully reported all three into a
+# summary and exited 0 every week (dotgibson/dotfiles-Offense#260). Annotations surface
+# on the PR's Checks and Files tabs without making the job blocking, which keeps the
+# rolling-distro argument above intact.
 #
 # The logic lives in test/check-packages.sh so it is runnable by hand too:
 #   make packages-check
@@ -80,7 +90,20 @@ jobs:
             printf '%s\n' "$out"
             echo '```'
           } >>"$GITHUB_STEP_SUMMARY"
-          # Advisory: see the header. Findings land in the summary, not in a red X.
+          # ALSO annotate, so drift is visible on the Checks/Files tabs instead of only in
+          # a summary page nobody opens — see the header note. check-packages.sh prints each
+          # miss as `    <name>    (<manifest>)`; pull the name back out and annotate the
+          # manifest line it sits on. Still advisory: no exit code changes.
+          if [ "$rc" -ne 0 ]; then
+            printf '%s\n' "$out" | sed -nE 's/^[[:space:]]+([^[:space:]]+)[[:space:]]+\((.+)\)$/\1 \2/p' |
+              while read -r name manifest; do
+                [ -n "$name" ] && [ -f "$manifest" ] || continue
+                line="$(grep -nE "^[[:space:]]*${name}([[:space:]]|$)" "$manifest" | head -1 | cut -d: -f1)"
+                echo "::warning file=${manifest}${line:+,line=${line}}::${name} does not resolve on kali-rolling — a rename, a drop, a typo, or suite drift. Fix the name, or move it to an UPSTREAM comment with install notes."
+              done
+          fi
+          # Advisory: see the header. Findings land in the summary and in annotations,
+          # never in a red X.
           exit 0
 
       # The required corpus-commands gate reads install/impacket-binaries.lst, a CHECKED-IN

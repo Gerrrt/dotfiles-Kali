@@ -45,6 +45,63 @@ release line.
 
 ### Fixed
 
+- **`redup`'s nuclei engine step could never succeed on Kali.** It ran
+  `nuclei -update` unconditionally, but Kali patches that flag out of its packaged
+  nuclei — apt owns the binary, so self-updating it is not nuclei's job there. Kali's
+  `-h` UPDATE section carries only `-update-templates`, `-update-template-dir` and
+  `-disable-update-check`. So the step failed on **every** run on the primary target
+  platform and tallied a failure, making the summary read red on a completely healthy
+  box — the exact miscount the function's own comments exist to prevent. The engine step
+  is now probed and the templates step (the daily-moving half) stays unconditional, so a
+  `go install`-provided nuclei on non-Kali Debian still self-updates. The probe matches
+  `-update`/`-up` as a whole TOKEN: a bare substring grep matches `-update-templates`,
+  `-update-template-dir` and `-disable-update-check`, three hits on the very help text
+  that proves the flag is absent.
+- **Three apt names in `install/offensive-packages.txt` resolved against nothing.**
+  Verified against kali-rolling's own binary index, not a local box:
+  - `bbot` is packaged in **no** Kali component and never has been (pkg.kali.org 404s) —
+    now an UPSTREAM/pipx comment. The old line's "(pipx/upstream if the repo build lags)"
+    hedge implied a repo build that does not exist.
+  - `snmp-check` is the **binary** name; the package is `snmpcheck`, which ships
+    `/usr/bin/snmp-check`. Same package/binary split the file already documents for
+    `httpx-toolkit` and `python3-ldapdomaindump`. `hacktheplanet`'s command was always
+    right; only the manifest was wrong.
+  - `rustscan` is absent from main, contrib and non-free alike — Kali's packaging sits in
+    kali-**dev** at 2.4.1 and has not migrated. The line also claimed it "ships in
+    kali-linux-default", whose `Depends` does not name it, so both halves were wrong. Now
+    an UPSTREAM (cargo) comment.
+  `test/check-packages.sh` had been reporting all three for weeks; see the `packages.yml`
+  note under Changed for why nobody saw it.
+- **Caldera was routed to Docker for nothing.** `install/offensive-packages.txt` carried
+  it as `→ UPSTREAM/docker` and `offensive/offensive.zsh` justified the missing probe with
+  "Caldera ships no `caldera` binary". Both false: kali-rolling ships `caldera`
+  (5.3.0-0kali1) and it installs `/usr/bin/caldera`. Now a plain apt line, noting the
+  ~70 MB Python chain and that no `kali-linux-*` metapackage carries it. The decision not
+  to add `HAVE_CALDERA` stands, but for the real reason — nothing in `offensive.zsh`
+  invokes it, which is `install/tools.lst`'s actual membership rule.
+- **The corpus-coverage counts went stale again**, exactly as recorded below for the
+  v2.10.0 sync. A later v2.10.1 sync added `entries/blue/smb-enum-5145.md` and projected
+  the `smb-enum` pair into both views; no header moved. The version notes in those files
+  now point at `companion.lock` for the exact revision instead of hardcoding a commit
+  count, which rots the same way the counts do. Actual is **103 red / 102 blue**
+  with **19** and **24** blocks projected. Fixed in `hacktheplanet`, `PURPLE-TEAM.md`,
+  `OFFENSIVE-METHODOLOGY.md` and — found while verifying, reported by neither audit —
+  `CONTRIBUTING.md` and the `Makefile`. `hacktheplanet` also listed `smb-enum-nxc` among
+  the entries "covered as richer prose below" while generating a block for it seven
+  paragraphs later, so its own accounting summed to 102 rather than 103.
+- **`CLAUDE.md` described `--install` as apt-only on Kali.** `_install_apt_absent`
+  pipx-installs ROADtools on **both** routes, which `bootstrap.sh` and
+  `install/offensive-packages.txt` both state plainly. "Where things are" also documented
+  2 of the 4 `install/` manifests; `corpus-commands.lst` and `impacket-binaries.lst` are
+  now listed, the latter being the file whose entire purpose is making
+  `impacket-petitpotam` fail (#208).
+- **`OFFENSIVE-METHODOLOGY.md` dated Caldera's Apache move to "May 2026"**, contradicting
+  the manifest's already-corrected 2025-12-19 donation date (#211 landed that fix in the
+  manifest only).
+- **`hacktheplanet`'s escalation-primitives index restated `certipy-ad find … -vulnerable`
+  without `-stdout`**, so a copy-paste wrote to a file instead of the terminal. The
+  canonical AD CS section and the corpus entry both carry the flag.
+
 - **The corpus-coverage counts were stale in three files** (found while verifying #212,
   which had reported them as correct). `hacktheplanet` and `PURPLE-TEAM.md` claimed 92 red /
   90 blue entries; the htpx **v2.10.0** sync added 11 of each and the headers were never
@@ -205,6 +262,21 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **`make view-counts` / `test/check-view-counts.sh`** — a gate on the hand-typed corpus
+  counts in `hacktheplanet`, `PURPLE-TEAM.md` and `OFFENSIVE-METHODOLOGY.md`. Two of those
+  files already carried a caveat saying the numbers go stale on every `companion-sync`;
+  this executes it. It exists because the drift above is a **repeat** — the same fix is
+  recorded for the v2.10.0 sync — and nothing could see it: `gen-views.sh --check`
+  byte-compares block *contents* and has no opinion on how many blocks exist, and
+  markdownlint cannot tell `101` from `102`. It is repo-owned rather than an extension of
+  `gen-views.sh` because `offensive/companion/` is a vendored subtree and an edit there is
+  lost on the next sync. It checks only what is mechanically derivable (entry totals,
+  projected-block counts, and the sums of those); the semantic buckets — 56 cloud/SaaS/
+  CI-CD, 13 C2-egress/Impact, 7 Linux, 69/76, the percentages — are deliberately ungated,
+  because nothing in `entries/*.md` marks an entry "cloud". Exit 2 means a stale count;
+  exit 1 means an anchored sentence was rewritten and needs re-anchoring — two different
+  failures, so a maintainer is never told the wrong one.
+
 - **The SMB enum fold and its detection are now entry-backed.** `companion.lock`
   bumps to htpx `b80741f`, which pairs `smb-enum-nxc` with a new `smb-enum-5145` blue
   entry ([htpx#97](https://github.com/dotgibson/htpx/issues/97)), and both sides are
@@ -315,6 +387,15 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
   `core.lock`.
 
 ### Changed
+
+- **`packages.yml` now emits `::warning::` annotations** as well as its job summary. It
+  stays advisory — Kali is rolling, and a package that vanishes mid-migration must not red
+  an unrelated PR — but summary-only proved to be the same as silent: three unresolvable
+  apt names sat in the manifest while the job reported them into a page nobody opened and
+  exited 0 every week. Annotations surface on the Checks and Files tabs without changing
+  any exit code. Its header also claimed you could make the job blocking by dropping a
+  `|| true` that does not exist in the file; the real lever is the `exit 0` at the end of
+  the resolve step.
 
 - **Five currency annotations corrected** (#211). `adaptixc2`'s said upstream publishes zero
   releases so there is "no tag to judge staleness by" and that it rolls on `main` — both

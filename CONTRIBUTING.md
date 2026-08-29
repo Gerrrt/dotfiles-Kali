@@ -70,7 +70,7 @@ is the `packages` workflow, in a `kali-rolling` container.
 
 `make corpus-commands` answers a question no other gate asks: *does every command the
 red corpus tells an operator to run actually exist?* `gen-views.sh --check` byte-compares
-the 18 **projected** entries; 85 of 103 are unprojected and were read by nothing. That is
+the 19 **projected** entries; 84 of 103 are unprojected and were read by nothing. That is
 how `impacket-petitpotam` and `dfscoerce` shipped — neither is a real command, and a human
 found them. It resolves each command against `install/offensive-packages.txt`, the
 `impacket-binaries.lst` roster, and the classifications in `install/corpus-commands.lst`,
