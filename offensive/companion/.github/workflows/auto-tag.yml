@@ -18,9 +18,21 @@
 # SEPARATE workflow (sync-fanout.yml) that needs a FLEET_SYNC_TOKEN, because the
 # built-in token cannot write to another repo.
 #
+# auto-tag.sh does READ dotfiles-Offense before it tags — the companion marker pre-flight
+# (#106). That needs no token: Offense is public, and the read is an anonymous shallow
+# clone. The cross-repo WRITE is still exclusively sync-fanout's. The checkout below is
+# unauthenticated for that clone, which is deliberate — this workflow gains no write
+# access to another repo.
+#
 # This is the FIRST link in the release chain:
-#   push CHANGELOG bump to main → auto-tag (this) tags + releases vX.Y.Z
+#   push CHANGELOG bump to main → auto-tag (this) pre-flights Offense's companion
+#     markers, then tags + releases vX.Y.Z
 #     → sync-fanout (workflow_run on this completing) opens the Offense sync PR.
+#
+# The pre-flight exists because the fan-out is the only thing that would otherwise catch
+# a stale marker, and it runs too late: the tag and Release are already published by the
+# time it aborts, and it opens no PR. A blocked tag is recoverable; a published one that
+# never fanned out is not.
 # ──────────────────────────────────────────────────────────────────────────────
 name: auto-tag
 
