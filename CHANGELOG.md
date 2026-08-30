@@ -43,6 +43,22 @@ release line.
 - **`bhce` can take credentials off argv** — `op://…` resolves through 1Password,
   `-` prompts with echo off.
 
+### Removed
+
+- **The `core_branch` fallback in the two `core.lock` readers.** `core_branch` was
+  renamed `core_ref` in dotfiles-core#453, and reading both names was correct while it
+  shipped: this repo vendors Core on its own schedule, so locks of both vintages existed
+  in the wild and reading only the new name would have killed `sync-core.sh` on any repo
+  that had not yet synced. That window is closed — Core declares the field **gone as of
+  v5** in `VENDORING.md`, and no `core.lock` in the fleet carries it, this repo's
+  included. Gone with it: `migrate_branch_to_ref`, which rewrote the old key in place so
+  `set_field` (which replaces, never inserts) would have a line to hit. Nothing needs
+  that any more — `sync-core.sh` now dies naming `core_ref` alone, before the pull, if
+  the lock has no such line, which is what licenses the never-insert rule downstream.
+  `test/check-core-freshness.sh` keeps its soft `branch=main` default: it is a watcher,
+  not a writer. The `CORE_BRANCH` **env override** is untouched — it is that script's own
+  knob, not a lock field (#271).
+
 ### Fixed
 
 - **Two more targets had the same guard defect, found by the new gate rather than by
