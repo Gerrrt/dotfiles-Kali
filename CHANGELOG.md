@@ -45,6 +45,13 @@ release line.
 
 ### Fixed
 
+- **Two more targets had the same guard defect, found by the new gate rather than by
+  eye.** `make shellcheck` and `make secrets` each announced a skip and then ran the
+  missing tool, exiting `127` — the same shape as `markdown` above, in targets nobody had
+  thought to check. Both collapsed into one recipe line.
+  `_core_make_gate_hits` (dotgibson/dotfiles-core#775) found them the first time it was
+  pointed at this repo, having been written from the `markdown` case alone.
+
 - **`make markdown` announced a skip and then ran anyway.** Each `make` recipe line runs
   in its own shell, so the guard's `exit 0` only ended that line: without `npx` it printed
   "npx not available — skipping markdown" and then ran `npx`, exiting `127`. Collapsed
