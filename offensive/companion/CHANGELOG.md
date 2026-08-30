@@ -18,6 +18,55 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [Unreleased]
+
+### Added
+
+- **`auto-tag.sh` now pre-flights `dotfiles-Offense`'s companion markers, and refuses
+  to tag when one is stale (#106).** Nothing in htpx could see those markers, and the
+  only thing that would notice ran too late to matter. `sync-fanout.yml` re-vendors the
+  corpus into Offense and runs its `gen-views.sh` *before* it commits; that script hard-
+  fails on a `companion:gen` marker naming an entry id the corpus no longer has. But
+  `auto-tag.yml` runs first and separately, so by then **the tag and the GitHub Release
+  are already published** — and the fan-out then aborts without opening a sync PR. The
+  release looks clean here and silently did not fan out. #103's rename is what made this
+  concrete: it was safe only because the sequence was driven by hand.
+
+  So the check moves in front of the tag. A blocked tag is recoverable; a published one
+  that never fanned out is not.
+
+  It runs **below** the `--push` and idempotency guards, so a dry-run and a re-push of an
+  already-tagged version never touch the network — it only fires when a tag is genuinely
+  about to be created, which is also why it cannot redden the many CHANGELOG pushes that
+  bump no version. Offense is public and this is a read, so **no token is involved**; the
+  cross-repo *write* stays `sync-fanout.yml`'s job alone.
+
+  What blocks is `gen-views` **exit 2** — the structural failures. **Exit 1 is content
+  drift, which does not block**: Offense's flat views legitimately lag until the fan-out
+  PR merges, so blocking on drift would block every release. Two other things that could
+  have made the gate pass while checking nothing are refused explicitly: a clone that
+  fails (an unverifiable pre-flight is not a passing one) and a flat view that is missing
+  from Offense entirely, which `gen-views` would otherwise skip with exit 0.
+  `COMPANION_PREFLIGHT=0` is the escape hatch for tagging while Offense is unreachable;
+  it is an env var rather than a flag so it cannot be set absent-mindedly in a runbook
+  one-liner.
+
+### Fixed
+
+- **`gen-views.sh` let view drift mask a missing entry id.** `rc` was a plain assignment,
+  so a structural failure recorded for one target was overwritten by a later target's
+  drift: `PURPLE-TEAM.md` exiting 2 for a marker with no entry, followed by
+  `offensive/hacktheplanet` exiting 1 for stale content, reported **1**.
+
+  That is not a corner case — it is the exact shape of a rename release, where the blue
+  view has the stale marker and the red view's text has also moved. #103 noted that this
+  script "exits 2, not 1. Anything testing `[ $? -eq 1 ]` rather than non-zero misses
+  it", which was true of a single target and wrong about the two-target case: the 2 could
+  be reported as a 1. Any caller keying on 2 — including the new pre-flight above — would
+  have waved through the one thing it exists to catch.
+
+  Severity is now sticky, 2 > 1 > 0, and the result no longer depends on target order.
+
 ## [v3.0.1] - 2026-08-28
 
 ### Fixed

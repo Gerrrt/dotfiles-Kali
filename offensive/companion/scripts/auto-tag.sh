@@ -32,6 +32,19 @@
 #   --push       create the annotated tag and push it to origin (default: print only)
 #   --release    also publish a GitHub Release (needs --push and gh + GH_TOKEN)
 #   -h, --help   show this help and exit
+#
+# Env:
+#   COMPANION_PREFLIGHT=0    skip the companion marker pre-flight (see below). The
+#                            escape hatch for tagging while dotfiles-Offense is
+#                            unreachable; you then own fixing its markers by hand.
+#   COMPANION_PREFLIGHT_URL  override the repo the pre-flight reads (default:
+#                            dotfiles-Offense). Useful for a fork or a local test.
+#
+# The pre-flight (--push only, and only when a tag is really about to be cut) reads
+# dotfiles-Offense's flat views and refuses to tag when a `companion:gen` marker there
+# names an entry id this corpus no longer has. Without it that mismatch surfaces only
+# AFTER the tag and Release are published, as a fan-out that quietly opens no PR.
+# dotgibson/htpx#106.
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -40,6 +53,12 @@ CHANGELOG="$REPO_ROOT/CHANGELOG.md"
 
 PUSH=0
 RELEASE=0
+# Companion pre-flight (see the block above `git tag -a`). On by default because the
+# failure it prevents is silent and post-tag. COMPANION_PREFLIGHT=0 is the escape hatch
+# for tagging while Offense is unreachable — it is deliberately an env var and not a
+# flag, so it cannot be set absent-mindedly in a runbook one-liner.
+PREFLIGHT="${COMPANION_PREFLIGHT:-1}"
+PREFLIGHT_URL="${COMPANION_PREFLIGHT_URL:-https://github.com/dotgibson/dotfiles-Offense.git}"
 usage() {
   cat <<'EOF'
 usage: auto-tag.sh [--push] [--release]
@@ -94,6 +113,77 @@ fi
 if ((!PUSH)); then
   echo "auto-tag: $tag is NEW (dry-run; pass --push to cut it)"
   exit 0
+fi
+
+# ── Companion marker pre-flight — the LAST gate before the tag exists ─────────
+# Nothing in this repo can see dotfiles-Offense's `companion:gen` markers, and the
+# fan-out that would notice runs AFTER this script. sync-fanout.yml re-vendors the
+# corpus into Offense and runs its gen-views.sh BEFORE it commits; that script hard-
+# fails on a marker naming an entry id that no longer exists. By then the tag and the
+# GitHub Release are already published, and the sync simply never opens a PR — a
+# release that looks clean here and silently did not fan out. See dotgibson/htpx#106,
+# and #103 for the rename that made it concrete.
+#
+# So the check moves in front of the tag. Offense is PUBLIC and this is a read, so no
+# token is involved — the cross-repo WRITE stays sync-fanout's job.
+#
+# Placement is deliberate: below the --push and idempotency guards, so a dry-run and a
+# re-push of an already-tagged version never touch the network, and this only runs when
+# a tag is genuinely about to be created.
+#
+# What blocks: gen-views exit 2, the STRUCTURAL failures (a marker naming a missing id,
+# a duplicate id, a mismatched or unterminated marker region). Exit 1 is content DRIFT,
+# which is normal and expected here — Offense's flat views legitimately lag until the
+# fan-out PR merges, so blocking on it would block every release.
+if ((PREFLIGHT)); then
+  echo "auto-tag: companion marker pre-flight against $PREFLIGHT_URL"
+  pf_dir="$(mktemp -d)"
+  trap 'rm -rf "$pf_dir"' EXIT
+  if ! git clone --depth 1 --quiet "$PREFLIGHT_URL" "$pf_dir/offense" 2>/dev/null; then
+    echo "auto-tag: could not clone $PREFLIGHT_URL for the companion pre-flight." >&2
+    echo "auto-tag: REFUSING to tag $tag — an unverifiable pre-flight is not a passing" >&2
+    echo "auto-tag: one; a stale marker there aborts the fan-out after this tag is" >&2
+    echo "auto-tag: published. Re-run when reachable, or set COMPANION_PREFLIGHT=0 to" >&2
+    echo "auto-tag: tag anyway and fix Offense by hand." >&2
+    exit 1
+  fi
+  # gen-views SKIPS a target that is not on disk and still exits 0, which is right for a
+  # standalone checkout but would make this gate pass while checking nothing. Require the
+  # flat views to actually be there.
+  pf_targets=""
+  pf_missing=0
+  for t in PURPLE-TEAM.md offensive/hacktheplanet; do
+    if [[ -f "$pf_dir/offense/$t" ]]; then
+      pf_targets+="$pf_dir/offense/$t "
+    else
+      echo "auto-tag: $t is missing from $PREFLIGHT_URL — the companion contract moved." >&2
+      pf_missing=1
+    fi
+  done
+  if ((pf_missing)); then
+    echo "auto-tag: REFUSING to tag $tag — cannot verify markers that are not there." >&2
+    exit 1
+  fi
+  pf_rc=0
+  COMPANION_TARGETS="$pf_targets" "$REPO_ROOT/gen-views.sh" --check || pf_rc=$?
+  case "$pf_rc" in
+    0) echo "auto-tag: pre-flight clean — every companion marker resolves." ;;
+    1) echo "auto-tag: pre-flight OK — view drift only, which the fan-out PR carries." ;;
+    2)
+      echo "auto-tag: REFUSING to tag $tag — a companion:gen marker in dotfiles-Offense" >&2
+      echo "auto-tag: names an entry id this corpus does not have (gen-views exit 2)." >&2
+      echo "auto-tag: Tagging now would publish $tag and a GitHub Release, and THEN the" >&2
+      echo "auto-tag: fan-out would abort without opening a sync PR." >&2
+      echo "auto-tag: Fix: update the markers in dotfiles-Offense (same push as its" >&2
+      echo "auto-tag: companion sync), then re-run this." >&2
+      exit 1
+      ;;
+    *)
+      echo "auto-tag: pre-flight gen-views exited $pf_rc, which is not a code it defines." >&2
+      echo "auto-tag: REFUSING to tag $tag rather than guess what that means." >&2
+      exit 1
+      ;;
+  esac
 fi
 
 # Annotated tag (carries tagger/date; gh --verify-tag + git describe expect it). A CI

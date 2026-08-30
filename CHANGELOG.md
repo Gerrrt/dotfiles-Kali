@@ -47,7 +47,7 @@ release line.
 
 - **Two more targets had the same guard defect, found by the new gate rather than by
   eye.** `make shellcheck` and `make secrets` each announced a skip and then ran the
-  missing tool, exiting `127` — the same shape as `markdown` above, in targets nobody had
+  missing tool, exiting `127` — the same shape as `markdown` below, in targets nobody had
   thought to check. Both collapsed into one recipe line.
   `_core_make_gate_hits` (dotgibson/dotfiles-core#775) found them the first time it was
   pointed at this repo, having been written from the `markdown` case alone.
@@ -65,6 +65,240 @@ release line.
   written; dotgibson/dotfiles-core#592 made the markdown leg blocking and it covers all 17
   repo-owned files, not just the README.
 
+- **Seven tools carried claims that were incomplete, imprecise, or absent** — the
+  annotation half of [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275)
+  (item 9). No package added or removed; the parsed set is byte-identical at 85 names.
+  - **`httpx-toolkit`'s warning was right in conclusion, wrong in mechanism.** It said
+    the "bare 'httpx' apt pkg is the python lib, not this". There is **no binary package
+    named `httpx` at all** — `apt-cache show httpx` returns `E: No packages found`; the
+    source package builds `python3-httpx`. So the bare name does not install the wrong
+    tool, it **resolves to nothing** — which makes this an instance of the *hexyl* rule
+    (a name this manifest must never carry), not of the package/binary split it was
+    filed under. Currency added: apt runs about one minor behind.
+  - **`wpscan` changed under you.** kali-rolling jumped **3.8.28 → 4.1.0** in Aug 2026
+    after 3.8.28 sat since Mar 2025, so an `apt upgrade` since then swapped the tool,
+    not the patch level. v4.0.0 requires **Ruby 3.3+**, **no longer scans plugins by
+    default** (`-e ap`), moved config/cache to XDG dirs, and **removed**
+    `--timthumbs-detection`, `--config-backups-detection`, `--db-exports-detection` and
+    `--medias-detection`. Verified that nothing shipped breaks: `hacktheplanet` passes
+    `--enumerate u,vp,vt` explicitly, so the plugin-default change never reaches it.
+  - **`nikto` is alive and current, recorded so it is not re-suspected** (upstream
+    pushed 2026-08-28; 2.6.1 released Jul 2026). It was flagged as a likely-stale
+    "old Perl scanner" and is not. Its 2.6.x line does change the tool's **network
+    signature** — a static Chrome User-Agent by default instead of one rotating per
+    request — which is worth knowing when reasoning about what a defender saw.
+  - **`snmpcheck` and `smtp-user-enum` were the enum block's last two unmarked
+    freezes.** Both upstreams are frozen (nothink.org 1.9, 2015; pentestmonkey v1.2),
+    and in both cases **apt is at that version, not behind it** — there is nothing to
+    chase. Kept for the reason `mitm6` and `PrintSpoofer` are kept: SNMP community
+    strings and SMTP `VRFY`/`EXPN` are protocol behaviours, not bugs anyone will patch
+    out. Deliberately **no year** for `smtp-user-enum` — its page states no release
+    date, so any date here would be invented.
+  - **`bloodyad` ships BadSuccessor, which the README does not mention** (it is in the
+    wiki: `add badSuccessor`, `msldap badsuccessor_check`, `msldap dmsas`), so the dMSA
+    escalation path is already on the box. Annotated with the target-state caveat the
+    `mitm6` note draws on the same axis: **Microsoft patched it 2025-08-12** (Server
+    2025 DCs from build 26100.4946), and the post-patch variant needs a second
+    primitive plus SharpSuccessor/Rubeus — neither of which this layer ships, and
+    neither added.
+  - **`PKINITtools` is going quiet** — not archived, but last push 2025-01-03, the
+    stalest live pointer in the AD block. Dated note only. The note explicitly refuses
+    to claim `certipy` supersedes it: that could not be confirmed from a primary source,
+    and says so rather than leaving a plausible guess in the manifest.
+  - **`GodPotato` was the last unmarked freeze in the target-dropped block** once
+    `PrintSpoofer` got its ARCHIVED note. Static since 2023-11-24 and kept — the RPCSS
+    OXID abuse survived the DCOM activation-hardening waves. `SigmaPotato` is named as
+    the in-memory .NET fork but gets no pointer: itself untouched since 2024, so a
+    mention rather than a successor.
+
+- **`PACK` is in Kali apt, and the manifest sent you to a dead Python-2 repo instead.**
+  The pointer read `→ UPSTREAM (github.com/iphelix/pack) … Python 2 era — run from the
+  clone, no apt package`, and **both halves were wrong**. This is the fifth instance of
+  the error class this file already records fixing for `caldera`, `name-that-hash`,
+  `evilginx2` and `sliver`: a manifest that routes you upstream for something apt ships.
+  Confirmed against apt's own index rather than a report — `pack`
+  (`0.0.4+git20191128.fd779b2-0kali3`, arch `all`) `Depends: python3, python3-enchant`,
+  and the package's **Homepage field is `github.com/Hydraze/pack`**, the maintained
+  Python-3 fork (last push 2024-07-28). `iphelix`'s original is dead (last push
+  2019-12-10). Now a plain apt line in Credential attacks. The membership rule does not
+  block it the way it blocks `trufflehog` — `offensive/hacktheplanet:580` invokes
+  `statsgen` and `maskgen` directly. The shipped binaries were read off the package
+  rather than guessed: `statsgen`, `maskgen`, `policygen`, `rulegen` and **`dictstat`**,
+  a fifth legacy binary the old note did not know about. The `kwp`-is-not-in-PACK note on
+  the next line depends on this block naming `iphelix/pack` and is left intact.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 1.
+- **`chisel` had no annotation at all, and apt ships a pre-release of it.** kali-rolling
+  is `1.12.0~rc2-0kali1`; upstream cut **v1.12.0 final on 2026-08-29**, two RCs ahead —
+  the opposite of the `ffuf` case, where apt trails a live upstream. 1.12.0 **breaks
+  flags**: `--auth` now requires `<user>:<pass>` and *fails startup* on a missing colon,
+  SOCKS5 users need an authfile entry matching `socks`, truncated MD5 fingerprints are
+  rejected, and a client exhausting `--max-retry-count` exits non-zero. **Nothing shipped
+  here breaks** — the `hacktheplanet` lines and the corpus' `reverse-tunnel-chisel` entry
+  were checked and both use the bare `chisel server --reverse` form; the exposure is an
+  operator adding `--auth` from memory. The `pspy` split is recorded too: apt's build is
+  for your box, the static release binary is what you upload, and mixing is safe because
+  the wire protocol is unchanged.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 2.
+- **`kubectl` is outside Kubernetes' documented support skew, which the line did not
+  say.** Its provenance note was correct; its silence on currency was the problem.
+  kali-rolling is `1.33.4+ds-1` (imported 2025-10-02) against upstream stable **v1.37.0**.
+  kubectl is supported within **±1 minor** of the apiserver, so a 1.33 client is
+  unsupported against 1.35/1.36/1.37 — a documented window, not a version-number
+  aesthetic, and it degrades the corpus' `k8s-*` entries sitting under `peirates`. The
+  line now points at `pkgs.k8s.io` when a cluster's version matters, the same shape as
+  the `google-cloud-cli`/`gh`/`vault` pointers in the same block.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 3.
+- **The covert-egress header excepted `ptunnel-ng` as "the CURRENT upstream" — an
+  annotation this changelog added two entries below, wrong within three weeks.** Its
+  *version* claim holds (kali `1.43-2` is upstream v1.43); its *vitality* claim did not.
+  v1.43's own release note says **"due to time constraints, there will be no further
+  publications in the near future"** (tagged 2024-11-27) and master has not moved since
+  2024-04-07. It froze at a version apt happens to have. **All five tools in that block
+  are frozen, dead, or behind** — which is the honest state of covert-channel egress and
+  more useful than implying one live option exists. ptunnel-ng is still the right choice
+  of the two ptunnels; it is the maintained-*er* fork, not a live project.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 4.
+- **`dnsenum`'s name lands you on the wrong repo.** The line carried no upstream pointer,
+  and `fwaeytens/dnsenum` — what you find searching the name, 702 stars — has not moved
+  since 2019-10-08. Kali ships `1.3.2-1`, whose Homepage names
+  **`SparrowOchon/dnsenum2`** ("officially mainlined in Kali"). Same use-the-fork trap the
+  `kwp`-vs-`iphelix/pack` and `ConfuserEx`-vs-`mkaring` notes exist to prevent — and the
+  same shape as the `pack` fix above, where apt's Homepage also named a fork the note did
+  not know about. Honest status: **frozen fork, and apt is on it**. `dnsrecon` is the
+  maintained analogue and is in apt, but no doc or corpus entry names it, so it stays out
+  on this file's membership rule.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 5.
+- **`PowerUpSQL` was named in the payload-build block's "absent" list but was the one
+  member of six with no status line.** Verified: not archived, but **no release has ever
+  been cut** and the last functional commits are Aug 2024 — quiet, not dead, the `sRDI`
+  shape. Recorded as **low impact here**, because the Linux-native half is already on the
+  box: `impacket-mssqlclient` (`enum_links`/`use_link`) and `nxc mssql` cover
+  linked-server hopping and are both already listed. `skahwah/SQLRecon` is named as the
+  maintained analogue with no pointer of its own — the `pretender` treatment. The block's
+  reference to that tool in `offensive/evasion` had also drifted, and is corrected from
+  `:124` to `:126`.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 6.
+- **`sliver`'s note ran one release ahead of the facts.** It said upstream "has kept
+  releasing (past 1.7.6 by Aug 2026)"; **v1.7.6 shipped 2026-08-28 and is the head**, so
+  "past" was wrong — now "through 1.7.6". The durable phrasing the last cycle introduced
+  (check `sliver-server version` before an op, never a patch count) is unchanged and still
+  right. What 1.7.6 contains sharpens it: it bounds mTLS/WireGuard envelope and pivot-frame
+  allocation from the length prefix and fixes DNS varint boundary handling — memory
+  exhaustion on network-facing paths, not cosmetic stability.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 7.
+- **`proxychains4` carried no annotation, and the bare `proxychains` name is a live trap.**
+  apt is at upstream's head (`4.17-3.1` = v4.17; rofl0r alive but slow to release — fixes
+  landed 2026-08-27 against a 2024 tag). The addition is the trap: a real `proxychains`
+  **package** exists in Kali and Debian sid at `3.1-9` — proxychains 3.1, from 2007. It
+  escapes the usual `apt-file search '/usr/bin/proxychains$'` check because it ships
+  **`/usr/bin/proxychains3`**, a third binary name, so `apt install proxychains` *succeeds*
+  and silently hands you an 18-year-old tool. A sharper reason to name `proxychains4` than
+  "the bare name is only a virtual `Provides:`".
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 8.
+
+- **`redup`'s katana step would have inherited the nuclei miscount on migration.** It ran
+  `katana -update` unconditionally — the exact shape the nuclei engine step had before it
+  was fixed below. katana `1.7.0-0kali1` landed in **kali-dev** on 2026-08-27 and has not
+  migrated to kali-rolling; apt owning a binary is precisely when Kali patches its
+  self-updater out, as it already did to nuclei. On the day katana migrates and is patched,
+  the step would have started printing `✗ katana update failed` and tallying it on **every**
+  run of a healthy box. The flag is now **probed** before use, reusing the nuclei step's
+  whole-token regex byte-for-byte — the match has to be whole-token here too, since katana's
+  help carries `-duc, -disable-update-check`, which a bare `grep -- -update` would match on
+  exactly the patched build the probe exists to catch. A flagless build now degrades to a
+  skip that tallies nothing. **Preventive: no behaviour change on today's `go install`
+  build**, where the probe passes. `redup -h`, the redup header comment, `aliases.md` and
+  `install/tools.lst` all gave nuclei a build hedge and katana none; all four now match.
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 5.
+- **The Cloud / SaaS / CI-CD block claimed Terraform Cloud entries are "pure REST —
+  curl + a token, nothing to install."** The `tfc-agent` entry lower in the same file already
+  said the opposite — that it "corrects this file's older claim that the Terraform Cloud
+  entries are pure REST" — so the correction was written at one end and never applied at
+  the other, leaving the two halves of one file contradicting each other.
+  `tfc-agent-hijack` creates the agent pool over REST and then **runs `tfc-agent`**, a
+  HashiCorp release binary on infrastructure you control; only `tfc-token-backdoor` and
+  `tfc-var-injection` are curl-only. Checking the rest of the sentence while correcting it
+  found it loose for two more of the five services it named: Snowflake's three entries are
+  **SQL** (```sql fences, which is why the corpus gate never sees a command in them) and
+  `slack-2fa-disable` is a console toggle with **no command at all**. "Nothing to install"
+  still holds for both — "curl + a token" did not. Okta and GitLab were accurate as
+  claimed.
+- **katana's manifest pointer said "not in apt", which is no longer true.** Initial Kali
+  packaging (`1.7.0-0kali1`) was committed to **kali-dev** on 2026-08-27. It has not
+  migrated, so `go install` is still the only route on any box today — but the pointer now
+  states the kali-dev version and the "has not migrated" qualifier, mirroring the shape
+  `rustscan` already carries in the same file, and names `pkg.kali.org/pkg/katana` as the
+  re-check. It also records what a migration would bring: the kali-dev packaging carries no
+  `debian/patches` directory yet, so `-update` survives there for now.
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 5.
+- **`mitm6`'s freeze note claimed "there is no maintained successor to move to."** Too
+  strong, and the near-miss has a name: RedTeamPentesting's `pretender` (Go, v1.4.1, Jul
+  2026) is maintained and does mitm6's exact DHCPv6/DNS takeover plus mDNS/LLMNR/NBT-NS.
+  But it is a **spoofer only** — no listener, no capture, no relay — so it replaces neither
+  `mitm6` nor `responder`, and the note's conclusion (keep mitm6, frozen because finished)
+  is unchanged. It gets no `→ UPSTREAM` pointer of its own: no doc and no corpus entry
+  invokes it. The same note now records a second axis the old text conflated with it —
+  whether the coercion **fires** is not whether the relay **yields**. On fully-patched
+  Server 2025 / Win11 24H2, SMB signing is required by default and LDAP channel binding
+  ships Enabled-When-Supported (MSRC, Dec 2024): the trigger still fires, the SMB and
+  plain-LDAP relay legs close, and value shifts toward `krbrelayx` and the AD CS / PKINIT
+  path. [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 6.
+- **`redup` counted every successful `searchsploit -u` as a failure.** The step ran
+  `if searchsploit -u; then …`, but searchsploit exits **6**, not 0, after any
+  successful update — its own header documents it ("Exit code '6' means updated
+  packages (APT, brew or Git)") and its update routine ends in a bare `exit 6` on
+  every route (apt, brew and git alike). So a completely successful refresh printed
+  `✗ searchsploit -u failed` and was tallied, making the summary read red on a healthy
+  box. This is the **same miscount** as the nuclei engine step below, one step further
+  down the same function, and it survived that fix. The exit status is now captured
+  and both 0 and 6 count as success; anything else still reports, and now prints the
+  code. Found while correcting the step's prose for
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 8 — the report
+  called this a comment-only fix.
+- **`redup`'s searchsploit comment described a code path that does not run on Kali.**
+  It explained the `sudo` escalation as a permissions problem on a root-owned git
+  checkout under `/usr/share/exploitdb`. On a deb install `searchsploit -u` never
+  reaches its `git pull`: it probes `apt-cache search "^exploitdb$"` first and, on a
+  hit, runs `sudo apt update && sudo apt -y install exploitdb`, escalating on its own.
+  The writability probe is kept — it is still correct for a user-local or `/opt`
+  checkout and on non-Kali — but it is now documented as inert on the deb route. The
+  consequence strengthens the never-mid-engagement warning rather than softening it:
+  the step can move **apt state**, not just refresh a data directory.
+- **Five more annotations routed you around a package apt already ships** — the same
+  error class as caldera below, found by re-verifying every `→ UPSTREAM` name in the
+  manifest against apt rather than by any report. None of the five appears in
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260):
+  - `evilginx2` was annotated `→ UPSTREAM (go install or release binary)` **and** filed
+    under the block headed "Operator-side tooling, **not in apt**", whose preamble says
+    outright that these "have no Kali package". kali-rolling ships `evilginx2`
+    (`3.3.0+ds1-0kali1`), which *is* upstream's latest release (v3.3.0, Apr 2024). Now a
+    plain apt line in Credential attacks, ROE warning intact.
+  - `name-that-hash` was annotated `→ UPSTREAM (pip install name-that-hash)`. Kali ships
+    it (`1.11.0-0kali1`). The decision to leave it uninstalled stands on its own merits;
+    only the packaging pointer was wrong.
+  - `pspy` was annotated `→ UPSTREAM (release binary)` in a block whose premise is
+    "per-engagement downloads rather than apt packages". Kali ships `pspy`
+    (`1.2.1-0kali1`). Here the conclusion survives for a **sharper** reason than the
+    block gave: what apt ships is a host-arch, dynamically-linked Debian Go build
+    (`Depends: libc6`), while what you upload to a target is upstream's *static*
+    pspy32/pspy64. So the release binary really is the per-engagement download — just
+    not because "there is no package".
+  - `PowerUp.ps1` was annotated `→ UPSTREAM (PowerSploit …)`. Kali packages it: the
+    `powersploit` package (`3.0.0+git20200817-0kali1`) drops the script at
+    `/usr/share/windows-resources/powersploit/Privesc/PowerUp.ps1` — the **same pattern
+    as `mimikatz`**, a Linux package whose payload is Windows content you copy to the
+    target. It is pulled in by `kali-linux-headless`, so it is already present on a
+    default box. Still not an apt line of its own, but "fetch it from GitHub" was wrong.
+  - The evasion payload-build paragraph asserted "**None is in Kali apt**" of its five
+    tools. `donut` is packaged (`1.1-0kali3+b1`, `/usr/bin/donut`) and is the one member
+    whose generator runs natively on **Linux**, so the paragraph's "all run operator-side
+    on WINDOWS" was wrong about it too. It stays unlisted as a judgement, not because apt
+    cannot supply it. `macro_pack`, `PowerUpSQL`, `sRDI`, `ConfuserEx` and `ScareCrow`
+    are genuinely absent, as claimed.
+- **`caldera` is in `kali-linux-large`.** The note added with the caldera fix below
+  claimed it is "in NO `kali-linux-*` metapackage"; `apt-cache rdepends caldera` says
+  otherwise. It is absent from `kali-linux-default`, which is what the line was
+  reaching for, so the conclusion (a default box needs this line) is unchanged.
 - **`redup`'s nuclei engine step could never succeed on Kali.** It ran
   `nuclei -update` unconditionally, but Kali patches that flag out of its packaged
   nuclei — apt owns the binary, so self-updating it is not nuclei's job there. Kali's
@@ -282,6 +516,25 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **Three tool decisions recorded so the next scout cycle doesn't re-raise them.** All
+  three were proposed by [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260)
+  and all three were declined, on stated grounds rather than by omission:
+  - **`gh` in `redup`'s `go_fast_movers`** (item 9). It has the profile the machinery was
+    kept for — go-only, apt-absent since kali-rolling dropped 2.46.0-3 on 2025-12-10, and
+    genuinely fast — but upstream supports the release binary and GitHub's own apt repo,
+    **not `go install`**, and a bare `go install` build reports an unset/dev version
+    string. The entry would replace a correct build with one that cannot report its own
+    version. Recorded in the comment beside the katana rejection already there, so the
+    array is now empty for **two** stated reasons rather than one.
+  - **`trufflehog`.** In kali apt (`3.94.3-0kali1`) and a good fit for what the Cloud /
+    SaaS / CI-CD block is for — "find the leaked key" is the missing first step of most of
+    the `gh-*`/`npm-*`/`pypi-*` supply-chain entries. Held out on this file's own
+    membership rule, not on merit: no doc and no corpus entry invokes it. The doc edit is
+    the prerequisite; the note says so, and says it becomes a plain apt line once one does.
+  - **`PrivescCheck`** — same rule, same note, beside the `PowerUp.ps1` entry it would
+    complement. The report conceded the prerequisite for this one and not for `trufflehog`;
+    the rule applies to both identically.
+
 - **`make view-counts` / `test/check-view-counts.sh`** — a gate on the hand-typed corpus
   counts in `hacktheplanet`, `PURPLE-TEAM.md` and `OFFENSIVE-METHODOLOGY.md`. Two of those
   files already carried a caveat saying the numbers go stale on every `companion-sync`;
@@ -408,6 +661,55 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Changed
 
+- **`ptunnel-ng` added beside `ptunnel`, not instead of it.** `ptunnel-ng`
+  (`utoni/ptunnel-ng`, redirected from `lnslbrty`) is the maintained fork and kali's
+  `1.43-2` *is* its latest upstream release, so it is the one to reach for. The original
+  `ptunnel` line stays for one mechanical reason: the corpus entry
+  `entries/red/icmp-tunnel-c2.md` invokes the bare `ptunnel` binary, and
+  `test/check-corpus-commands.sh` — offline and **required** — resolves that name against
+  the manifest, so dropping the line reds a blocking gate. `ptunnel-ng` cannot cover for
+  it either: it ships only `/usr/bin/ptunnel-ng`, with no `ptunnel` binary and no
+  alternatives symlink. Retargeting the entry is an upstream change in
+  [htpx](https://github.com/dotgibson/htpx) — `entries/` is a vendored subtree — and it
+  is a **rewrite, not a rename**: the two are not flag-compatible, `-lp/-da/-dp` having
+  become `-l/-r/-R`.
+- **The covert-egress block now carries a status per tool.** It read as though all four
+  were current upstreams; not one is. `iodine` is a full release behind (kali `0.7.0-13`
+  vs upstream `v0.8.0`); `dnscat2` is frozen at its own last release (`v0.07`, 2016 — so
+  apt is *not* behind, there is simply nothing newer); `ptunnel` is frozen at `0.72`;
+  `icmpsh` is dead (last push 2018, never released).
+- **`sliver`'s currency note no longer hardcodes a patch count.** "TWO patches behind"
+  was accurate when written and wrong within five months. It now states the shape — apt
+  froze at `1.7.1-0kali4` while upstream kept releasing — and points at
+  `sliver-server version` instead of a number that rots.
+- **Freeze and archive statuses added where the file asserted none.** `PrintSpoofer`
+  (archived Sep 2024) was the last unmarked freeze in the target-dropped block; `hashid`
+  is frozen at Jun 2022 while the line calls it "the cracking entrypoint"; the evasion
+  payload-build paragraph carried no status for any of its five tools (`macro_pack` and
+  `ScareCrow` archived, `Donut` alive, `sRDI` static since 2023). Each is **kept** — these
+  target behaviours and formats that have not moved — with the reason stated.
+- **The `ConfuserEx` pointer now names the `mkaring` fork.** Canonical
+  `yck1509/ConfuserEx` is archived and has not moved since 2019, so a bare "ConfuserEx"
+  landed a reader in a dead repo — the failure the kwp-vs-`iphelix/pack` note already
+  guards against elsewhere in the file.
+- **`ligolo-ng` loses its "(upstream if repo build lags)" hedge.** Kali tracks it closely
+  (`0.9.1-0kali1` within ~2 weeks of upstream `v0.9.1`), so the hedge invited a hand-built
+  pivot that is almost never warranted.
+- **The `hexyl` note's reason is narrower than it claimed.** "There is no `hexyl` package
+  in Kali at all" is false: the `rust-hexyl` source package, which builds a `hexyl` binary
+  package, has been imported into and removed from kali-rolling repeatedly (0.4.0, 0.5.1,
+  0.7.0, 0.8.0, most recently 0.16.0-4), following Debian testing. It is out **right now**,
+  so the conclusion — keep it out, it would hand `check-packages.sh` an unresolvable name
+  — is unchanged, but it can return without warning.
+- **`rusthound-ce`'s version pair replaced with its cadence.** The quoted
+  `v2.4.91 -> v2.5.2 in seven weeks` had itself gone stale (seven releases shipped in the
+  eight weeks to Aug 2026). The mechanical reason it stays out of `redup` — cargo, no
+  self-updater, `go_fast_movers` is go-only — is unchanged.
+- **`redup`'s ffuf/gobuster note now separates ownership from currency.** "apt-packaged
+  ones (gobuster/ffuf) update via `up`" implied apt keeps them current. apt *owns* them,
+  so `up` is the only correct route and neither belongs in `go_fast_movers` — but kali's
+  ffuf is `2.1.0` (Jan 2024) against an upstream that resumed releasing at `2.2.x`. The
+  routing claim stands; the currency implication does not.
 - **`packages.yml` now emits `::warning::` annotations** as well as its job summary. It
   stays advisory — Kali is rolling, and a package that vanishes mid-migration must not red
   an unrelated PR — but summary-only proved to be the same as silent: three unresolvable
