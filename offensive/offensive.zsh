@@ -454,13 +454,14 @@ rocks() {
 # that carry their OWN updater and rot between apt syncs — nuclei's TEMPLATES (they move
 # daily) plus its engine ONLY where that build has `-update`: Kali patches the engine
 # self-updater out because apt owns the binary, so there redup refreshes templates alone
-# and neither runs nor tallies the engine step. Then katana's crawler engine and
-# searchsploit's exploit-DB, plus any go-installed fast-movers registered in
-# go_fast_movers below — an empty array today, see the note there. Run it DELIBERATELY on
-# your attacker box — NEVER on a client/engagement host mid-op, where updating a tool
-# under a working chain is exactly how you break it. On Kali the searchsploit step makes
-# that warning stronger than it sounds: `searchsploit -u` there is an APT TRANSACTION,
-# not a data-dir refresh, so redup can move package state on the box it runs on.
+# and neither runs nor tallies the engine step. Then katana's crawler engine — probed the
+# same way and for the same reason, see its own note below — and searchsploit's exploit-DB,
+# plus any go-installed fast-movers registered in go_fast_movers below — an empty array
+# today, see the note there. Run it DELIBERATELY on your attacker box — NEVER on a
+# client/engagement host mid-op, where updating a tool under a working chain is exactly
+# how you break it. On Kali the searchsploit step makes that warning stronger than it
+# sounds: `searchsploit -u` there is an APT TRANSACTION, not a data-dir refresh, so redup
+# can move package state on the box it runs on.
 # Each step is guarded by tool presence (command -v, not _have — that's unfunctioned at
 # load). It only ever runs each tool's own updater; it installs nothing new and touches
 # no engagement data.
@@ -469,8 +470,9 @@ redup() {
   if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
     print -- "redup — manually refresh the fast-moving offensive tools (opt-in, attacker box only,"
     print -- "        never mid-engagement): nuclei templates always, its engine only where that"
-    print -- "        build carries -update (Kali's packaged nuclei does not — apt owns it), plus"
-    print -- "        katana and searchsploit's exploit-DB. apt-packaged tools update via 'up'."
+    print -- "        build carries -update (Kali's packaged nuclei does not — apt owns it),"
+    print -- "        katana on the same terms, and searchsploit's exploit-DB."
+    print -- "        apt-packaged tools update via 'up'."
     return 0
   fi
   print -P "%F{yellow}⚠ redup: manual offensive-tool refresh — attacker box only, never mid-engagement.%f"
@@ -564,15 +566,35 @@ redup() {
     print -- "  – searchsploit not installed — skipping"
   fi
 
-  # katana — go-only, still not in Kali apt (six releases in nine months), and it ships its
-  # own `-update`. That self-updater is why it lives HERE and not in go_fast_movers below;
-  # the reasoning is on that list.
+  # katana — go-only today (six releases in nine months), and it ships its own `-update`.
+  # That self-updater is why it lives HERE and not in go_fast_movers below; the reasoning
+  # is on that list.
+  #
+  # THE FLAG IS PROBED, not assumed — the same guard and the SAME regex as the nuclei engine
+  # step above. That is PREVENTIVE here rather than a fix: today's katana is a `go install`
+  # build, `-update` is present, the probe passes and nothing changes. But katana
+  # 1.7.0-0kali1 landed in kali-DEV on 2026-08-27 and has not migrated to kali-rolling (see
+  # the UPSTREAM pointer in install/offensive-packages.txt). apt owning a binary is exactly
+  # when Kali patches the self-updater out — it already did so to nuclei's `-update` — and
+  # on that day an unconditional step here would start tallying a red failure on EVERY run
+  # of a completely healthy box. That is the miscount the nuclei comment above exists to
+  # prevent; there is no reason to learn it a second time from the same function.
+  #
+  # THE WHOLE-TOKEN MATCH EARNS ITS KEEP HERE TOO. katana's help carries `-duc,
+  # -disable-update-check`, which a bare `grep -- -update` matches — concluding the flag
+  # exists on precisely the patched build the probe is meant to catch. The leading
+  # `(^|[[:space:],])` is what kills that hit (the preceding char is `e`). `2>&1` is kept
+  # because goflags routes `-h` through stderr on some builds.
   if command -v katana >/dev/null 2>&1; then
-    print -P "%F{cyan}» katana — crawler engine%f"
-    if katana -update -silent 2>/dev/null || katana -update 2>/dev/null; then
-      ((updated++))
+    print -P "%F{cyan}» katana — crawler engine (where the build supports it)%f"
+    if katana -h 2>&1 | grep -qE '(^|[[:space:],])-(up|update)([[:space:],]|$)'; then
+      if katana -update -silent 2>/dev/null || katana -update 2>/dev/null; then
+        ((updated++))
+      else
+        print -P "  %F{red}✗ katana update failed%f"; ((failed++))
+      fi
     else
-      print -P "  %F{red}✗ katana update failed%f"; ((failed++))
+      print -- "  – self-update not in this build (apt owns it) — nothing to refresh"
     fi
   else
     print -- "  – katana not installed — skipping"
@@ -604,7 +626,20 @@ redup() {
   # upstream's documented install is `CGO_ENABLED=1 go install`, while the loop below runs a
   # bare `go install` — an entry here would build katana differently from the documented
   # build. It carries its own `-update`, so it took the self-updater route above instead.
-  # The list stays empty by REASON, not by neglect.
+  #
+  # `gh` was the second candidate — go-only, apt-ABSENT (2.46.0-3 was REMOVED from
+  # kali-rolling 2025-12-10 and has not returned), and genuinely fast-moving, which is the
+  # exact profile this machinery was kept for. It was rejected anyway, on a different ground
+  # from katana's: upstream supports the release binary and GitHub's own apt repo, NOT
+  # `go install`, and a bare `go install` build reports an unset/dev version string. The
+  # binary would then lie about itself to every `gh --version` — and to every issue this
+  # layer's operator files from it. The loop is also reinstall-only, so it would fire only on
+  # a box that already has gh; and the routes that install gh correctly are the same routes
+  # that keep it current. An entry here would replace a correct build with a worse one that
+  # cannot report its own version. See the `# gh → UPSTREAM` pointer under Cloud / SaaS /
+  # CI-CD in install/offensive-packages.txt for the install route that IS right.
+  #
+  # Two candidates evaluated, two rejected. The list stays empty by REASON, not by neglect.
   local pair bin mod
   local -a go_fast_movers=()
   # Gate on the LIST, not on `go`. With the list empty (today), the old code still

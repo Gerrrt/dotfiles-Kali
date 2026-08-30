@@ -27,8 +27,23 @@ responder
 mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 #                    # NOTE: upstream FROZEN (last commit Feb 2022; Kali has shipped 0.3.0 since May 2024).
 #                    # Unlike kerbrute and havoc below, this one carried no freeze note — an omission, not a
-#                    # judgement. Keep it: the technique is a Windows DEFAULT, not a bug, so it still fires and
-#                    # there is no maintained successor to move to. Frozen because it is finished, not abandoned.
+#                    # judgement. Keep it: the technique is a Windows DEFAULT, not a bug, so it still fires.
+#                    # Frozen because it is finished, not abandoned.
+#                    # NO DROP-IN SUCCESSOR — but the near-miss has a NAME, so the flat "there is no
+#                    # maintained successor to move to" this note used to carry was too strong.
+#                    # RedTeamPentesting's `pretender` (Go, v1.4.1 Jul 2026, SRV spoofing added in v1.4.0) is
+#                    # actively maintained, does DHCPv6/DNS takeover — mitm6's exact technique — plus
+#                    # mDNS/LLMNR/NBT-NS, and is built to feed ntlmrelayx/krbrelayx. It is a SPOOFER ONLY
+#                    # though: no listener, no credential capture, no relay. So it replaces neither mitm6 nor
+#                    # responder — it is a third front-end onto the same relay chain, not a swap for either
+#                    # half of it. Named here for the CORRECTION, and deliberately given no `→ UPSTREAM`
+#                    # pointer of its own: no doc and no corpus entry invokes it, and this file lists what
+#                    # the docs and the corpus name. Add the pointer if and when one of them does.
+#                    # WHAT THE COERCION YIELDS IS TARGET-VERSION DEPENDENT, which is a separate axis from
+#                    # whether it FIRES. On fully-patched Server 2025 / Win11 24H2, SMB signing is required by
+#                    # default and LDAP channel binding ships Enabled-When-Supported (MSRC, Dec 2024). The
+#                    # trigger still fires; it is the SMB and plain-LDAP relay legs that close behind it. Value
+#                    # shifts toward krbrelayx and the AD CS / PKINIT path — both already listed below.
 coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/ShadowCoerce) — the piece that KICKS the relay/ESC8 chain (responder/ntlmrelayx have no trigger of their own)
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
@@ -95,11 +110,23 @@ nuclei               # ProjectDiscovery — templated scanner. `-ai` (2026 AI te
 #                    # generates lands in your PD cloud account. Know that before you reach
 #                    # for it mid-engagement.
 httpx-toolkit        # ProjectDiscovery httpx — bare 'httpx' apt pkg is the python lib, not this
-# katana            → UPSTREAM (Go): not in apt —
+# katana            → UPSTREAM (Go): not installable from apt today —
 #                     CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
-#                     Six releases in nine months and it ships its own `-update`, so redup
-#                     drives the refresh — NOT the go_fast_movers loop, whose bare
-#                     `go install` would build it differently from the documented CGO build.
+#                     NOT in kali-rolling. "not in apt" is what this line used to say and it is
+#                     now too flat: Kali's packaging sits in kali-DEV at 1.7.0-0kali1 (initial
+#                     packaging committed 2026-08-27) and has not migrated — so apt cannot supply
+#                     it on any box today, the same status rustscan carries above. Re-check
+#                     pkg.kali.org/pkg/katana and restore the apt line if 1.7.0 migrates.
+#                     WATCH WHAT ELSE A MIGRATION WOULD BRING. apt owning the binary is exactly
+#                     when Kali patches a self-updater out — it already did so to nuclei's
+#                     `-update`, which is why redup's nuclei engine step is conditional. The
+#                     kali-dev packaging carries no debian/patches directory yet, so `-update`
+#                     survives there for now; redup's katana step PROBES for the flag anyway, so
+#                     a migrated-and-patched katana degrades to a skip instead of a tallied
+#                     failure on every run. Six releases in nine months and it ships its own
+#                     `-update` today, so redup drives the refresh — NOT the go_fast_movers
+#                     loop, whose bare `go install` would build it differently from the
+#                     documented CGO build.
 # (wfuzz dropped — unreferenced by any doc; ffuf/feroxbuster/gobuster cover fuzzing)
 
 # ── Service enumeration (the per-port folds in hacktheplanet) ─────────────────
@@ -244,6 +271,12 @@ docker.io            # `docker` — harbor-* image/artifact entries; also how ca
 #                     Backs the vault-* entries (approle backdoor, audit-disable, secret exfil).
 # Okta / Snowflake / Slack / GitLab / Terraform Cloud entries are pure REST — curl + a token,
 # nothing to install. The corpus commands say so.
+# trufflehog is CONSIDERED AND NOT LISTED, recorded so the decision isn't accidental. It IS in
+# kali apt (3.94.3-0kali1) and it is a genuinely good fit for what this block is FOR — "find the
+# leaked key" is the missing first step of most of the gh-*/npm-*/pypi-* supply-chain entries.
+# It is held out on this file's own membership rule, not on merit: nothing in the docs and no
+# corpus entry invokes it, and this block lists the CLIs those entries actually run. The doc or
+# corpus edit is the prerequisite; once one names it, `trufflehog` is a plain apt line here.
 
 # ── C2 / adversary emulation ──────────────────────────────────────────────────
 metasploit-framework
@@ -458,7 +491,13 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 #                     it — but "go fetch it from GitHub" was wrong.
 #                     Invoke-AllChecks in the Windows privesc fold. PowerSploit itself is
 #                     ARCHIVED (unmaintained since 2020). Kept because the checks still hold;
-#                     winPEAS covers the same ground on a modern box.
+#                     winPEAS covers the same ground on a modern box. itm4n's PrivescCheck is
+#                     the maintained analogue of Invoke-AllChecks and is CONSIDERED AND NOT
+#                     LISTED for the same reason trufflehog is above: no doc names it, and this
+#                     block accounts for what the docs and the corpus name. winPEAS is the
+#                     alternative offered here meanwhile — a broad enumerator, not a targeted
+#                     PowerShell check set, so the gap is real rather than covered. The doc edit
+#                     is the prerequisite.
 # PrintSpoofer64.exe→ UPSTREAM (github.com/itm4n/PrintSpoofer, release binary): the spoolss
 #                     named-pipe SeImpersonate -> SYSTEM path in the Windows privesc fold.
 #                     NOTE: upstream ARCHIVED (read-only since Sep 2024; last push 2020-09-10).
