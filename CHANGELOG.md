@@ -45,6 +45,40 @@ release line.
 
 ### Fixed
 
+- **`redup`'s katana step would have inherited the nuclei miscount on migration.** It ran
+  `katana -update` unconditionally — the exact shape the nuclei engine step had before it
+  was fixed below. katana `1.7.0-0kali1` landed in **kali-dev** on 2026-08-27 and has not
+  migrated to kali-rolling; apt owning a binary is precisely when Kali patches its
+  self-updater out, as it already did to nuclei. On the day katana migrates and is patched,
+  the step would have started printing `✗ katana update failed` and tallying it on **every**
+  run of a healthy box. The flag is now **probed** before use, reusing the nuclei step's
+  whole-token regex byte-for-byte — the match has to be whole-token here too, since katana's
+  help carries `-duc, -disable-update-check`, which a bare `grep -- -update` would match on
+  exactly the patched build the probe exists to catch. A flagless build now degrades to a
+  skip that tallies nothing. **Preventive: no behaviour change on today's `go install`
+  build**, where the probe passes. `redup -h`, the redup header comment, `aliases.md` and
+  `install/tools.lst` all gave nuclei a build hedge and katana none; all four now match.
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 5.
+- **katana's manifest pointer said "not in apt", which is no longer true.** Initial Kali
+  packaging (`1.7.0-0kali1`) was committed to **kali-dev** on 2026-08-27. It has not
+  migrated, so `go install` is still the only route on any box today — but the pointer now
+  states the kali-dev version and the "has not migrated" qualifier, mirroring the shape
+  `rustscan` already carries in the same file, and names `pkg.kali.org/pkg/katana` as the
+  re-check. It also records what a migration would bring: the kali-dev packaging carries no
+  `debian/patches` directory yet, so `-update` survives there for now.
+  [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 5.
+- **`mitm6`'s freeze note claimed "there is no maintained successor to move to."** Too
+  strong, and the near-miss has a name: RedTeamPentesting's `pretender` (Go, v1.4.1, Jul
+  2026) is maintained and does mitm6's exact DHCPv6/DNS takeover plus mDNS/LLMNR/NBT-NS.
+  But it is a **spoofer only** — no listener, no capture, no relay — so it replaces neither
+  `mitm6` nor `responder`, and the note's conclusion (keep mitm6, frozen because finished)
+  is unchanged. It gets no `→ UPSTREAM` pointer of its own: no doc and no corpus entry
+  invokes it. The same note now records a second axis the old text conflated with it —
+  whether the coercion **fires** is not whether the relay **yields**. On fully-patched
+  Server 2025 / Win11 24H2, SMB signing is required by default and LDAP channel binding
+  ships Enabled-When-Supported (MSRC, Dec 2024): the trigger still fires, the SMB and
+  plain-LDAP relay legs close, and value shifts toward `krbrelayx` and the AD CS / PKINIT
+  path. [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 6.
 - **`redup` counted every successful `searchsploit -u` as a failure.** The step ran
   `if searchsploit -u; then …`, but searchsploit exits **6**, not 0, after any
   successful update — its own header documents it ("Exit code '6' means updated
@@ -317,6 +351,25 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
   `searchsploit -u` without the privilege its root-owned checkout needs.
 
 ### Added
+
+- **Three tool decisions recorded so the next scout cycle doesn't re-raise them.** All
+  three were proposed by [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260)
+  and all three were declined, on stated grounds rather than by omission:
+  - **`gh` in `redup`'s `go_fast_movers`** (item 9). It has the profile the machinery was
+    kept for — go-only, apt-absent since kali-rolling dropped 2.46.0-3 on 2025-12-10, and
+    genuinely fast — but upstream supports the release binary and GitHub's own apt repo,
+    **not `go install`**, and a bare `go install` build reports an unset/dev version
+    string. The entry would replace a correct build with one that cannot report its own
+    version. Recorded in the comment beside the katana rejection already there, so the
+    array is now empty for **two** stated reasons rather than one.
+  - **`trufflehog`.** In kali apt (`3.94.3-0kali1`) and a good fit for what the Cloud /
+    SaaS / CI-CD block is for — "find the leaked key" is the missing first step of most of
+    the `gh-*`/`npm-*`/`pypi-*` supply-chain entries. Held out on this file's own
+    membership rule, not on merit: no doc and no corpus entry invokes it. The doc edit is
+    the prerequisite; the note says so, and says it becomes a plain apt line once one does.
+  - **`PrivescCheck`** — same rule, same note, beside the `PowerUp.ps1` entry it would
+    complement. The report conceded the prerequisite for this one and not for `trufflehog`;
+    the rule applies to both identically.
 
 - **`make view-counts` / `test/check-view-counts.sh`** — a gate on the hand-typed corpus
   counts in `hacktheplanet`, `PURPLE-TEAM.md` and `OFFENSIVE-METHODOLOGY.md`. Two of those
