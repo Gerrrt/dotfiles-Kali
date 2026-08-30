@@ -45,6 +45,52 @@ release line.
 
 ### Fixed
 
+- **Seven tools carried claims that were incomplete, imprecise, or absent** — the
+  annotation half of [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275)
+  (item 9). No package added or removed; the parsed set is byte-identical at 85 names.
+  - **`httpx-toolkit`'s warning was right in conclusion, wrong in mechanism.** It said
+    the "bare 'httpx' apt pkg is the python lib, not this". There is **no binary package
+    named `httpx` at all** — `apt-cache show httpx` returns `E: No packages found`; the
+    source package builds `python3-httpx`. So the bare name does not install the wrong
+    tool, it **resolves to nothing** — which makes this an instance of the *hexyl* rule
+    (a name this manifest must never carry), not of the package/binary split it was
+    filed under. Currency added: apt runs about one minor behind.
+  - **`wpscan` changed under you.** kali-rolling jumped **3.8.28 → 4.1.0** in Aug 2026
+    after 3.8.28 sat since Mar 2025, so an `apt upgrade` since then swapped the tool,
+    not the patch level. v4.0.0 requires **Ruby 3.3+**, **no longer scans plugins by
+    default** (`-e ap`), moved config/cache to XDG dirs, and **removed**
+    `--timthumbs-detection`, `--config-backups-detection`, `--db-exports-detection` and
+    `--medias-detection`. Verified that nothing shipped breaks: `hacktheplanet` passes
+    `--enumerate u,vp,vt` explicitly, so the plugin-default change never reaches it.
+  - **`nikto` is alive and current, recorded so it is not re-suspected** (upstream
+    pushed 2026-08-28; 2.6.1 released Jul 2026). It was flagged as a likely-stale
+    "old Perl scanner" and is not. Its 2.6.x line does change the tool's **network
+    signature** — a static Chrome User-Agent by default instead of one rotating per
+    request — which is worth knowing when reasoning about what a defender saw.
+  - **`snmpcheck` and `smtp-user-enum` were the enum block's last two unmarked
+    freezes.** Both upstreams are frozen (nothink.org 1.9, 2015; pentestmonkey v1.2),
+    and in both cases **apt is at that version, not behind it** — there is nothing to
+    chase. Kept for the reason `mitm6` and `PrintSpoofer` are kept: SNMP community
+    strings and SMTP `VRFY`/`EXPN` are protocol behaviours, not bugs anyone will patch
+    out. Deliberately **no year** for `smtp-user-enum` — its page states no release
+    date, so any date here would be invented.
+  - **`bloodyad` ships BadSuccessor, which the README does not mention** (it is in the
+    wiki: `add badSuccessor`, `msldap badsuccessor_check`, `msldap dmsas`), so the dMSA
+    escalation path is already on the box. Annotated with the target-state caveat the
+    `mitm6` note draws on the same axis: **Microsoft patched it 2025-08-12** (Server
+    2025 DCs from build 26100.4946), and the post-patch variant needs a second
+    primitive plus SharpSuccessor/Rubeus — neither of which this layer ships, and
+    neither added.
+  - **`PKINITtools` is going quiet** — not archived, but last push 2025-01-03, the
+    stalest live pointer in the AD block. Dated note only. The note explicitly refuses
+    to claim `certipy` supersedes it: that could not be confirmed from a primary source,
+    and says so rather than leaving a plausible guess in the manifest.
+  - **`GodPotato` was the last unmarked freeze in the target-dropped block** once
+    `PrintSpoofer` got its ARCHIVED note. Static since 2023-11-24 and kept — the RPCSS
+    OXID abuse survived the DCOM activation-hardening waves. `SigmaPotato` is named as
+    the in-memory .NET fork but gets no pointer: itself untouched since 2024, so a
+    mention rather than a successor.
+
 - **`PACK` is in Kali apt, and the manifest sent you to a dead Python-2 repo instead.**
   The pointer read `→ UPSTREAM (github.com/iphelix/pack) … Python 2 era — run from the
   clone, no apt package`, and **both halves were wrong**. This is the fifth instance of

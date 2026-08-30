@@ -58,6 +58,20 @@ ldap-utils           # `ldapsearch` — raw directory queries. The corpus' ldap-
 #                    # directly, and it is the fallback whenever nxc's ldap module hides the attribute
 #                    # you actually need. Surfaced by test/check-corpus-commands.sh (#208)
 bloodyad             # raw-LDAP shadow-creds / DACL / RBCD / attribute writes (+ autobloody to auto-exploit a BloodHound-graphed path)
+#                    # IT ALSO SHIPS BadSuccessor, which is not obvious from the README (that never
+#                    # mentions dMSA) — it is in the wiki: `add badSuccessor <dmsa>`, plus
+#                    # `msldap badsuccessor_check` and `msldap dmsas` to find where it applies. So
+#                    # the dMSA privilege-escalation path is ALREADY on the box with nothing to
+#                    # install; apt tracks this one closely.
+#                    # ⚠ WHAT IT YIELDS IS TARGET-STATE DEPENDENT — the same axis the mitm6 note
+#                    # above draws, and for the same reason. Microsoft PATCHED BadSuccessor on
+#                    # 2025-08-12 (Server 2025 DCs from build 26100.4946), so the KDC now validates
+#                    # the superseded-account link in both directions at ticket issuance. Against a
+#                    # patched DC the original technique does not complete. The post-patch variant
+#                    # (AlteredSecurity's BetterSuccessor) needs create-dMSA rights AND GenericWrite
+#                    # on the target, and is driven by SharpSuccessor + Rubeus — NEITHER of which
+#                    # this layer ships, and neither is added here: no doc and no corpus entry names
+#                    # them. Check the DC build before you plan around this one.
 gpp-decrypt          # decrypt the GPP cpassword blob from SYSVOL Groups.xml (the decrypt step of the GPP attack); ships in kali-linux-default, list it for slim installs
 freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NAME CHURN: FreeRDP 2 was freerdp2-x11/xfreerdp; FreeRDP 3 shipped as freerdp3-x11/xfreerdp3 so both could coexist; Debian then dropped the suffix again (Jan 2026) — freerdp-x11 provides `xfreerdp` and it IS FreeRDP 3. Both binaries come out of the `freerdp3` source pkg (`freerdp` as a source pkg died in 2018), and freerdp3-x11 is NOT transitional — it still ships a real /usr/bin/xfreerdp3 alongside. On an older snapshot install freerdp3-x11 and run xfreerdp3. Ships in kali-linux-default, list it for slim installs
 # kerbrute          → UPSTREAM: not in apt — grab the release binary or `go install`
@@ -70,6 +84,17 @@ freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NA
 # PKINITtools       → UPSTREAM (github.com/dirkjanm/PKINITtools): gettgtpkinit.py + getnthash.py,
 #                     the cert→NT-hash step of the coerce→ADCS→PKINIT→DCSync chain in
 #                     hacktheplanet's AD CS section. Not in apt — git clone / pipx.
+#                     NOTE: GOING QUIET — not archived, but last push 2025-01-03, which makes it
+#                     the stalest live pointer in this block. Annotated for the same reason
+#                     kerbrute and mitm6 are: an unmarked freeze reads as an omission rather than
+#                     a judgement. Keep it — PKINIT and UnPAC-the-hash are Kerberos behaviours,
+#                     not bugs that get patched out, so the scripts still fire.
+#                     ⚠ DELIBERATELY NOT WRITTEN HERE: "certipy supersedes it". certipy-ad is on
+#                     the box and `certipy auth -pfx` plausibly covers the same step, but that
+#                     could NOT be confirmed from a primary source when this note was written —
+#                     its README says only "perform authentication using certificates". Verify
+#                     against the Certipy wiki before collapsing the two, rather than trusting
+#                     this file for it.
 
 # ── BloodHound CE + collectors ────────────────────────────────────────────────
 # BloodHound CE itself is the Postgres-backed web app — stand it up with SpecterOps'
@@ -101,15 +126,44 @@ burpsuite
 ffuf
 feroxbuster
 gobuster
-nikto
+nikto                # web-server misconfig/known-issue scanner. ALIVE and apt is current — recorded
+#                    # because "old Perl scanner" invites the assumption that it is not: upstream
+#                    # sullo/nikto pushed 2026-08-28, release 2.6.1 (2026-07-31), and kali-rolling
+#                    # imported it within weeks. Not an EOL candidate; do not re-suspect it.
+#                    # ⚠ 2.6.x CHANGED THIS TOOL'S NETWORK SIGNATURE: it now sends a STATIC Chrome
+#                    # User-Agent by default instead of rotating one per request, and keeps TLS
+#                    # connections alive. Nikto was never quiet, but "loud in a new shape" matters
+#                    # when you are reasoning about what a defender saw — see PURPLE-TEAM.md.
 wpscan               # WordPress enum/scan (needs a free API token for vuln data); ships in kali-linux-default
+#                    # ⚠ KALI MOVED THIS ONE UNDER YOU. kali-rolling jumped 3.8.28 → 4.1.0 in Aug
+#                    # 2026 after 3.8.28 had sat since Mar 2025, so an `apt upgrade` since then
+#                    # changed the tool, not just its patch level. v4.0.0 BREAKING: Ruby 3.3+ is
+#                    # required; PLUGINS ARE NO LONGER SCANNED BY DEFAULT (pass `-e ap`); config and
+#                    # cache moved to ~/.config/wpscan and ~/.cache/wpscan/db; and
+#                    # --timthumbs-detection, --config-backups-detection, --db-exports-detection and
+#                    # --medias-detection were REMOVED outright. v4.1.0 adds an opt-in local vuln DB
+#                    # via --enterprise-db-token.
+#                    # NOTHING SHIPPED HERE BREAKS — hacktheplanet's line passes `--enumerate
+#                    # u,vp,vt` explicitly, so the plugin-default change does not reach it and all
+#                    # three selectors survive. Verified rather than assumed. The exposure is a
+#                    # removed flag typed from memory.
 sqlmap
 weevely              # PHP webshell generator/manager (the exploitdev post-exploit webshell); ships in kali-linux-default, list it for slim installs
 nuclei               # ProjectDiscovery — templated scanner. `-ai` (2026 AI templates) is NOT
 #                    # local: it needs a PD API key + outbound internet, and the template it
 #                    # generates lands in your PD cloud account. Know that before you reach
 #                    # for it mid-engagement.
-httpx-toolkit        # ProjectDiscovery httpx — bare 'httpx' apt pkg is the python lib, not this
+httpx-toolkit        # ProjectDiscovery httpx. ⚠ NEVER `apt install httpx` — but the reason is
+#                    # sharper than the "bare 'httpx' apt pkg is the python lib" this line used to
+#                    # give. THERE IS NO BINARY PACKAGE NAMED `httpx` AT ALL: `apt-cache show httpx`
+#                    # returns "E: No packages found". The source package builds `python3-httpx`
+#                    # (the Python HTTP client), and THAT is the thing you were being warned about —
+#                    # so the bare name does not install the wrong tool, it RESOLVES TO NOTHING.
+#                    # That distinction is the hexyl rule (see the note further down): a name that
+#                    # cannot resolve is a name this manifest must never carry, and it is why
+#                    # `httpx-toolkit` is the only correct entry here.
+#                    # CURRENCY, previously unstated: apt runs about one minor behind (1.9.x against
+#                    # upstream's 1.10.x). Not a redup candidate — apt owns it, so `up` is the route.
 # katana            → UPSTREAM (Go): not installable from apt today —
 #                     CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
 #                     NOT in kali-rolling. "not in apt" is what this line used to say and it is
@@ -139,7 +193,19 @@ snmpcheck            # human-readable SNMP enumeration (SNMP-161 fold). PACKAGE 
 #                    # as httpx-toolkit and python3-ldapdomaindump above. The manifest carried the
 #                    # binary name, which resolves against nothing: `snmp-check` is in no Kali
 #                    # component. hacktheplanet's `snmp-check <ip> -c public` was always correct.
+#                    # NOTE: upstream FROZEN — nothink.org (Matteo Cantoni), latest 1.9 dated
+#                    # 2015-06-29, a static page rather than a repo. ⚠ apt is NOT behind here: kali's
+#                    # 1.9-0kali2 IS that release, so there is nothing to chase. Keep it — SNMP
+#                    # community-string enumeration is a PROTOCOL behaviour, not a bug anyone will
+#                    # patch out, the same reasoning mitm6 and PrintSpoofer are kept on. Annotated
+#                    # because this block's freezes were otherwise all marked and these two were not.
 smtp-user-enum       # SMTP VRFY/EXPN/RCPT user enum (SMTP-25 fold)
+#                    # NOTE: upstream FROZEN — pentestmonkey.net, latest v1.2, and like snmpcheck
+#                    # above apt is AT that version (1.2-1kali4), not behind it. Deliberately no
+#                    # year: the page is a static archive with no changelog and states no release
+#                    # date, so any date written here would be invented. Keep it for the same reason
+#                    # — VRFY/EXPN/RCPT are SMTP verbs, and a 2007-era enumerator still exercises
+#                    # them correctly against a 2026 server that left them enabled.
 ssh-audit            # SSH algorithm/config audit (SSH-22 fold)
 dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold). ⚠ IF YOU GO LOOKING
 #                    # FOR ITS UPSTREAM, the repo the name lands you on is the WRONG one:
@@ -570,6 +636,17 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # GodPotato         → UPSTREAM (github.com/BeichenDream/GodPotato, release binary): the DCOM
 #                     variant of the same abuse, for when spoolss is disabled. Pick the build
 #                     matching the target's .NET version (GodPotato-NET2/3.5/4).
+#                     NOTE: upstream STATIC — not archived, but no push since 2023-11-24. With
+#                     PrintSpoofer above now marked ARCHIVED, this was the last unmarked freeze
+#                     in the block, which is the omission-not-a-judgement case this file keeps
+#                     correcting. Keep it, and keep it as the live alternative PrintSpoofer's
+#                     note points at: the RPCSS OXID-resolution abuse it weaponises survived the
+#                     DCOM activation-hardening waves, so a 2023 binary still fires on a patched
+#                     Server 2025 / Win11 target. Static because it is finished, not abandoned.
+#                     tylerdotrar/SigmaPotato is the .NET-reflection fork — it executes IN MEMORY
+#                     rather than being dropped as an EXE, which is the evasion-relevant
+#                     difference — but it is itself untouched since 2024-05, so it is a MENTION,
+#                     not a successor, and gets no pointer of its own: no doc names it.
 #                     Both arrive from the corpus, inside hacktheplanet's `# companion:gen
 #                     potato-seimpersonate` block — which is why they were doc-named AND
 #                     corpus-named while this block still went without them.
