@@ -35,10 +35,15 @@ help: ## Show this help
 lint: shellcheck markdown trap-guard ## Run every static gate (shellcheck + syntax + markdown + trap discipline)
 
 shellcheck: ## shellcheck + bash -n / zsh -n over repo-owned shell
-	@command -v shellcheck >/dev/null 2>&1 \
-	  || { echo "shellcheck not installed — CI uses the pinned one from $(CORE_PINS)"; exit 0; }
-	@echo ":: shellcheck"
-	@SHELLCHECK_OPTS="-e SC1090 -e SC1091 -e SC2015 -e SC2088" shellcheck $(SH_FILES)
+	@# ONE recipe line, same reason as `markdown` below: make gives each recipe line its
+	@# own shell, so the `exit 0` ended only ITS line — this printed "not installed" and
+	@# then ran shellcheck anyway, exiting 127 (dotgibson/dotfiles-core#775).
+	@if ! command -v shellcheck >/dev/null 2>&1; then \
+	  echo "shellcheck not installed — CI uses the pinned one from $(CORE_PINS)"; \
+	else \
+	  echo ":: shellcheck"; \
+	  SHELLCHECK_OPTS="-e SC1090 -e SC1091 -e SC2015 -e SC2088" shellcheck $(SH_FILES); \
+	fi
 	@echo ":: bash -n"
 	@for f in $(SH_FILES); do bash -n "$$f" || exit 1; done
 	@command -v zsh >/dev/null 2>&1 && { echo ":: zsh -n"; for f in $(ZSH_FILES); do zsh -n "$$f" || exit 1; done; } || true
@@ -52,9 +57,19 @@ trap-guard: ## Refuse a RETURN trap that does not disarm itself (shellcheck cann
 	@# ever runs a real install path — hence a dedicated grep. See the script's header.
 	@./test/check-return-traps.sh
 
+# ONE recipe line. make runs each line in its own shell, so the guard's `exit 0` only
+# ended THAT line — this printed "npx not available — skipping markdown" and then ran npx
+# anyway, exiting 127. Joining them makes the skip a real skip (dotgibson/dotfiles-core#775).
+#
+# An unreadable pin FAILS rather than falling back to @latest. "Pinned version, same as CI"
+# is this target's whole claim; silently linting under a different version would make a
+# local pass mean nothing, which is the failure mode the rest of that sweep is about.
 markdown: ## markdownlint repo-owned docs (pinned version, same as CI)
-	@command -v npx >/dev/null 2>&1 || { echo "npx not available — skipping markdown"; exit 0; }
-	@npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) $(MD_FILES)
+	@if ! command -v npx >/dev/null 2>&1; then echo "npx not available — skipping markdown"; \
+	elif [ -z "$(MARKDOWNLINT_VERSION)" ]; then \
+	  echo "!! MARKDOWNLINT_VERSION unreadable from $(CORE_PINS) — refusing to lint unpinned"; exit 1; \
+	elif [ -z "$(MD_FILES)" ]; then echo "no repo-owned .md"; \
+	else npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) $(MD_FILES); fi
 
 test: ## Run the repo's behavioural checks
 	@./test/check-routine-filter.sh
@@ -85,8 +100,9 @@ packages-check: ## Does every offensive-packages.txt name still resolve on Kali?
 	@./test/check-packages.sh || true
 
 secrets: ## gitleaks over the working tree + full history (needs gitleaks)
-	@command -v gitleaks >/dev/null 2>&1 \
-	  || { echo "gitleaks not installed — CI installs the pinned one; see .github/workflows/checks.yml"; exit 0; }
+	@# The guard and BOTH scans are one recipe line: make gives each line its own shell, so
+	@# the old `exit 0` ended only ITS line and both `gitleaks detect` calls ran anyway,
+	@# exiting 127 on any box without it (dotgibson/dotfiles-core#775).
 	@# -c core/gitleaks.toml — ONE POLICY FILE, Core's, the rule Core's own reusable
 	@# lint-call.yml secrets leg states, and the one .github/workflows/checks.yml here already
 	@# passes. Without it these two ran the STOCK rule set, so this target and this repo's own
@@ -98,8 +114,12 @@ secrets: ## gitleaks over the working tree + full history (needs gitleaks)
 	@# stock scan flagged Core's explanation of the rule as a violation of it. It matters more
 	@# on the second line, which reads full HISTORY: a false positive there cannot be fixed
 	@# forward, only by a rewrite, so it would wedge this target permanently.
-	@gitleaks detect --no-git -c core/gitleaks.toml --redact --verbose --exit-code 1
-	@gitleaks detect -c core/gitleaks.toml --redact --verbose --exit-code 1
+	@if ! command -v gitleaks >/dev/null 2>&1; then \
+	  echo "gitleaks not installed — CI installs the pinned one; see .github/workflows/checks.yml"; \
+	else \
+	  gitleaks detect --no-git -c core/gitleaks.toml --redact --verbose --exit-code 1 && \
+	  gitleaks detect -c core/gitleaks.toml --redact --verbose --exit-code 1; \
+	fi
 
 bootstrap-dry: ## Preview the full bootstrap plan, changing nothing
 	@./bootstrap.sh --dry-run

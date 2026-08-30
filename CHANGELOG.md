@@ -45,6 +45,26 @@ release line.
 
 ### Fixed
 
+- **Two more targets had the same guard defect, found by the new gate rather than by
+  eye.** `make shellcheck` and `make secrets` each announced a skip and then ran the
+  missing tool, exiting `127` — the same shape as `markdown` below, in targets nobody had
+  thought to check. Both collapsed into one recipe line.
+  `_core_make_gate_hits` (dotgibson/dotfiles-core#775) found them the first time it was
+  pointed at this repo, having been written from the `markdown` case alone.
+
+- **`make markdown` announced a skip and then ran anyway.** Each `make` recipe line runs
+  in its own shell, so the guard's `exit 0` only ended that line: without `npx` it printed
+  "npx not available — skipping markdown" and then ran `npx`, exiting `127`. Collapsed
+  into one recipe line, so the skip is a real skip (dotgibson/dotfiles-core#775 — the same
+  defect in six other fleet repos). `MD_FILES` was already correct here, including the
+  `offensive/companion` exclude that matches the gate's, so only the guard needed fixing.
+  An unreadable `MARKDOWNLINT_VERSION` now **fails** rather than silently linting
+  unpinned — "same version as CI" is this target's whole claim.
+- `.markdownlint.jsonc`'s header claimed this config was "the local check for the README"
+  and that "CI here gates this repo's own code, not its Markdown". Both were true when
+  written; dotgibson/dotfiles-core#592 made the markdown leg blocking and it covers all 17
+  repo-owned files, not just the README.
+
 - **Seven tools carried claims that were incomplete, imprecise, or absent** — the
   annotation half of [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275)
   (item 9). No package added or removed; the parsed set is byte-identical at 85 names.
