@@ -141,7 +141,20 @@ snmpcheck            # human-readable SNMP enumeration (SNMP-161 fold). PACKAGE 
 #                    # component. hacktheplanet's `snmp-check <ip> -c public` was always correct.
 smtp-user-enum       # SMTP VRFY/EXPN/RCPT user enum (SMTP-25 fold)
 ssh-audit            # SSH algorithm/config audit (SSH-22 fold)
-dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold)
+dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold). ⚠ IF YOU GO LOOKING
+#                    # FOR ITS UPSTREAM, the repo the name lands you on is the WRONG one:
+#                    # fwaeytens/dnsenum (702 stars) is not archived but has not moved since
+#                    # 2019-10-08 and is a version behind. Kali ships 1.3.2-1, whose Homepage field
+#                    # names github.com/SparrowOchon/dnsenum2 — "officially mainlined in Kali",
+#                    # last push 2024-03-15. Same use-the-FORK trap the kwp-vs-iphelix/pack and
+#                    # ConfuserEx-vs-mkaring notes exist to prevent, and the same shape as the
+#                    # `pack` line above, where apt's Homepage also names a fork the old note
+#                    # did not know about. The fork is itself slow, so the honest status is
+#                    # FROZEN FORK, AND APT IS ON IT — the dnscat2 / ptunnel shape, not a live
+#                    # upstream. Keep it: zone transfers and brute-forced subdomains have not moved.
+#                    # darkoperator/dnsrecon is the maintained analogue and IS in kali apt, but no
+#                    # doc and no corpus entry names it, so it stays out on this file's membership
+#                    # rule — the trufflehog/PrivescCheck disposition, not a judgement on the tool.
 nbtscan              # NetBIOS name sweep (SMB fold)
 smbclient            # provides BOTH `smbclient` (SMB-445 fold: share listing/browsing) and `rpcclient` (RPC-135 fold) — one Debian package, the primary command of two folds
 ftp                  # the plain FTP client (FTP-21 fold: the anonymous/anonymous check). Debian builds it from the tnftp source; ships in kali-system-core, so it is on every Kali — listed for the accounting, not the install
@@ -256,7 +269,19 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; `redup` refreshe
 # and you need the CLI in PATH. These are the vendor CLIs those entries actually invoke.
 awscli               # `aws` — Kali ships AWS CLI v2, NOT the old v1 (different flags, different auth)
 azure-cli            # `az` — Entra/Azure. In Kali apt; no Microsoft repo needed
-kubectl              # from the `kubernetes` source pkg (also builds kubernetes-client)
+kubectl              # from the `kubernetes` source pkg (also builds kubernetes-client) — that
+#                    # provenance is right; the CURRENCY it left unstated is the problem.
+#                    # ⚠ OUT OF THE SUPPORTED SKEW, not merely stale. kali-rolling is 1.33.4+ds-1
+#                    # (imported 2025-10-02) against upstream stable v1.37.0 (2026-08-26).
+#                    # Kubernetes supports kubectl within ±1 MINOR of the apiserver, so a 1.33
+#                    # client covers clusters 1.32–1.34 and is UNSUPPORTED against 1.35/1.36/1.37.
+#                    # That is a documented support window, not a version-number aesthetic, and it
+#                    # degrades the corpus' k8s-* entries that sit under peirates above.
+#                    # This package does not track upstream and never has: Debian carried an ancient
+#                    # 1.20 for years, kali-rolling REMOVED it 2024-12-10, and it only returned at
+#                    # 1.33.4. If a cluster's version matters to the engagement, take the client
+#                    # from pkgs.k8s.io (Kubernetes' own apt repo) — the same shape as the
+#                    # google-cloud-cli / gh / vault pointers above — rather than trusting this line.
 pacu                 # Rhino Security Labs' AWS exploitation framework — the corpus' AWS privesc/persistence entries
 peirates             # Kubernetes privesc + pivot (the k8s-* entries)
 npm                  # `npm` — the npm-* supply-chain entries (owner-add, 2FA-disable, malicious-publish)
@@ -299,8 +324,14 @@ sliver               # Go C2, the open-source standard — APT-PACKAGED, and lon
 #                    # ⚠ CURRENCY: apt runs SEVERAL RELEASES behind and the gap keeps widening.
 #                    # Kali froze at 1.7.1-0kali4 in Mar 2026 and has not moved since; upstream had
 #                    # already cut 1.7.2 and 1.7.3 when that migration landed, so it shipped a build
-#                    # that was stale on arrival, and has kept releasing (past 1.7.6 by Aug 2026)
-#                    # with implant and stability fixes each time. Deliberately NOT written as a
+#                    # that was stale on arrival, and has kept releasing (through 1.7.6, 2026-08-28)
+#                    # with implant and stability fixes each time — 1.7.6 IS the head, so the
+#                    # "past 1.7.6" this line used to say ran one notch ahead of the facts.
+#                    # WHAT 1.7.6 CONTAINS sharpens the warning rather than repeating it: it bounds
+#                    # mTLS/WireGuard envelope and pivot-frame allocation from the length prefix, and
+#                    # fixes DNS varint boundary handling. Those are memory-exhaustion bounds on the
+#                    # paths that FACE THE NETWORK, not cosmetic stability. Deliberately NOT written
+#                    # as a
 #                    # patch COUNT: this note used to say "TWO patches behind" and that number was
 #                    # wrong within five months. Check `sliver-server version` against upstream's
 #                    # releases page before an op instead. Fine for a C2 you re-profile anyway —
@@ -339,9 +370,16 @@ caldera              # adversary emulation, ATT&CK-mapped — APT-PACKAGED, and 
 
 # Covert-channel egress — the corpus' dns-tunnel-c2 / icmp-tunnel-c2 entries. Test them
 # against your OWN infrastructure; a real egress path out of a client network is a finding,
-# not a toy. All apt except icmpsh. Only ptunnel-ng is a CURRENT upstream; the other four
-# are frozen, dead, or a release behind, so each carries its status below rather than
-# letting the block read as if they were all live:
+# not a toy. All apt except icmpsh. ALL FIVE ARE FROZEN, DEAD, OR BEHIND — each carries its
+# status below rather than letting the block read as if any of them were live.
+# ⚠ THAT INCLUDES ptunnel-ng, which this header used to except as "the CURRENT upstream".
+# Its VERSION claim is right (kali 1.43-2 IS upstream v1.43) but its VITALITY claim was not:
+# v1.43's own release note says "due to time constraints, there will be no further
+# publications in the near future" (tagged 2024-11-27) and master has not moved since
+# 2024-04-07. It froze at a version apt happens to have. It is the maintained-ER fork of
+# the two ptunnels, not a live project — which is still the right reason to prefer it, and
+# a much better description of covert-channel egress tooling as a whole than implying one
+# live option exists here. Budget for replacing this category, not for it improving.
 iodine               # IP-over-DNS to a zone you delegate (you run the authoritative NS)
 #                    # NOTE: apt is a full RELEASE behind — kali ships 0.7.0-13 while upstream's
 #                    # latest tag is v0.8.0. Upstream is alive (commits into 2025), just slow to
@@ -409,10 +447,23 @@ mimikatz             # IS an apt package on Kali, but what it installs is WINDOW
 # rockyou on corporate password policy, but that apt does not carry:
 # exrex             → UPSTREAM (pip install exrex): regex → every matching string.
 #                     Season+Year lists in hacktheplanet's targeted-wordlist block.
-# PACK (statsgen,   → UPSTREAM (github.com/iphelix/pack): mask profiler. statsgen/maskgen
-#  maskgen)           profile a real dump's masks so you crack within THIS org's policy.
-#                     Python 2 era — run from the clone, no apt package. PACK ships
-#                     statsgen/maskgen/policygen/rulegen and NO kwp — see the next line.
+pack                 # PACK — mask profiler: statsgen/maskgen profile a real dump's masks so you
+#                    # crack within THIS org's policy. hacktheplanet's targeted-wordlist block runs
+#                    # `statsgen ntds.txt -o org.masks && maskgen org.masks --optindex -o org.hcmask`.
+#                    # ⚠ THIS WAS `→ UPSTREAM (github.com/iphelix/pack) … no apt package`, AND BOTH
+#                    # HALVES WERE WRONG — the fifth instance of the error class this file already
+#                    # records fixing for caldera, name-that-hash, evilginx2 and sliver: a manifest
+#                    # that sends you upstream for something apt already ships.
+#                    # apt HAS it (0.0.4+git20191128.fd779b2-0kali3, arch all), and what apt ships is
+#                    # NOT the Python-2 original: `Depends: python3, python3-enchant`, and the
+#                    # package's own Homepage field is github.com/Hydraze/pack — the MAINTAINED
+#                    # Python-3 fork (last push 2024-07-28). iphelix's original is dead (not
+#                    # archived; last push 2019-12-10), so the old pointer aimed an operator at a
+#                    # six-year-dead Py2 repo for something `sudo apt install pack` supplies working.
+#                    # Verified on-box: /usr/bin/{statsgen,maskgen,policygen,rulegen,dictstat}.
+#                    # `dictstat` is a fifth, legacy binary the old note did not know about; there is
+#                    # NO kwp here — see the next line, which depends on this block naming
+#                    # iphelix/pack and is left intact for that reason.
 # kwp               → UPSTREAM (github.com/hashcat/kwprocessor): the keyboard-walk
 #                     generator, hashcat's own tool and not part of PACK. hacktheplanet's
 #                     `kwp basechars/… keymaps/… routes/…` invocation is verbatim
@@ -527,7 +578,7 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # AADInternals is NOT listed here either — it's operator-side external recon, not
 # target-dropped, so it sits with the other M365 tools under Recon / OSINT above.
 # The evasion doc's payload-BUILD tooling is NOT listed here either, and is not
-# target-dropped: macro_pack (offensive/evasion:30), PowerUpSQL (:124), and the
+# target-dropped: macro_pack (offensive/evasion:30), PowerUpSQL (:126), and the
 # Donut / sRDI / ConfuserEx / ScareCrow loaders (:62-63) run operator-side to produce
 # an artifact, and most of them need WINDOWS to do it — a lab Windows VM is the real
 # prerequisite, so they are named here for the accounting and shipped nowhere.
@@ -542,6 +593,18 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 #   ScareCrow    ARCHIVED — read-only, last push Aug 2023.
 #   Donut        alive — commits into 2025.
 #   sRDI         static — NOT archived, but untouched since Nov 2023.
+#   PowerUpSQL   static — NOT archived, but no release has EVER been cut and the last
+#                functional commits are Aug 2024 (a LICENSE bump followed in Dec 2024).
+#                Quiet, not dead — the sRDI shape. It was named in the paragraph above
+#                while five of the six got a status line here and it got none.
+#                LOW IMPACT HERE, because the Linux-native half is already on the box:
+#                impacket-mssqlclient (`enum_links` / `use_link`) and `nxc mssql` cover
+#                linked-server hopping from Kali, and both are already listed above. This
+#                is a Windows-side convenience, not a capability gap.
+#                The maintained analogue is skahwah/SQLRecon (C#/.NET, v4.0 Apr 2026,
+#                active) — named for the correction and given NO pointer of its own, the
+#                same treatment `pretender` gets under mitm6: no doc and no corpus entry
+#                invokes it, and this file lists what the docs and the corpus name.
 #   ConfuserEx   ⚠ USE THE `mkaring` FORK (github.com/mkaring/ConfuserEx, alive into 2024).
 #                The canonical `yck1509/ConfuserEx` is ARCHIVED and has not moved since
 #                2019, so a bare "ConfuserEx" pointer lands a reader in a dead repo —
@@ -563,8 +626,34 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # one third-party binary they name (xmrig) is deliberately not shipped here.
 
 # ── Pivoting / tunneling ──────────────────────────────────────────────────────
-proxychains4
-chisel
+proxychains4         # `proxychains4` — the rofl0r/proxychains-ng fork, and apt is at its head
+#                    # (4.17-3.1 = upstream's v4.17 tag). Upstream is alive but slow to RELEASE:
+#                    # crash/UB fixes landed 2026-08-27 against a tag dated 2024-01-21.
+#                    # ⚠ INSIST ON THE `4`. A real `proxychains` PACKAGE exists in Kali and Debian
+#                    # sid at 3.1-9 — proxychains 3.1, the 2007 SourceForge original, whose Debian
+#                    # tracker records "problems while searching for a new upstream version". It
+#                    # escapes the usual `apt-file search '/usr/bin/proxychains$'` test because it
+#                    # ships /usr/bin/proxychains3, a THIRD binary name. So `apt install proxychains`
+#                    # SUCCEEDS and silently hands you a 2007 tool — a sharper reason to name
+#                    # proxychains4 than "the bare name is only a virtual Provides:".
+chisel               # TCP/UDP-over-HTTP tunnel. The one line in this block that had no status at
+#                    # all, which is why it is now the one that most needed one.
+#                    # ⚠ APT SHIPS A PRE-RELEASE. kali-rolling is 1.12.0~rc2-0kali1 (2026-07-23) and
+#                    # kali-dev 1.12.0~rc3-0kali1; upstream cut v1.12.0 FINAL on 2026-08-29, two RCs
+#                    # ahead of what you have. This is the opposite of the ffuf case above: there
+#                    # apt is behind a live upstream, here apt is ahead of its own stable line.
+#                    # ⚠ 1.12.0 BREAKS FLAGS, so know them before you reach for one from memory:
+#                    # `--auth` now REQUIRES `<user>:<pass>` and FAILS STARTUP on a missing colon;
+#                    # SOCKS5 users need an authfile entry matching `socks`; fingerprints must be
+#                    # full SHA256 (truncated MD5 prefixes are rejected); a client exhausting
+#                    # --max-retry-count now exits non-zero. Nothing SHIPPED here breaks — the
+#                    # hacktheplanet lines and the corpus' reverse-tunnel-chisel entry both use the
+#                    # bare `chisel server -p 8000 --reverse` / `chisel client … R:socks` form.
+#                    # THE pspy SPLIT APPLIES: apt's chisel is a host-arch, dynamically-linked
+#                    # Debian Go build for YOUR box; what you upload to a target is upstream's
+#                    # static release binary. Mixing is safe — the wire protocol is unchanged and
+#                    # 1.11.x <-> 1.12 deployments degrade gracefully. Not a redup candidate: no
+#                    # self-updater, and apt owns it.
 ligolo-ng            # modern reverse-tunnel pivot. The "(upstream if repo build lags)" hedge that
 #                    # was here is gone: kali tracks this one closely (0.9.1-0kali1 landed within
 #                    # ~2 weeks of upstream's v0.9.1), so the hedge invited an upstream build that
