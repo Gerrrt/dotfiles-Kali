@@ -61,6 +61,12 @@ release line.
 
 ### Fixed
 
+- **`sync-core.sh --help` printed `set -euo pipefail`.** The header is rendered with
+  `sed -n '2,35p' "$0"`, and the comment block it means to print ends at line 33 — so
+  every `--help` run trailed the closing `───` rule with the first two lines of actual
+  code. Pre-existing, and found by the `--help` render check while retiring the
+  `core_branch` fallback above; the range now stops at the rule.
+
 - **Two more targets had the same guard defect, found by the new gate rather than by
   eye.** `make shellcheck` and `make secrets` each announced a skip and then ran the
   missing tool, exiting `127` — the same shape as `markdown` below, in targets nobody had
