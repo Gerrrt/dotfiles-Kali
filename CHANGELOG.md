@@ -45,6 +45,91 @@ release line.
 
 ### Fixed
 
+- **`PACK` is in Kali apt, and the manifest sent you to a dead Python-2 repo instead.**
+  The pointer read `→ UPSTREAM (github.com/iphelix/pack) … Python 2 era — run from the
+  clone, no apt package`, and **both halves were wrong**. This is the fifth instance of
+  the error class this file already records fixing for `caldera`, `name-that-hash`,
+  `evilginx2` and `sliver`: a manifest that routes you upstream for something apt ships.
+  Confirmed against apt's own index rather than a report — `pack`
+  (`0.0.4+git20191128.fd779b2-0kali3`, arch `all`) `Depends: python3, python3-enchant`,
+  and the package's **Homepage field is `github.com/Hydraze/pack`**, the maintained
+  Python-3 fork (last push 2024-07-28). `iphelix`'s original is dead (last push
+  2019-12-10). Now a plain apt line in Credential attacks. The membership rule does not
+  block it the way it blocks `trufflehog` — `offensive/hacktheplanet:580` invokes
+  `statsgen` and `maskgen` directly. The shipped binaries were read off the package
+  rather than guessed: `statsgen`, `maskgen`, `policygen`, `rulegen` and **`dictstat`**,
+  a fifth legacy binary the old note did not know about. The `kwp`-is-not-in-PACK note on
+  the next line depends on this block naming `iphelix/pack` and is left intact.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 1.
+- **`chisel` had no annotation at all, and apt ships a pre-release of it.** kali-rolling
+  is `1.12.0~rc2-0kali1`; upstream cut **v1.12.0 final on 2026-08-29**, two RCs ahead —
+  the opposite of the `ffuf` case, where apt trails a live upstream. 1.12.0 **breaks
+  flags**: `--auth` now requires `<user>:<pass>` and *fails startup* on a missing colon,
+  SOCKS5 users need an authfile entry matching `socks`, truncated MD5 fingerprints are
+  rejected, and a client exhausting `--max-retry-count` exits non-zero. **Nothing shipped
+  here breaks** — the `hacktheplanet` lines and the corpus' `reverse-tunnel-chisel` entry
+  were checked and both use the bare `chisel server --reverse` form; the exposure is an
+  operator adding `--auth` from memory. The `pspy` split is recorded too: apt's build is
+  for your box, the static release binary is what you upload, and mixing is safe because
+  the wire protocol is unchanged.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 2.
+- **`kubectl` is outside Kubernetes' documented support skew, which the line did not
+  say.** Its provenance note was correct; its silence on currency was the problem.
+  kali-rolling is `1.33.4+ds-1` (imported 2025-10-02) against upstream stable **v1.37.0**.
+  kubectl is supported within **±1 minor** of the apiserver, so a 1.33 client is
+  unsupported against 1.35/1.36/1.37 — a documented window, not a version-number
+  aesthetic, and it degrades the corpus' `k8s-*` entries sitting under `peirates`. The
+  line now points at `pkgs.k8s.io` when a cluster's version matters, the same shape as
+  the `google-cloud-cli`/`gh`/`vault` pointers in the same block.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 3.
+- **The covert-egress header excepted `ptunnel-ng` as "the CURRENT upstream" — an
+  annotation this changelog added two entries below, wrong within three weeks.** Its
+  *version* claim holds (kali `1.43-2` is upstream v1.43); its *vitality* claim did not.
+  v1.43's own release note says **"due to time constraints, there will be no further
+  publications in the near future"** (tagged 2024-11-27) and master has not moved since
+  2024-04-07. It froze at a version apt happens to have. **All five tools in that block
+  are frozen, dead, or behind** — which is the honest state of covert-channel egress and
+  more useful than implying one live option exists. ptunnel-ng is still the right choice
+  of the two ptunnels; it is the maintained-*er* fork, not a live project.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 4.
+- **`dnsenum`'s name lands you on the wrong repo.** The line carried no upstream pointer,
+  and `fwaeytens/dnsenum` — what you find searching the name, 702 stars — has not moved
+  since 2019-10-08. Kali ships `1.3.2-1`, whose Homepage names
+  **`SparrowOchon/dnsenum2`** ("officially mainlined in Kali"). Same use-the-fork trap the
+  `kwp`-vs-`iphelix/pack` and `ConfuserEx`-vs-`mkaring` notes exist to prevent — and the
+  same shape as the `pack` fix above, where apt's Homepage also named a fork the note did
+  not know about. Honest status: **frozen fork, and apt is on it**. `dnsrecon` is the
+  maintained analogue and is in apt, but no doc or corpus entry names it, so it stays out
+  on this file's membership rule.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 5.
+- **`PowerUpSQL` was named in the payload-build block's "absent" list but was the one
+  member of six with no status line.** Verified: not archived, but **no release has ever
+  been cut** and the last functional commits are Aug 2024 — quiet, not dead, the `sRDI`
+  shape. Recorded as **low impact here**, because the Linux-native half is already on the
+  box: `impacket-mssqlclient` (`enum_links`/`use_link`) and `nxc mssql` cover
+  linked-server hopping and are both already listed. `skahwah/SQLRecon` is named as the
+  maintained analogue with no pointer of its own — the `pretender` treatment. The block's
+  reference to that tool in `offensive/evasion` had also drifted, and is corrected from
+  `:124` to `:126`.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 6.
+- **`sliver`'s note ran one release ahead of the facts.** It said upstream "has kept
+  releasing (past 1.7.6 by Aug 2026)"; **v1.7.6 shipped 2026-08-28 and is the head**, so
+  "past" was wrong — now "through 1.7.6". The durable phrasing the last cycle introduced
+  (check `sliver-server version` before an op, never a patch count) is unchanged and still
+  right. What 1.7.6 contains sharpens it: it bounds mTLS/WireGuard envelope and pivot-frame
+  allocation from the length prefix and fixes DNS varint boundary handling — memory
+  exhaustion on network-facing paths, not cosmetic stability.
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 7.
+- **`proxychains4` carried no annotation, and the bare `proxychains` name is a live trap.**
+  apt is at upstream's head (`4.17-3.1` = v4.17; rofl0r alive but slow to release — fixes
+  landed 2026-08-27 against a 2024 tag). The addition is the trap: a real `proxychains`
+  **package** exists in Kali and Debian sid at `3.1-9` — proxychains 3.1, from 2007. It
+  escapes the usual `apt-file search '/usr/bin/proxychains$'` check because it ships
+  **`/usr/bin/proxychains3`**, a third binary name, so `apt install proxychains` *succeeds*
+  and silently hands you an 18-year-old tool. A sharper reason to name `proxychains4` than
+  "the bare name is only a virtual `Provides:`".
+  [#275](https://github.com/dotgibson/dotfiles-Offense/issues/275) item 8.
+
 - **`redup`'s katana step would have inherited the nuclei miscount on migration.** It ran
   `katana -update` unconditionally — the exact shape the nuclei engine step had before it
   was fixed below. katana `1.7.0-0kali1` landed in **kali-dev** on 2026-08-27 and has not
