@@ -269,8 +269,18 @@ docker.io            # `docker` — harbor-* image/artifact entries; also how ca
 #                     entries (deploy-key backdoor, branch-protection off, self-hosted runner).
 # vault             → UPSTREAM (HashiCorp's apt repo): BUSL-licensed, so not in Debian/Kali.
 #                     Backs the vault-* entries (approle backdoor, audit-disable, secret exfil).
-# Okta / Snowflake / Slack / GitLab / Terraform Cloud entries are pure REST — curl + a token,
-# nothing to install. The corpus commands say so.
+# Okta and GitLab entries are pure REST — curl + a token, nothing to install. Snowflake's
+# three are SQL run in a session (they carry ```sql fences, not ```sh, which is why the corpus
+# gate never sees a command in them) and `slack-2fa-disable` is a console toggle with no
+# command at all. Still nothing to install for any of those — but they are not curl either,
+# which is what this line used to claim of all five services at once.
+# ⚠ TERRAFORM CLOUD IS THE ONE THAT IS NOT REST-ONLY, and this line asserted it was.
+# `tfc-agent-hijack` creates the agent pool over REST and then RUNS `tfc-agent` — a HashiCorp
+# release binary, on infrastructure YOU control, so the workspace's runs execute where you can
+# read them. It is accounted for under "Operator-side tooling, not in apt" below, and that
+# entry already says it "corrects this file's older claim that the Terraform Cloud entries are
+# pure REST": the correction was written at that end and never applied at this one. The other
+# two (`tfc-token-backdoor`, `tfc-var-injection`) really are curl-only.
 # trufflehog is CONSIDERED AND NOT LISTED, recorded so the decision isn't accidental. It IS in
 # kali apt (3.94.3-0kali1) and it is a genuinely good fit for what this block is FOR — "find the
 # leaked key" is the missing first step of most of the gh-*/npm-*/pypi-* supply-chain entries.
