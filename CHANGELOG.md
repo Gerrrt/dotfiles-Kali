@@ -45,6 +45,19 @@ release line.
 
 ### Fixed
 
+- **`make markdown` announced a skip and then ran anyway.** Each `make` recipe line runs
+  in its own shell, so the guard's `exit 0` only ended that line: without `npx` it printed
+  "npx not available — skipping markdown" and then ran `npx`, exiting `127`. Collapsed
+  into one recipe line, so the skip is a real skip (dotgibson/dotfiles-core#775 — the same
+  defect in six other fleet repos). `MD_FILES` was already correct here, including the
+  `offensive/companion` exclude that matches the gate's, so only the guard needed fixing.
+  An unreadable `MARKDOWNLINT_VERSION` now **fails** rather than silently linting
+  unpinned — "same version as CI" is this target's whole claim.
+- `.markdownlint.jsonc`'s header claimed this config was "the local check for the README"
+  and that "CI here gates this repo's own code, not its Markdown". Both were true when
+  written; dotgibson/dotfiles-core#592 made the markdown leg blocking and it covers all 17
+  repo-owned files, not just the README.
+
 - **`redup`'s nuclei engine step could never succeed on Kali.** It ran
   `nuclei -update` unconditionally, but Kali patches that flag out of its packaged
   nuclei — apt owns the binary, so self-updating it is not nuclei's job there. Kali's
