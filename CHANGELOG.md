@@ -59,6 +59,19 @@ release line.
   build**, where the probe passes. `redup -h`, the redup header comment, `aliases.md` and
   `install/tools.lst` all gave nuclei a build hedge and katana none; all four now match.
   [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260) item 5.
+- **The Cloud / SaaS / CI-CD block claimed Terraform Cloud entries are "pure REST —
+  curl + a token, nothing to install."** The `tfc-agent` entry lower in the same file already
+  said the opposite — that it "corrects this file's older claim that the Terraform Cloud
+  entries are pure REST" — so the correction was written at one end and never applied at
+  the other, leaving the two halves of one file contradicting each other.
+  `tfc-agent-hijack` creates the agent pool over REST and then **runs `tfc-agent`**, a
+  HashiCorp release binary on infrastructure you control; only `tfc-token-backdoor` and
+  `tfc-var-injection` are curl-only. Checking the rest of the sentence while correcting it
+  found it loose for two more of the five services it named: Snowflake's three entries are
+  **SQL** (```sql fences, which is why the corpus gate never sees a command in them) and
+  `slack-2fa-disable` is a console toggle with **no command at all**. "Nothing to install"
+  still holds for both — "curl + a token" did not. Okta and GitLab were accurate as
+  claimed.
 - **katana's manifest pointer said "not in apt", which is no longer true.** Initial Kali
   packaging (`1.7.0-0kali1`) was committed to **kali-dev** on 2026-08-27. It has not
   migrated, so `go install` is still the only route on any box today — but the pointer now
