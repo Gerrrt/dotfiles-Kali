@@ -28,15 +28,34 @@ Three things enforce this, and you will meet all of them:
 - `companion` in CI, asserting the generated blocks in `PURPLE-TEAM.md` and
   `hacktheplanet` still match the entries they came from
 
-To update a subtree deliberately:
+The two subtrees update differently, and the asymmetry is deliberate.
+
+**`core/` arrives by fan-out.** A `dotfiles-core` release opens a `core.lock`-bump PR
+here automatically (`sync-fanout.yml`). Merge it, then:
 
 ```bash
-make core-sync         # or: make companion-sync
 make lint && make test
 ```
 
-Both stamp their lock file from the squash commit's `git-subtree-split` trailer.
-Commit the lock together with the pull.
+There is no local pull. `make core-sync` reports how far behind you are and explains
+this; it writes nothing. The reason is `dotfiles-core#676`: a vendored `core/` is a
+**filtered subset** of upstream (`core.manifest` + `core.vendor`), and `git subtree pull`
+merges the *whole* tree, so pulling would land files `core/` is not supposed to carry and
+`core-integrity` would report `TAMPERED` with no hand-edit anywhere. This repo was the
+fleet's one sanctioned second writer into `core/`; that sanction rested on the pull
+stamping the lock from *what it actually pulled*, which a filtered vendor makes
+impossible.
+
+**`offensive/companion/` still pulls**, because htpx vendors its whole tree and has no
+allowlist:
+
+```bash
+make companion-sync
+make lint && make test
+```
+
+It stamps `companion.lock` from the squash commit's `git-subtree-split` trailer. Commit
+the lock together with the pull.
 
 ## 3. Engagement data never enters this repo
 
@@ -126,9 +145,10 @@ Kali is rolling and a package can vanish mid-migration, so it reports to the job
 summary rather than failing. CodeQL is GitHub-managed and may not run on every
 change, and a required check that never starts blocks a PR forever.
 
-Merge commits stay enabled alongside squash and rebase: a `git subtree` pull
-carries the `git-subtree-split` trailer that `scripts/sync-core.sh` and
-`scripts/sync-companion.sh` read back, and squashing would collapse it away.
+Merge commits stay enabled alongside squash and rebase: a `git subtree` pull carries the
+`git-subtree-split` trailer that `scripts/sync-companion.sh` reads back, and squashing
+would collapse it away. (`scripts/sync-core.sh` no longer reads it — it no longer pulls —
+but the companion still does, so the setting stays.)
 
 ## Commits
 

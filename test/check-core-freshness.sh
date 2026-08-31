@@ -24,7 +24,7 @@
 # workflows can share one branching shape):
 #   0  current, or skipped (no vendored core/, or upstream unreachable)
 #   1  hard failure (malformed core.lock)
-#   2  BEHIND — upstream has moved on; the nudge to run scripts/sync-core.sh
+#   2  BEHIND — upstream has moved on; the nudge to merge the fan-out's core.lock PR
 #
 # Overrides: CORE_UPSTREAM (remote/URL/local clone), CORE_BRANCH (ref to compare).
 # ──────────────────────────────────────────────────────────────────────────────
@@ -78,8 +78,14 @@ say "vendored $PREFIX at : $sha  (v${version:-?}, ${tag:-no tag})"
 #   a 40-hex SHA  — the NORMAL state after a fleet sync. sync-fanout.yml pins each
 #                   PR to the exact released commit (CORE_BRANCH=<sha>) so core.lock
 #                   records a frozen version rather than "whatever main was".
-#   a tag         — `scripts/sync-core.sh --ref v4.11.0` records the ref it pulled.
-#   a branch name — a plain `sync-core.sh` run tracking main's tip.
+#   a tag         — a HISTORICAL lock from `scripts/sync-core.sh --ref v4.11.0`, back
+#                   when that script pulled. It no longer does (dotfiles-core#676), so
+#                   nothing writes this shape any more; locks carrying it still parse.
+#   a branch name — likewise historical: a plain `sync-core.sh` run tracking main's tip.
+#
+# Both legacy shapes are still READ, deliberately. They exist in this repo's history, and
+# a freshness check that died on an old lock would be broken exactly when someone was
+# trying to work out how far behind they had drifted.
 #
 # The first version of this script assumed the third and built `refs/heads/<value>`
 # unconditionally. Against a pinned SHA that matches nothing, ls-remote came back
@@ -140,8 +146,11 @@ warn "BEHIND — $DEFAULT_REPO@$cmp_name is not what is vendored here."
 warn "  vendored : $sha  (${tag:-no tag})"
 warn "  upstream : $cmp_sha  ($cmp_name)"
 warn ""
-warn "  Pull it, then re-run the gates:"
-warn "    scripts/sync-core.sh     # or: make core-sync"
+warn "  Core arrives here by FAN-OUT: a dotfiles-core release opens a core.lock-bump"
+warn "  PR in this repo automatically (sync-fanout.yml). Merge it, then:"
 warn "    make lint && make test"
-warn "  If a core.lock-bump PR from the fleet sync is already open, merge that instead."
+warn "  There is no local pull any more — 'git subtree pull' merges upstream's WHOLE"
+warn "  tree, and a vendored core/ is a filtered subset of it since dotfiles-core#676,"
+warn "  so pulling would land files core/ is not supposed to carry and core-integrity"
+warn "  would report TAMPERED. If no fan-out PR has arrived, fix it upstream."
 exit 2

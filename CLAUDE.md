@@ -23,9 +23,17 @@ opt-in.
 
 ## The rule that bites
 
-`core/` is a **vendored `git subtree` copy of [dotfiles-core](https://github.com/dotgibson/dotfiles-core)** — *not*
+`core/` is a **vendored copy of [dotfiles-core](https://github.com/dotgibson/dotfiles-core)** — *not*
 editable here; changes under `core/` are overwritten on the next sync. Edit shared
-Core config **in dotfiles-core**, `make audit`, then `make sync`.
+Core config **in dotfiles-core**, `make audit`, then `make sync` there.
+
+It arrives here **by fan-out only**: a dotfiles-core release opens a `core.lock`-bump PR
+in this repo automatically. There is no local pull any more — `make core-sync` reports
+how far behind you are and writes nothing (dotfiles-core#676: a vendored `core/` is a
+filtered subset of upstream, which `git subtree pull` cannot produce). It is also no
+longer a whole copy of that repo: it carries `core.manifest` + `core.vendor`, so the
+authoring tooling (`scripts/audit-core.sh`, `test-core.sh`, `CHANGELOG.md`, `assets/`)
+is not here. `offensive/companion` still pulls — see below; that asymmetry is deliberate.
 
 Three things that actually bite on this repo:
 

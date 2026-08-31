@@ -661,6 +661,42 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Changed
 
+- **BREAKING — `make core-sync` no longer pulls; Core arrives by fan-out
+  ([dotfiles-core#676](https://github.com/dotgibson/dotfiles-core/issues/676)).**
+  `scripts/sync-core.sh` is now report-only: it says how far behind `core/` is and how
+  Core actually gets here, and writes nothing.
+
+  This repo was the fleet's **one sanctioned second writer** into `core/`. That sanction
+  rested on a specific property, spelled out in `VENDORING.md`: the pull stamped
+  `core.lock` from *what it actually pulled* — `core_sha` from the squash commit's
+  `git-subtree-split` trailer, `core_version` from the tree on disk — so the lock could
+  not describe a commit its own `core/` did not contain.
+
+  A filtered vendor removes exactly that property. Core stopped vendoring its whole tree:
+  `core/` is now `core.manifest` ∪ `core.vendor`, roughly two thirds of it. A
+  `git subtree pull` **merges the whole upstream tree** and has no way to apply that
+  filter, so "what it actually pulled" is by construction no longer what a vendored
+  `core/` should contain. The first pull after this repo's lock moved to a filtering
+  commit would land every upstream file against an expectation of the subset, and
+  `core-integrity` would report `TAMPERED` — correctly, with no hand-edit anywhere.
+
+  Teaching it to filter was the alternative and is worse: it would make this repo a second
+  **producer** of Core's format, which the sanction never extended to. Two implementations
+  of one filter is the failure dotfiles-core#556 exists to prevent.
+
+  **In practice this changes nothing about how Core actually arrives.** Every one of the
+  last ten `core.lock` writes in this repo came from the fan-out, not from `make
+  core-sync`. The independent cadence being given up was already not in use.
+
+  `make core-sync` and `make core-lock` survive as the place that explains this — they are
+  what someone types when asking "how do I move Core?", and that question still has an
+  answer. `--check` is accepted and ignored, since every run is now what it meant.
+
+- **`offensive/companion/` is unaffected and still pulls.** htpx vendors its whole tree
+  and has no allowlist, so `make companion-sync` keeps working exactly as before. The
+  asymmetry between the two subtrees is deliberate and is now stated in `CONTRIBUTING.md`,
+  `CLAUDE.md` and the `Makefile` header — do not "fix" `companion-sync` to match.
+
 - **`ptunnel-ng` added beside `ptunnel`, not instead of it.** `ptunnel-ng`
   (`utoni/ptunnel-ng`, redirected from `lnslbrty`) is the maintained fork and kali's
   `1.43-2` *is* its latest upstream release, so it is the one to reach for. The original
