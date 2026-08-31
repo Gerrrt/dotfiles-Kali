@@ -109,6 +109,31 @@ bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pk
 #                    # installed here — CE is what this layer stands up. The corpus' bloodhound-collect
 #                    # entry used to invoke the legacy name; htpx v2.10.1 (#89) swapped it to
 #                    # bloodhound-ce-python, so nothing red-side names the legacy binary any more.
+#                    # ⚠ apt WON'T STOP YOU running both: neither package declares Conflicts:/
+#                    # Breaks:/Replaces:, and the binaries differ (`bloodhound-python` vs
+#                    # `bloodhound-ce-python`), so `apt install bloodhound.py` co-installs cleanly
+#                    # alongside this. Upstream's "only one at a time" caveat is a PIP constraint
+#                    # (one `bloodhound-python` entry-point per env), not an apt one — verified
+#                    # against both packages' control fields, the Homepage-field discipline #276
+#                    # settled on. The reason not to install the legacy one is still that its zips
+#                    # don't ingest into CE, above — not that apt forbids the pair.
+azurehound           # the ENTRA/M365 collector — the ONE half of the CE graph this block had
+#                    # no line for. The AD side is covered three ways (bloodhound-ce-python,
+#                    # rusthound-ce, nxc --bloodhound) and the repo carries a full Entra/M365 set
+#                    # (ROADtools, AADInternals, TeamFiltration, MSOLSpray, onedrive_enum), but
+#                    # nothing FED THE AZURE SIDE into CE. SpecterOps/AzureHound, apt-packaged.
+#                    # ADMISSIBLE now because a doc names it (hacktheplanet's M365/Entra fold):
+#                    # it was held out for #275's whole cycle on this file's membership rule —
+#                    # the trufflehog disposition — until that line landed. Now a plain apt line.
+#                    # ⚠ NEEDS BloodHound CE >= 9.0.0 (v2.12.0+ collects Azure Contributor role
+#                    # assignments); `bloodhound-cli` stands up a current stack, so this bites a
+#                    # pinned/stale CE only. ⚠ v3.0.0 (2026-07-24) FORCE-UPPERCASES object IDs —
+#                    # a graph-CONSISTENCY change, not cosmetic: mixing pre- and post-3.0.0
+#                    # collections in one graph is the hazard. apt straddles it — kali-rolling is
+#                    # 3.0.0-0kali1 (2026-08-05) while an older snapshot is still 2.12.x — the
+#                    # same apt-version-skew shape as the chisel RC note added in #276.
+#                    # Not a redup candidate: Go, but apt-OWNED, so `up`'s job by redup's own
+#                    # ownership rule — same call as kubectl / wpscan / nikto.
 # rusthound-ce      → UPSTREAM (cargo install rusthound-ce): a single static Rust
 #                     binary that emits CE-ingestible JSON — the fast ALTERNATE to
 #                     bloodhound-ce-python on large domains (no Python chain to drop on
@@ -478,6 +503,20 @@ ptunnel-ng           # the MAINTAINED fork (utoni/ptunnel-ng, redirected from ln
 #                     ptunnel in the corpus entry. Not packaged in Kali — git clone.
 #                     NOTE: DEAD — last push 2018-04-06 and it has never cut a release. Kept
 #                     because the victim-side one-liner still runs and nothing has replaced it.
+# dnstt is CONSIDERED AND NOT LISTED, recorded so the decision isn't accidental. It is held
+# out on this file's membership rule — the trufflehog/PrivescCheck disposition — not on merit:
+# no doc and no corpus entry names it. Not in apt either, so adopting it would be an
+# → UPSTREAM pointer, and the doc-or-corpus edit is the prerequisite, exactly as trufflehog
+# and PrivescCheck carry.
+# ⚠ CORRECTING THE SCAN THAT PROPOSED IT (#275): dnstt is NOT frozen. Its latest module is
+# v1.20260501.0 (2026-05-01) — the 2024-10-21 the report quoted is the version before that —
+# so it is the ONE LIVE UPSTREAM in this whole category, the thing this block's header (all
+# five members frozen/dead/behind) cannot currently point you at. It does NOT add a sixth
+# frozen entry, which was the filed reason to skip it.
+# It is also a genuinely DIFFERENT egress shape: DoH/DoT-capable, versus iodine's
+# delegate-a-zone / run-the-authoritative-NS model. Canonical source is the SELF-HOSTED
+# www.bamsoftware.com/git/dnstt.git (David Fifield, CC0); every github.com hit is a mirror or
+# fork — the iphelix/pack trap, once more.
 
 # ── Credential attacks ────────────────────────────────────────────────────────
 hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in
@@ -668,6 +707,14 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # Their UPSTREAM statuses, which this block carried for none of them:
 #   macro_pack   ARCHIVED — read-only, last push Aug 2024.
 #   ScareCrow    ARCHIVED — read-only, last push Aug 2023.
+#                Freeze.rs is the tool #275 floated as a successor. It is NOT one: the
+#                canonical optiv/Freeze.rs is ARCHIVED (2023-08-18) and redirects to
+#                Tylous/Freeze.rs (same author as ScareCrow, which is why the name comes up
+#                at all) — the two-repo split is the mkaring/ConfuserEx and iphelix/pack
+#                trap again. The live fork is THIN: 7 commits, no releases, not archived. So
+#                a MENTION, not a successor, and no pointer of its own — no doc and no corpus
+#                entry names it, the SigmaPotato/pretender treatment. Calling net-new evasion
+#                capability is outside an inventory scout's remit anyway.
 #   Donut        alive — commits into 2025.
 #   sRDI         static — NOT archived, but untouched since Nov 2023.
 #   PowerUpSQL   static — NOT archived, but no release has EVER been cut and the last
