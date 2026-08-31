@@ -1,14 +1,23 @@
 # Makefile — the discoverable entry point for dotfiles-Offense.
 # ──────────────────────────────────────────────────────────────────────────────
-# This repo had no Makefile, which made several documented commands untrue:
-# core.lock's own header says "Regenerate ... with: make core-lock", CLAUDE.md
-# points at `make audit` / `make sync`, and neither target existed anywhere. The
-# gates were real but each lived behind a different hand-typed path.
+# This repo had no Makefile, which made several documented commands untrue: core.lock's
+# header pointed at a `make core-lock` that existed nowhere, CLAUDE.md pointed at
+# `make audit` / `make sync`, and neither target existed anywhere. The gates were real but
+# each lived behind a different hand-typed path.
+#
+# core.lock no longer says that: it is written by Core's fan-out and says so. `make
+# core-lock` survives as the place that EXPLAINS that, because it is still what someone
+# types when they want to know how the lock moves.
 #
 # NOTE ON SCOPE: dotfiles-core's Makefile is the AUTHORING gate for Core (audit,
 # manifest, behavioral suite, release). This one is a CONSUMER's Makefile — it wires
-# the checks this repo owns and the two vendored-subtree sync paths. Anything under
+# the checks this repo owns and the vendored-subtree sync paths. Anything under
 # core/ is verified upstream and is not re-gated here.
+#
+# ONE of those two subtrees still pulls locally: the COMPANION (htpx) does, because htpx
+# vendors its whole tree. CORE does not, since dotfiles-core#676 made a vendored core/ a
+# filtered subset that `git subtree pull` cannot produce. The asymmetry is deliberate;
+# do not "fix" companion-sync to match core-sync.
 #
 # Run `make` with no target for the list.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -129,15 +138,21 @@ bootstrap-dry: ## Preview the full bootstrap plan, changing nothing
 core-check: ## Is the vendored core/ behind upstream dotfiles-core?
 	@./test/check-core-freshness.sh
 
-core-sync: ## Pull Core from upstream and refresh core.lock (review + commit yourself)
+# core-sync and core-lock NO LONGER WRITE ANYTHING (dotfiles-core#676). Both report how
+# far core/ is behind and say how Core actually arrives — by fan-out. The local
+# `git subtree pull` is retired: it merges upstream's WHOLE tree, and a vendored core/ is
+# a filtered subset of it, so pulling would land files core/ is not supposed to carry and
+# core-integrity would report TAMPERED. The scripts/sync-core.sh header has the long form.
+#
+# Kept as targets rather than deleted: they are what someone types when asking "how do I
+# move Core?", and that question still has an answer. They exit 0 — they are informational,
+# not gates, so there is nothing here for the fleet's make-gate audit to catch.
+
+core-sync: ## Report how far core/ is behind upstream (Core now arrives by fan-out — see core-check)
 	@./scripts/sync-core.sh
 
-core-lock: ## Refresh core.lock after a MANUAL `git subtree pull` of core/
-	@./scripts/sync-core.sh --check
-	@echo
-	@echo "core.lock is written by scripts/sync-core.sh as part of the pull."
-	@echo "If you pulled by hand, re-run the pull through 'make core-sync' so the"
-	@echo "lock is stamped from the squash commit's git-subtree-split trailer."
+core-lock: ## core.lock is written by Core's fan-out, not here — explains how
+	@./scripts/sync-core.sh
 
 ## ── vendored offensive/companion/ (subtree of htpx) ──────────────────────────
 

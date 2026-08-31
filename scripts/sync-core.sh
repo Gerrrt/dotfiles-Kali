@@ -1,35 +1,44 @@
 #!/usr/bin/env bash
-# scripts/sync-core.sh — pull the latest Core from upstream dotfiles-core and
-# refresh core.lock. The consumer-side half of the vendoring contract.
+# scripts/sync-core.sh — report how this repo's vendored core/ compares with upstream
+# dotfiles-core. REPORT ONLY: it no longer pulls, and it never writes core.lock.
 # ──────────────────────────────────────────────────────────────────────────────
-# core/ is a vendored `git subtree` of dotgibson/dotfiles-core (provenance in
-# core.lock). Upstream is the source of truth. Until now this side had NO sync
-# tool at all: the documented route was a hand-typed `git subtree pull` followed by
-# hand-editing four fields in core.lock — and core.lock's own header points at
-# `make core-lock`, a target that exists in NEITHER this repo nor core/Makefile.
-# That is the gap this closes, and it is the direct twin of sync-companion.sh.
+# THE PULL IS RETIRED (dotfiles-core#676). This used to be the fleet's ONE sanctioned
+# second writer into core/: a `git subtree pull --squash` that then stamped all four
+# core.lock fields. VENDORING.md sanctioned it — unlike the three retired `make core-lock`
+# generators — precisely because it wrote Core's format from WHAT IT ACTUALLY PULLED
+# (core_sha from the squash commit's git-subtree-split trailer, core_version from the tree
+# now on disk), so the lock could not describe a commit its own core/ did not contain.
 #
-#   scripts/sync-core.sh                  # pull core_ref (main) from the lock's URL
-#   scripts/sync-core.sh <remote-or-url>  # pull from a specific remote / URL / local clone
-#   scripts/sync-core.sh --ref vX.Y.Z     # pull an EXACT tag instead of core_ref
-#   scripts/sync-core.sh --check          # report whether upstream is ahead; touch nothing
+# A filtered vendor removes exactly that property. Core stopped vendoring its whole tree:
+# core/ is now `core.manifest` ∪ `core.vendor`, roughly two thirds of it. A subtree pull
+# MERGES the whole upstream tree and has no way to apply that filter, so "what it actually
+# pulled" is, by construction, no longer what a vendored core/ should contain. The first
+# pull after this repo's lock moved to a filtering commit would land every upstream file
+# against an expectation of the subset, and core-integrity would report TAMPERED —
+# correctly, and with no hand-edit anywhere.
 #
-# --ref exists for a REPRODUCIBLE pin to a released Core: a bare run always pulls
-# core_ref's TIP, so asking for an old tag without --ref would silently vendor
-# current main instead. Note the fleet's own release strategy prefers pinning a
-# released tag (RELEASE-STRATEGY.md) — this repo currently tracks main's tip, which
-# is why core.lock reads v4.9.3-56-g44a44fc rather than a clean v4.9.3.
+# Teaching it to filter was the other option and is worse: it would make this repo a second
+# PRODUCER of Core's format, which is what the sanction was never extended to. Two
+# implementations of one filter is the failure dotfiles-core#556 exists to prevent — a
+# producer computing a different subset passes its own assertion and is reported TAMPERED
+# by an unrelated command later. Upstream now has exactly one producer,
+# core_vendor_materialize in scripts/lib/core-vendor.sh.
 #
-# WHAT IT WRITES: all four core.lock fields, from what was actually pulled —
-#   core_sha      the git-subtree-split trailer of the squash commit git just made
-#   core_version  core/core.version at that tree
-#   core_ref      the ref that was pulled
-#   core_tag      `git describe` of core_sha, resolved against upstream
-# It does NOT commit. Review the diff and commit core.lock together with the pull.
+# WHAT REPLACES IT: the fan-out, like every other repo. A dotfiles-core release opens a
+# core.lock-bump PR here automatically (sync-fanout.yml); merge it. In practice that is
+# already how Core arrives — every one of the last ten core.lock writes in this repo came
+# from the fan-out, not from this script.
 #
-# Pre-reqs it enforces: a clean working tree (git subtree pull refuses otherwise)
-# and a readable core.lock. The prefix (core) is fixed — it is where the subtree was
-# added — not read from the lock.
+#   scripts/sync-core.sh                  # report: is core/ behind upstream?
+#   scripts/sync-core.sh --check          # same thing; kept so existing callers still work
+#   scripts/sync-core.sh <remote-or-url>  # compare against a specific remote / URL / clone
+#   scripts/sync-core.sh --ref vX.Y.Z     # compare against an EXACT tag instead of core_ref
+#
+# Exit: 0 = reported (whether current or behind). 2 = usage/precondition error. It never
+# writes, so there is nothing to review and nothing to commit.
+#
+# The companion subtree is UNAFFECTED — scripts/sync-companion.sh still pulls, because htpx
+# vendors its whole tree and has no allowlist. Do not "fix" that one to match this.
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -41,12 +50,14 @@ cd -- "$REPO_ROOT"
 
 die() { echo "sync-core: $*" >&2; exit 1; }
 
-CHECK=0
 REMOTE_ARG=""
 REF_OPT=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --check) CHECK=1 ;;
+    # Accepted and ignored: the pull is gone, so every run is what --check used to mean.
+    # Kept rather than rejected because the Makefile, CONTRIBUTING.md and
+    # check-core-freshness.sh's own nudge have all pointed at it.
+    --check) ;;
     --ref)
       shift
       [[ $# -gt 0 ]] || die "--ref needs a value (a branch or tag)"
@@ -55,7 +66,11 @@ while [[ $# -gt 0 ]]; do
     --ref=*)
       REF_OPT="${1#--ref=}"
       [[ -n "$REF_OPT" ]] || die "--ref= needs a non-empty value (a branch or tag)" ;;
-    -h | --help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    # Terminated by the PATTERN, not a line number: this slice has now been wrong twice
+    # (it printed code past the header, then went stale again when the header was rewritten
+    # for the pull's retirement). `$d` drops the `set -euo` line the range ends on. Same
+    # idiom dotfiles-core's core-integrity.sh uses, and for the same reason.
+    -h | --help) sed -n '2,/^set -euo/p' "$0" | sed '$d;s/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown option: $1" ;;
     *) [[ -z "$REMOTE_ARG" ]] || die "only one remote/URL may be given"; REMOTE_ARG="$1" ;;
   esac
@@ -69,10 +84,10 @@ lock_field() { sed -n -E "s/^$1=//p" "$LOCK" | head -n1; }
 branch="$(lock_field core_ref)"
 [[ -n "$branch" ]] || die "core_ref missing/empty in $LOCK"
 old_sha="$(lock_field core_sha)"
-# The rewrites below REPLACE existing lines rather than inserting, so a lock missing
-# core_sha would let the pull succeed and leave the lock silently stale. Same guard
-# sync-companion.sh carries, for the same reason.
-[[ -n "$old_sha" ]] || die "core_sha missing/empty in $LOCK — add a 'core_sha=' line before syncing."
+# Nothing below rewrites the lock any more (the pull is retired), so this guard is now
+# purely about reporting: core_sha is what the freshness comparison and the "locked at"
+# line are built from, and an empty one would report a drift verdict about nothing.
+[[ -n "$old_sha" ]] || die "core_sha missing/empty in $LOCK — the lock is malformed; the fan-out writes it."
 
 REF="${REF_OPT:-$branch}"
 
@@ -89,89 +104,46 @@ fi
 echo "sync-core: prefix=$PREFIX  remote=$remote  ref=$REF"
 echo "sync-core: locked at  $old_sha"
 
-if ((CHECK)); then
-  # DELEGATED to test/check-core-freshness.sh rather than re-implemented here.
-  #
-  # This block used to resolve the ref itself, with `refs/heads/<core_ref>` as the
-  # default case — and core_ref is a pinned SHA after every fleet sync, so it
-  # matched nothing. Two copies of the same wrong assumption is what made that bug
-  # survive review, so there is now exactly one resolver and this calls it.
-  #
-  # Its contract: 0 current / 2 behind / 1 hard failure. Translate to this script's
-  # voice and always exit 0 — --check is informational, and a "behind" result is the
-  # expected answer most of the time, not an error.
-  checker="$REPO_ROOT/test/check-core-freshness.sh"
-  [[ -x "$checker" ]] || die "$checker not found — cannot run --check."
-  rc=0
-  CORE_UPSTREAM="$remote" CORE_BRANCH="${REF_OPT:-$branch}" "$checker" || rc=$?
-  case "$rc" in
-    0) echo "sync-core: up to date — nothing to pull." ;;
-    2) echo "sync-core: upstream is AHEAD of the lock — run without --check to pull." ;;
-    *) die "freshness check failed (exit $rc) — see above." ;;
-  esac
-  exit 0
-fi
+# ALWAYS the report, whether or not --check was passed. --check used to be the read-only
+# mode and the bare run pulled; the pull is gone, so the two collapse. The flag is kept
+# rather than rejected because test/check-core-freshness.sh's nudge, the Makefile and
+# CONTRIBUTING.md have all pointed at it, and breaking those to make a point about an
+# option name helps nobody.
+#
+# DELEGATED to test/check-core-freshness.sh rather than re-implemented here.
+#
+# This block used to resolve the ref itself, with `refs/heads/<core_ref>` as the
+# default case — and core_ref is a pinned SHA after every fleet sync, so it
+# matched nothing. Two copies of the same wrong assumption is what made that bug
+# survive review, so there is now exactly one resolver and this calls it.
+#
+# Its contract: 0 current / 2 behind / 1 hard failure. Translate to this script's
+# voice and always exit 0 — this is informational, and a "behind" result is the
+# expected answer most of the time, not an error.
+checker="$REPO_ROOT/test/check-core-freshness.sh"
+[[ -x "$checker" ]] || die "$checker not found — cannot report freshness."
+rc=0
+CORE_UPSTREAM="$remote" CORE_BRANCH="${REF_OPT:-$branch}" "$checker" || rc=$?
+case "$rc" in
+  0) echo "sync-core: up to date — the vendored core/ matches upstream." ;;
+  2) echo "sync-core: upstream is AHEAD of the lock." ;;
+  *) die "freshness check failed (exit $rc) — see above." ;;
+esac
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  die "working tree not clean — commit or stash first (git subtree pull needs a clean tree)."
-fi
-
-before="$(git rev-parse HEAD)"
-
-# A subtree pull writes into core/, which the core-guard pre-commit hook refuses.
-# That hook is exactly right for a hand-edit and exactly wrong here: this IS the
-# sanctioned write. Same escape hatch sync-core.sh uses on the dotfiles-core side.
-export DOTFILES_ALLOW_CORE_EDIT=1
-
-echo "sync-core: git subtree pull --prefix=$PREFIX $remote $REF --squash"
-git subtree pull --prefix="$PREFIX" "$remote" "$REF" --squash
-
-after="$(git rev-parse HEAD)"
-if [[ "$before" == "$after" ]]; then
-  echo "sync-core: already up to date — no new commits, lock unchanged."
-  exit 0
-fi
-
-# Read the new sha out of the squash commit's trailer — the SAME value the lock
-# records. Do NOT recompute it: `git subtree split` synthesizes a different sha.
-new_sha="$(git log --format='%b' "$before..$after" |
-  sed -n -E 's/^[[:space:]]*git-subtree-split:[[:space:]]*([0-9a-f]+).*/\1/p' |
-  head -n1)"
-[[ -n "$new_sha" ]] || die "pulled new commits but found no git-subtree-split trailer — bump core_sha in $LOCK by hand."
-
-# core_version comes from the tree we just vendored, so it can never disagree with
-# what is on disk. core_tag needs upstream's tag objects, so it is best-effort: a
-# shallow or tagless fetch just leaves the previous value rather than lying.
-new_version="$(sed -n -E 's/^[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' "$REPO_ROOT/$PREFIX/core.version" 2>/dev/null | head -n1)"
-[[ -n "$new_version" ]] || new_version="$(lock_field core_version)"
-
-new_tag=""
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-if git init --quiet --bare "$tmp/odb" &&
-  GIT_TERMINAL_PROMPT=0 git -C "$tmp/odb" fetch --quiet --tags "$remote" "$REF" 2>/dev/null; then
-  new_tag="$(git -C "$tmp/odb" describe --tags "$new_sha" 2>/dev/null || true)"
-fi
-[[ -n "$new_tag" ]] || new_tag="$(lock_field core_tag)"
-
-set_field() { # set_field <key> <value> — replace in place, never insert
-  local key="$1" val="$2" t
-  t="$(mktemp)"
-  awk -v k="$key" -v v="$val" '$0 ~ "^" k "=" { print k "=" v; next } { print }' "$LOCK" >"$t"
-  mv -- "$t" "$LOCK"
-}
-# set_field never inserts, and nothing below needs it to: the core_ref guard up top dies
-# before the pull if the lock carries no such line, so every key here has one to replace.
-set_field core_version "$new_version"
-set_field core_sha "$new_sha"
-set_field core_ref "$REF"
-set_field core_tag "$new_tag"
-
-echo "sync-core: core.lock  $old_sha -> $new_sha  (v$new_version, $new_tag)"
+# Say what to do about it, every time, including when up to date — someone reaching for
+# this script is asking "how do I move Core?", and the answer changed.
 cat <<EOF
 
-sync-core: pulled. Next:
-  1. review the diff:   git diff $before -- $PREFIX
-  2. re-run the gates:  make lint && make test
-  3. commit core.lock together with the subtree pull.
+sync-core: this script no longer pulls. Core arrives here by FAN-OUT:
+  a dotfiles-core release opens a core.lock-bump PR in this repo automatically
+  (sync-fanout.yml). Merge it, then: make lint && make test
+
+  Why: a vendored core/ is a FILTERED subset of upstream since dotfiles-core#676
+  (core.manifest + core.vendor). 'git subtree pull' merges the whole tree and cannot
+  apply that filter, so pulling would land every upstream file against an expectation
+  of the subset and core-integrity would report TAMPERED. See the header of this file.
+
+  To pull anyway you would have to bypass this deliberately — don't. If the fan-out PR
+  has not arrived, the fix is upstream (dotfiles-core: make sync), not here.
 EOF
+exit 0
