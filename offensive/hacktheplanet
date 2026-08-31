@@ -138,6 +138,20 @@ roadtx refreshtokento -r msgraph                    # swap the cached refresh to
 roadtx describe                                     # decode the token in .roadtools_auth — CHECK THE SCOPES first
 # Tokens land in .roadtools_auth in $PWD: that is ENGAGEMENT DATA, so run these under
 # $ENGAGEMENT (mkengagement/eng), never inside a checkout.
+# AzureHound — the ENTRA/M365 HALF of the BloodHound CE graph. roadrecon/roadtx above
+# authenticate and enum the directory; azurehound is what feeds the Azure side INTO CE,
+# the piece the on-prem collectors (bloodhound-ce-python, nxc --bloodhound) don't touch.
+# apt `azurehound`. -o is MANDATORY for ingest ("you must use the -o switch to instruct
+# AzureHound to output to a file"); the JSON is ENGAGEMENT DATA, so run under $ENGAGEMENT:
+azurehound -u <user>@<domain> -p <pass> list --tenant <domain> -o azure.json   # user/pass
+azurehound -r <refresh-token> list --tenant <domain> -o azure.json             # refresh token (MFA/CAP)
+# reuse an existing az login instead of handing azurehound creds:
+JWT=$(az account get-access-token --resource https://graph.microsoft.com | jq -r .accessToken)
+azurehound list --jwt "$JWT" -o azure.json
+# ⚠ `azurehound configure` / `start` are the BloodHound ENTERPRISE service — NOT for a CE
+#   stack; for CE you collect to a file with `list -o` and drag it into the CE upload UI.
+# ⚠ needs BloodHound CE >= 9.0.0 (v2.12.0+ collects Azure Contributor role assignments);
+#   `bloodhound-cli` stands up a current stack, so this only bites a pinned/stale CE.
 ////////////////////////////////////////
 
 
