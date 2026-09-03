@@ -1,0 +1,383 @@
+# .github/workflows/sync-fanout.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# AUTOMATED FAN-OUT — re-sync the vendored companion into dotfiles-Offense on release.
+#
+# htpx is the source of truth for the red<->blue paired corpus. dotfiles-Offense
+# vendors it at offensive/companion/ via `git subtree`, with provenance pinned in
+# Offense's `companion.lock`. Re-syncing that was a MANUAL `scripts/sync-companion.sh`
+# a human had to remember to run after every htpx change. This workflow closes that
+# last mile: when auto-tag.yml publishes a vX.Y.Z release here, this clones Offense,
+# runs Offense's OWN scripts/sync-companion.sh to pull the released htpx into
+# offensive/companion/ + bump companion.lock, regenerates the dependent flat views,
+# and opens a PR against dotfiles-Offense.
+#
+# IT OPENS A PR, IT NEVER MERGES. A human reviews and merges; the bot only removes
+# the typing, not the judgement. (Offense's own CI — companion.yml's gen-views --check
+# drift gate — still runs on the PR as a second backstop.)
+#
+# ── THE GUARANTEE THAT MATTERS: NEVER TOUCHES core.lock ─────────────────────────
+# dotfiles-Offense vendors TWO independent things from TWO different upstreams, pinned
+# in TWO different lock files:
+#   • Core            → core.lock        (synced by dotfiles-core's own fan-out)
+#   • this companion  → companion.lock   (synced by THIS workflow)
+# This workflow runs ONLY Offense's scripts/sync-companion.sh, which touches ONLY the
+# offensive/companion/** subtree + companion.lock (plus the flat views gen-views.sh
+# regenerates). It never invokes sync-core.sh, never reads or writes core.lock, and
+# never changes Offense's vendored Core version. htpx releases and Core releases are
+# independent vendored dependencies that update DIFFERENT lock files, so they can
+# never collide. A post-condition check below asserts companion.lock advanced and
+# core.lock did NOT before any PR is opened.
+#
+# ── PINNED TO THE RELEASED REF ──────────────────────────────────────────────────
+# We vendor the EXACT released tag, not a branch tip: this job resolves the vX.Y.Z tag
+# and hands it to Offense's sync-companion.sh via `--ref "$TAG"`, so `git subtree pull`
+# fetches THAT tag's tree and companion.lock records its git-subtree-split sha. This is
+# what makes a workflow_dispatch BACKFILL of an OLDER tag correct — a bare branch pull
+# would take current main's tip regardless of which release we're fanning out (G10).
+# (Requires the --ref option in dotfiles-Offense's sync-companion.sh.)
+#
+# ── AUTH ────────────────────────────────────────────────────────────────────────
+# The built-in GITHUB_TOKEN is scoped to htpx only — it CANNOT push a branch or open
+# a PR in dotfiles-Offense. This mints a short-lived GitHub App installation token scoped
+# to dotfiles-Offense (`contents:write` + `pull-requests:write`) at run time from the fleet
+# App — the FLEET_APP_ID variable + FLEET_APP_PRIVATE_KEY secret, see dotfiles-core's
+# GITHUB-APP-AUTH.md. The App is the ONLY auth here: the legacy FLEET_SYNC_TOKEN PAT was
+# deleted when G2 finished (dotfiles-core #683/#819), so there is nothing behind it. If the
+# mint did not happen the preflight fails loudly BEFORE anything touches dotfiles-Offense —
+# note htpx itself is already checked out by then (with the built-in token), so the
+# guarantee is about the first CROSS-REPO clone/push, not the first clone in the job.
+#
+# ── WHY workflow_run, NOT release: published ────────────────────────────────────
+# A Release created by the built-in GITHUB_TOKEN (as auto-tag.yml does) does NOT emit
+# a `release` event — that recursion guard would make a `release:` trigger never
+# fire. workflow_run has no such block: it fires when auto-tag.yml completes, and we
+# resolve the tag from the released commit. (workflow_run + workflow_dispatch only
+# take effect once this file is on the default branch — GitHub reads both from main,
+# never from a feature branch. After merge, dry-run via "Run workflow" with a past
+# tag before relying on it.)
+# ──────────────────────────────────────────────────────────────────────────────
+name: sync-fanout
+
+on:
+  # Fires after auto-tag.yml finishes. We then resolve the vX.Y.Z tag that the run's
+  # head commit carries (auto-tag tags HEAD of main during its run).
+  workflow_run:
+    workflows: ["auto-tag"]
+    types: [completed]
+  # Manual re-run / backfill: fan out an arbitrary released tag by hand.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Released htpx tag to fan out to dotfiles-Offense (vX.Y.Z)"
+        required: true
+
+# Only the default token is requested (read access to check out htpx). All cross-repo
+# writes go through the minted App token (or the legacy PAT fallback), never the
+# workflow token.
+permissions:
+  contents: read
+
+# Never run two fan-outs at once (a second release mid-fan-out would race the clone
+# and PR); do NOT cancel an in-flight run — let a fan-out finish.
+concurrency:
+  group: sync-fanout
+  cancel-in-progress: false
+
+jobs:
+  fanout:
+    # First-party only, and on the workflow_run path only when auto-tag actually
+    # succeeded (a failed/cancelled tag run must not fan a half-baked release out).
+    if: >-
+      github.repository_owner == 'dotgibson' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Presence flag for the App private key (value is 'true'/'false', never the key):
+      # secrets can't be tested in a step `if:`, but an env derived from a secret comparison
+      # can. Gates the mint on the key ACTUALLY being present, so a partial App setup (the
+      # FLEET_APP_ID variable set org-wide but the key not scoped to htpx) falls back cleanly
+      # to the PAT instead of failing the mint on an empty key.
+      HAS_APP_KEY: ${{ secrets.FLEET_APP_PRIVATE_KEY != '' }}
+    steps:
+      # ── RESOLVE FIRST, CHECK OUT SECOND ──────────────────────────────────────
+      # Resolve (and validate) the released tag BEFORE any `actions/checkout`. A
+      # mistyped / missing-`v` workflow_dispatch input must be a CLEAN no-op, not a
+      # hard checkout failure: if we checked out `inputs.tag` raw, a bad input would
+      # blow up `actions/checkout` before this step could mark it skip=true.
+      #
+      # This step does its own minimal, unauthenticated work to determine the tag:
+      #   • workflow_run — clone htpx at the triggering run's head_sha and read the
+      #     vX.Y.Z tag pointing at HEAD (that commit is the one auto-tag.yml tagged);
+      #   • workflow_dispatch — take the input verbatim, validate it is a clean
+      #     vX.Y.Z, AND verify the tag actually EXISTS on origin (git ls-remote).
+      # Anything that isn't a clean, existing release tag → skip=true + ::notice::.
+      - name: Resolve release tag
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          # htpx is PRIVATE, so the git clone / ls-remote below would otherwise prompt
+          # for a username and die in CI ("could not read Username for github.com").
+          # Authenticate reads of THIS repo with the built-in GITHUB_TOKEN (scoped to
+          # htpx, contents:read — see `permissions` above; NOT the minted App token,
+          # which is reserved for the cross-repo writes to dotfiles-Offense later).
+          #
+          # The auth is injected as an `url.insteadOf` rewrite via GIT_CONFIG_COUNT/
+          # KEY/VALUE rather than `git config --global`, so the token is NEVER written
+          # to ~/.gitconfig on disk. These env vars are scoped to THIS step only, so
+          # there's nothing to clean up and nothing that can shadow the next step's
+          # actions/checkout auth.
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ github.token }}@github.com/.insteadOf"
+          GIT_CONFIG_VALUE_0: "https://github.com/"
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = workflow_dispatch ]; then
+            tag="${INPUT_TAG:-}"
+          else
+            # The vX.Y.Z tag pointing at the commit auto-tag.yml just tagged. Clone
+            # htpx at that head_sha (full history + tags) and read the tag locally. A
+            # read loop (not `| head`) avoids the pipefail/SIGPIPE race under pipefail.
+            #
+            # gc.auto=0 / maintenance.auto=false / fetch.writeCommitGraph=false: a plain
+            # clone+fetch can spawn a background `commit-graph write` that keeps writing
+            # into .git/objects/info/commit-graphs AFTER the command returns, racing the
+            # `rm -rf` below — which then fails with "Directory not empty" and, under
+            # `set -e`, turns a should-be-skip run into a spurious red X. Disabling the
+            # background maintenance stops the race at its source.
+            git -c gc.auto=0 -c maintenance.auto=false -c fetch.writeCommitGraph=false \
+              clone --no-checkout "https://github.com/${OWNER}/${REPO}.git" _resolve
+            git -c gc.auto=0 -c maintenance.auto=false -c fetch.writeCommitGraph=false \
+              -C _resolve fetch --tags origin
+            tag=""
+            while IFS= read -r t; do
+              case "$t" in
+                v[0-9]*.[0-9]*.[0-9]*) tag="$t"; break ;;
+              esac
+            done < <(git -C _resolve tag --points-at "$HEAD_SHA")
+            # Cleanup is best-effort — never fail the step on the temp clone's removal
+            # (it's disposable on an ephemeral runner, and belt-and-suspenders against
+            # any lingering git background process that the settings above didn't catch).
+            rm -rf _resolve || true
+          fi
+          ver="${tag#v}"
+          if ! printf '%s' "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::notice::'$tag' is not a clean vX.Y.Z release tag — nothing to fan out"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The tag string is well-formed — now confirm it actually EXISTS in the repo.
+          # On dispatch a real-but-typo'd input (e.g. a never-cut version) would
+          # otherwise sail past validation into a confusing downstream failure.
+          if [ -z "$(git ls-remote --tags "https://github.com/${OWNER}/${REPO}.git" "refs/tags/$tag")" ]; then
+            echo "::notice::tag '$tag' does not exist in ${OWNER}/${REPO} — nothing to fan out"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo ":: will fan out htpx $tag to dotfiles-Offense"
+
+      # htpx is checked out at the VALIDATED tag (resolve proved it is a clean,
+      # existing vX.Y.Z). Skipped on a no-op resolve so a bad dispatch input never
+      # reaches checkout. Full history so git subtree downstream has what it needs.
+      - name: Check out htpx at the released tag
+        if: steps.resolve.outputs.skip != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
+          fetch-depth: 0
+          path: htpx
+
+      # Mint a short-lived token scoped to just dotfiles-Offense IF the fleet GitHub App is
+      # fully configured — BOTH the FLEET_APP_ID variable AND the FLEET_APP_PRIVATE_KEY
+      # secret, the latter via the HAS_APP_KEY presence flag (a secret cannot be tested in a
+      # step `if:` directly). Either one missing skips the step. A skipped mint has nothing to fall
+      # back to — the legacy FLEET_SYNC_TOKEN PAT is deleted (dotfiles-core #683/#819) — so
+      # the preflight below turns that into a legible failure. The App does NOT need
+      # htpx access (htpx is read with the built-in token via KEY_1 below); the minted token
+      # is scoped to the one repo this job writes to, and expires in ~1h.
+      - name: Mint a scoped installation token (if the App is configured)
+        id: app
+        if: steps.resolve.outputs.skip != 'true' && vars.FLEET_APP_ID != '' && env.HAS_APP_KEY == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: dotfiles-Offense
+
+      # Fail early and legibly if the App minted no token — otherwise the first CROSS-REPO
+      # clone/push (into dotfiles-Offense, below) would fail with an opaque 403.
+      - name: Preflight — a cross-repo write token is available
+        if: steps.resolve.outputs.skip != 'true'
+        env:
+          FLEET_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FLEET_TOKEN:-}" ]; then
+            echo "::error::No cross-repo write token available."
+            echo "::error::This workflow pushes a sync branch and opens a PR in dotfiles-Offense,"
+            echo "::error::which the built-in GITHUB_TOKEN cannot reach. Configure the fleet"
+            echo "::error::GitHub App (FLEET_APP_ID variable + FLEET_APP_PRIVATE_KEY secret on"
+            echo "::error::htpx — see dotfiles-core GITHUB-APP-AUTH.md). There is NO PAT"
+            echo "::error::fallback: FLEET_SYNC_TOKEN was deleted when G2 finished."
+            exit 1
+          fi
+
+      - name: Sync companion into dotfiles-Offense and open a PR
+        if: steps.resolve.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          # Git auth + bot identity injected via STEP-SCOPED GIT_CONFIG_* (not `git
+          # config --global`), so no token is ever written to ~/.gitconfig and the
+          # scoping dies with this step — same approach as the Resolve step.
+          #   KEY_0: default github.com -> the minted App token for
+          #     the Offense clone, sync-branch push, and PR.
+          #   KEY_1: a more-specific, .git-ANCHORED rule so htpx is read with the
+          #     built-in token (git uses the LONGEST match). Anchored to the full `.git`
+          #     URL so it can't also rewrite a same-prefix repo like `<owner>/htpx-tools`.
+          #     => the fleet token never needs htpx access.
+          #   KEY_2/3: the bot commit identity for the gen-views regenerate commit.
+          GIT_CONFIG_COUNT: "4"
+          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ steps.app.outputs.token }}@github.com/.insteadOf"
+          GIT_CONFIG_VALUE_0: "https://github.com/"
+          GIT_CONFIG_KEY_1: "url.https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git.insteadOf"
+          GIT_CONFIG_VALUE_1: "https://github.com/${{ github.repository }}.git"
+          GIT_CONFIG_KEY_2: "user.name"
+          GIT_CONFIG_VALUE_2: "htpx sync bot"
+          GIT_CONFIG_KEY_3: "user.email"
+          GIT_CONFIG_VALUE_3: "41898282+github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -euo pipefail
+          offense="$GITHUB_WORKSPACE/dotfiles-Offense"
+          branch="sync/companion-${TAG}"
+          echo ":: fanning out htpx $TAG to dotfiles-Offense on branch $branch"
+
+          # Clone Offense and start the sync branch from its default tip.
+          git clone "https://github.com/${OWNER}/dotfiles-Offense.git" "$offense"
+          default="$(git -C "$offense" symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##')"
+          git -C "$offense" checkout -B "$branch" "origin/${default}"
+
+          # Snapshot BOTH lock files BEFORE the sync, so the post-condition can prove
+          # companion.lock advanced and core.lock did NOT (the never-touch-core.lock
+          # guarantee, asserted not just asserted-in-prose).
+          comp_before="$(grep -E '^companion_sha=' "$offense/companion.lock" | cut -d= -f2 || true)"
+          core_before="$(grep -E '^core_sha=' "$offense/core.lock" 2>/dev/null | cut -d= -f2 || true)"
+
+          # Run KALI'S OWN consumer-side sync script inside the clone. It does the
+          # `git subtree pull --squash` of htpx + bumps companion.lock — and ONLY that;
+          # it never touches core.lock. Pass --ref "$TAG" so it vendors THIS release's
+          # EXACT tree: without it the script pulls companion_branch (main), which on a
+          # workflow_dispatch BACKFILL of an older tag would vendor current main, not the
+          # tag we're fanning out (G10). The remote is still derived from companion.lock
+          # (sync-companion's positional arg is the REMOTE, not a ref). NOTE: --ref needs
+          # the consumer-half change in dotfiles-Offense's sync-companion.sh on Offense's main.
+          git config --global --add safe.directory "$offense"
+          # Guard the cross-repo contract: this fan-out REQUIRES Offense's sync-companion.sh
+          # to support --ref (the consumer half). If a mis-ordered merge or an old Offense
+          # checkout lacks it, fail with a legible message instead of the opaque
+          # "unknown option: --ref" the script would otherwise emit. Match the actual
+          # option handler (`--ref)` / `--ref=*)`), not a mention in the header prose.
+          if ! grep -qE '^[[:space:]]*--ref[)=]' "$offense/scripts/sync-companion.sh"; then
+            echo "::error::dotfiles-Offense sync-companion.sh does not support --ref — merge the consumer-half change (its --ref option) first."
+            exit 1
+          fi
+          "$offense/scripts/sync-companion.sh" --ref "$TAG"
+
+          # Generated flat views (PURPLE-TEAM.md, offensive/hacktheplanet) live in KALI,
+          # outside the subtree. An htpx entry change can shift their generated blocks,
+          # which sync-companion.sh does NOT touch. Regenerate so the PR is internally
+          # consistent (and Offense's companion.yml --check gate stays green on the PR).
+          # A gen-views FAILURE must ABORT this sync — NOT be swallowed. If view
+          # regeneration fails we must not commit/open a PR: the half-regenerated
+          # tree would just fail Offense's companion.yml drift gate downstream, turning
+          # a clear local error into a confusing PR-CI failure. Fail loud here.
+          if [ -x "$offense/offensive/companion/gen-views.sh" ]; then
+            if ! ( cd "$offense" && ./offensive/companion/gen-views.sh ); then
+              echo "::error::gen-views.sh failed in dotfiles-Offense — refusing to commit or open a PR for htpx ${TAG}"
+              { echo "### ❌ htpx fan-out → ${TAG} ABORTED"; echo;
+                echo "- \`gen-views.sh\` failed to regenerate the flat views; no PR opened."; } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            git -C "$offense" add -A
+            if ! git -C "$offense" diff --cached --quiet; then
+              git -C "$offense" commit -m "chore(companion): regenerate flat views for htpx ${TAG}"
+            fi
+          fi
+
+          comp_after="$(grep -E '^companion_sha=' "$offense/companion.lock" | cut -d= -f2 || true)"
+          core_after="$(grep -E '^core_sha=' "$offense/core.lock" 2>/dev/null | cut -d= -f2 || true)"
+          ahead="$(git -C "$offense" rev-list --count "origin/${default}..HEAD" 2>/dev/null || echo 0)"
+
+          summary="$RUNNER_TEMP/summary.md"; : > "$summary"
+
+          # ── Post-condition: core.lock MUST be untouched — ANY diff, not just the
+          # core_sha value. A formatting or other-field change to core.lock would
+          # slip past a core_sha-only check, so compare the WHOLE file against the
+          # base branch (the committed tree on this sync branch vs origin/$default).
+          # Hard fail (no PR) if core.lock changed in any way. ──
+          if ! git -C "$offense" diff --quiet "origin/${default}" -- core.lock; then
+            echo "::error::core.lock differs from origin/${default} ($core_before -> $core_after) — this fan-out must NEVER touch Core. Aborting."
+            { echo "### ❌ htpx fan-out → ${TAG} ABORTED"; echo;
+              echo "- \`core.lock\` changed vs \`origin/${default}\` (\`$core_before\` -> \`$core_after\`) — companion sync must never touch Core (ANY diff fails this gate)."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # ── Nothing to do: companion.lock unchanged and no new commits. ──
+          if [ "$ahead" -eq 0 ]; then
+            echo "- ✅ \`dotfiles-Offense\` already at htpx \`${TAG}\` (companion_sha \`${comp_after:0:12}\`) — no PR needed" >> "$summary"
+            { echo "### htpx fan-out → ${TAG}"; echo; cat "$summary"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # ── Post-condition: companion.lock MUST have advanced. ──
+          if [ "$comp_before" = "$comp_after" ]; then
+            echo "::error::companion.lock did not advance (\`$comp_before\`) yet the tree changed — refusing to open a PR"
+            { echo "### ❌ htpx fan-out → ${TAG}"; echo;
+              echo "- companion.lock did not advance — unexpected; not opening a PR."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # Push the branch.
+          git -C "$offense" push --force-with-lease origin "HEAD:${branch}"
+
+          # Build the PR body line-by-line (printf, not a heredoc — an indented
+          # heredoc terminator inside a YAML run-block would not close the doc).
+          body="$RUNNER_TEMP/pr-body.md"; : > "$body"
+          {
+            printf 'Automated companion fan-out from `dotgibson/htpx` **%s**.\n\n' "$TAG"
+            printf 'Re-syncs the vendored `offensive/companion/` subtree to htpx %s via\n' "$TAG"
+            printf '`scripts/sync-companion.sh` and bumps `companion.lock`:\n\n'
+            printf '`companion_sha`: `%s` -> `%s`\n\n' "${comp_before:0:12}" "${comp_after:0:12}"
+            printf '**This PR bumps `companion.lock` ONLY -- it does NOT touch `core.lock` or\n'
+            printf 'the vendored Core version.** The companion (htpx) and Core are independent\n'
+            printf 'vendored dependencies pinned in different lock files; a CI post-condition\n'
+            printf 'verified `core.lock` was unchanged before this PR was opened.\n\n'
+            printf 'Any generated flat-view blocks (`PURPLE-TEAM.md`, `offensive/hacktheplanet`)\n'
+            printf 'were regenerated with `gen-views.sh`. Offense'"'"'s `companion.yml` drift gate\n'
+            printf 'runs on this PR as a backstop.\n\n'
+            printf 'Opened by htpx'"'"'s `sync-fanout` workflow. **Review the diff before merging.**\n'
+          } > "$body"
+
+          open="$(gh pr list --repo "${OWNER}/dotfiles-Offense" --head "$branch" --state open --json url --jq 'length')"
+          if [ "${open:-0}" != 0 ]; then
+            url="$(gh pr list --repo "${OWNER}/dotfiles-Offense" --head "$branch" --state open --json url --jq '.[0].url')"
+            echo "- 🔁 PR already open — pushed update: $url" >> "$summary"
+          else
+            url="$(gh pr create --repo "${OWNER}/dotfiles-Offense" --base "$default" --head "$branch" \
+              --title "chore(companion): sync htpx → ${TAG}" \
+              --body-file "$body")"
+            echo "- 🚀 PR opened: $url" >> "$summary"
+          fi
+
+          { echo "### htpx fan-out → ${TAG}"; echo;
+            echo "companion_sha \`${comp_before:0:12}\` → \`${comp_after:0:12}\` (core.lock untouched)"; echo;
+            cat "$summary"; } >> "$GITHUB_STEP_SUMMARY"
