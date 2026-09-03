@@ -51,7 +51,6 @@ gh                 upstream               # dropped from kali-rolling; GitHub's 
 vault              upstream               # BUSL-licensed, so HashiCorp's repo rather than Debian/Kali
 kerbrute           upstream               # frozen at v1.0.3 (2019); release binary or `go install`
 evilginx           upstream               # evilginx2 AitM proxy — go install / release binary, never packaged
-MSOLSpray          upstream               # PowerShell M365 spray, run operator-side from a Windows host
 Get-AADIntAccessTokenForMSGraph  upstream  # AADInternals cmdlet, operator-side from Windows (manifest, AADInternals)
 roadtx             upstream               # ROADtools' token half; pipx-installed by bootstrap on every route
 tfc-agent          upstream               # Terraform Cloud agent, run on infrastructure YOU control
@@ -76,6 +75,7 @@ icmpsh             elsewhere              # the corpus line is the victim side; 
 
 # ── assumed present on any Linux host ─────────────────────────────────────────
 curl               base                   # kali-system-core; 28 corpus lines are pure REST against a SaaS API
+python3            base                   # kali-system-core; `valid-accounts-cloud` runs MSOLSpray.py under it
 cat                base                   # coreutils; the corpus uses it to read a dropped key or token file
 cp                 base                   # coreutils; stages a binary before the SUID/capability abuse lines
 chmod              base                   # coreutils; sets +x on a payload the same entry just fetched

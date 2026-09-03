@@ -1,6 +1,6 @@
 ---
 id: npm-2fa-disable
-title: npm publish-2FA disable (open the publish path)
+title: npm publish-2FA downgrade (open the publish path)
 section: npm / registry
 phase: Defense Impairment
 attack:
@@ -11,13 +11,17 @@ source: npm supply-chain evasion (2FA requirement tamper)
 pair: npm-2fa-audit
 ---
 
-A package's "require two-factor to publish" setting is the control that stops a bare stolen
-token from shipping a release. Set it to `none` and an automation token publishes with no
-second factor and no interactive prompt — quietly clearing the path for the malicious-publish
-step. The change writes an npm audit event `action=package.edit` with the publish `mfa`
-requirement set to `none`. (Registry control plane — no slots.)
+A package's publish-2FA level is the control that stops a bare stolen token from shipping
+a release. You do not need to turn it off to beat it — you need `automation`, which npm
+defines as "2FA required, **but automation tokens override it**". Drop `publish` to
+`automation` and a stolen automation token publishes unattended, no second factor, no
+interactive prompt, with the setting still reading as 2FA-protected to anyone skimming.
+That last part is why it beats switching the control off outright: `mfa=none` is the
+obvious tamper, and npm's secure-by-default work has been narrowing it out of the
+documented values — `automation` is the downgrade that survives and hides. The change
+writes an npm audit event `action=package.edit`. (Registry control plane — no slots.)
 
 ```sh
-# drop the package's 2FA-to-publish requirement so a stolen token can publish unattended
-npm access set mfa=none <package>
+# downgrade publish-2FA so a stolen automation token can publish unattended
+npm access set mfa=automation <package>
 ```

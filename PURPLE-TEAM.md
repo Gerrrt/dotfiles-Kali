@@ -55,15 +55,15 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > here (CI rejects a hand-edit). Everything outside the markers is hand-authored.
 >
 > **Scope: this map is the Windows Security / Sysmon mirror.** Every section below
-> keys off a Windows event ID, which is why only 24 of the companion's 102 blue
-> entries project here. The other 78 mostly detect in logs this file has no section for —
+> keys off a Windows event ID, which is why only 24 of the companion's 103 blue
+> entries project here. The other 79 mostly detect in logs this file has no section for —
 > AWS CloudTrail, GCP audit logs, Entra sign-in/audit, Okta system log, GitHub/GitLab
 > audit, Vault audit device, Snowflake account usage — plus the C2-egress and Impact
 > detections. Read those with `htpx` (`~/companion`), which shows each detection
 > beside the attack that trips it. That split is deliberate, not a backlog: a
 > cloud-audit query has nothing to do with a Sysmon feed in `index=main`.
 >
-> Of those 78, **69** genuinely carry no Windows event ID. Seven of the remaining
+> Of those 79, **70** genuinely carry no Windows event ID. Seven of the remaining
 > nine are the C2-egress and Impact detections named above. The last two —
 > `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662**, which is
 > this file's own criterion for projecting, and yet project nowhere. That pair is a
@@ -140,20 +140,38 @@ through the domain.
 <!-- companion:end asrep-roast-4768 -->
 
 <!-- companion:gen kerberoasting-4769 -->
-**Detect Kerberoasting (4769 RC4 TGS)**
+**Detect Kerberoasting (4769 TGS request)**
 
-Detect on the invariant, not the IOC: an RC4 (`0x17`) service ticket for a
-non-machine, non-krbtgt SPN. The encryption downgrade is the signal even when
-ticket flags look normal — tools like Orpheus force RC4 precisely to keep the
-roast crackable, so the downgrade itself is the tell.
+Detect on the invariant, not the IOC — and the invariant here is **not** the cipher.
+An RC4 (`0x17`) service ticket for a non-machine, non-krbtgt SPN is the loudest
+version of this: tools like Orpheus, and Rubeus' `/tgtdeleg` route, force RC4
+precisely to keep the roast crackable, so the downgrade is a near-free true positive.
+But the paired red (`impacket-GetUserSPNs -request`, `nxc --kerberoasting`) does *not*
+force the etype — the TGS is issued under the SPN account's
+`msDS-SupportedEncryptionTypes`, so an AES-only service account yields a `0x11`/`0x12`
+ticket and cracks fine (`hashcat -m 19700`). A `0x17`-only filter never sees it. Same
+lesson as `asrep-roast-4768`: don't constrain the encryption type or AES-only domains
+slip through.
+
+So key on both — RC4 on a user SPN as the fast path, and the shape the roast can't
+hide at any etype: one client pulling tickets for *many distinct* SPN accounts in a
+burst. A workstation legitimately touches a handful of services; it does not enumerate
+thirty.
 
 ```spl
 index=main EventCode=4769 Service_Name!="*$" Service_Name!="krbtgt"
-    Ticket_Encryption_Type=0x17
-| stats dc(Service_Name) AS ServiceAccounts values(Service_Name)
-    by Client_Address, Account_Name
-| sort -ServiceAccounts
+    (Ticket_Encryption_Type=0x17 OR Ticket_Encryption_Type=0x11 OR Ticket_Encryption_Type=0x12)
+| eval rc4=if(Ticket_Encryption_Type=="0x17", 1, 0)
+| stats dc(Service_Name) AS ServiceAccounts values(Service_Name) AS Services
+        max(rc4) AS RC4_Downgrade by Client_Address, Account_Name
+| where RC4_Downgrade=1 OR ServiceAccounts>=5
+| sort -RC4_Downgrade, -ServiceAccounts
 ```
+
+Tune `ServiceAccounts` to your environment before trusting the AES arm — the count that
+means "enumeration" depends on how many SPNs a normal client touches. Baselining the
+requesting account against its own history beats a global threshold where you can
+afford to keep the state.
 <!-- companion:end kerberoasting-4769 -->
 
 <!-- companion:gen golden-ticket-4769 -->
