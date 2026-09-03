@@ -18,6 +18,42 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [v3.2.0] - 2026-09-03
+
+### Added
+
+- **Azure resource plane (ARM) — the corpus's one cloud asymmetry, now closed.** Every
+  Azure entry so far sat on the Entra/M365 **identity** plane: six pairs deep (`aitm-phish`,
+  `device-code-phish`, `consent-grant`, `sp-cred-backdoor`, `entra-directory-role`,
+  `valid-accounts-cloud`) and zero wide on the resource plane, so the provider read as well
+  covered until you sorted by plane. AWS and GCP both reach the resource plane; Azure did
+  not, which meant the corpus went quiet exactly where post-compromise Azure work lands and
+  where the interesting telemetry (Azure Activity Log, Key Vault `AuditEvent`) lives. Two
+  new pairs:
+
+  - **`azure-vm-runcommand` ↔ `azure-runcommand-activity`** — VM Run Command, control-plane
+    code execution inside the guest as SYSTEM/root (`T1651` Cloud Administration Command,
+    the technique MITRE cites APT29 for and names "Azure RunCommand" in). The detection
+    matches both operation terms (`has_any ("runcommand", "runcommands")`) so it catches the
+    managed `runCommands` write, not just the `runCommand/action` invoke — a query narrowed
+    to one path (or to one term) would miss its own paired red's stealthier half, the mistake
+    `kerberoasting-4769` was fixed for. Activity Log is on by default, so this half needs no
+    telemetry caveat.
+
+  - **`azure-keyvault-secret-dump` ↔ `azure-keyvault-audit`** — bulk secret read, one
+    identity draining the vault (`T1555.006` Cloud Secrets Management Stores, which names Key
+    Vault and cites HAFNIUM and Shai-Hulud). It de-conflicts in-entry against the HashiCorp
+    Vault pair the way the 5145/4662 families do — same idea, different store, `T1555.006`
+    (cloud) vs the parent `T1555`. The blue side pairs honestly rather than shipping
+    `pair: null`: Key Vault `AuditEvent` is off by default, so it carries an explicit
+    `> Caveat:` naming the diagnostic-setting prerequisite and the `AZKVAuditLogs`
+    resource-specific table — the same opt-in-telemetry footing `aws-s3-exfil-cloudtrail`
+    already pairs on.
+
+  Closes [#114](https://github.com/dotgibson/htpx/issues/114). The storage-account `listKeys`
+  candidate the issue floated is left out: its cleanest tag is `T1530`, already carried by
+  `aws-s3-mass-exfil`, so it would add an Azure analogue rather than new technique coverage.
+
 ## [v3.1.0] - 2026-09-03
 
 ### Fixed
