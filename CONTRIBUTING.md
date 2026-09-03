@@ -76,11 +76,22 @@ If you add a helper that writes files, resolve its root with `_eng_writeroot`.
 ## Running the gates
 
 ```bash
-make            # list every target
-make lint       # shellcheck + bash -n / zsh -n + markdownlint + trap discipline
-make test       # routine-filter classifier + companion view drift + corpus commands
-make bootstrap-dry
+make             # list every target
+make lint        # shellcheck + bash -n / zsh -n + markdownlint + trap discipline
+make test        # routine-filter classifier + companion view drift + corpus commands
+make dry-run     # preview the full bootstrap plan, changing nothing
+make core-verify # is THIS core/ the tree core.lock pins?      (integrity)
+make core-check  # is there a NEWER Core upstream?             (freshness)
 ```
+
+`core-check` and `core-verify` are one letter-order apart and ask different questions;
+only the second is the fleet's canonical verb, defined in `dotfiles-core`'s
+`scripts/make-vocabulary.txt` as *vendored-Core integrity against `core.lock`*
+([dotgibson/dotfiles-core#691](https://github.com/dotgibson/dotfiles-core/issues/691)).
+`core-verify` needs a `dotfiles-core` checkout — it delegates to Core's own
+`scripts/core-integrity.sh`, which is the only implementation that knows how the fan-out
+filters the vendored subtree. Point it elsewhere with
+`make core-verify CORE_REPO=/path/to/dotfiles-core`.
 
 `make lint` skips a linter that isn't installed rather than failing; CI installs
 pinned, SHA-256-verified copies from `core/scripts/tool-versions.env`, so CI is the

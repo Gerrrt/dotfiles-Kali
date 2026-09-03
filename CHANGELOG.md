@@ -538,6 +538,20 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **`core-verify` asks the integrity question again, and `core-check` gets the freshness
+  one back (dotgibson/dotfiles-core#691).** Adopting the fleet vocabulary pointed the
+  canonical `core-verify` at `test/check-core-freshness.sh` and demoted `core-check` to an
+  alias of it. Those are two different questions: freshness is *is there a NEWER Core
+  upstream?*, integrity is *is THIS `core/` the tree `core.lock` pins?* — and Core's
+  `scripts/make-vocabulary.txt` defines the canonical verb as the second. So the register
+  read green on a target answering something else, while this repo still had **no local
+  integrity check at all**: `core-integrity.yml` ran one in CI and nothing ran one here.
+  `core-check` is a real target again, with help text naming its question, and
+  `core-verify` delegates to Core's own `scripts/core-integrity.sh` from a `CORE_REPO`
+  checkout — the same invocation CI uses, and the only implementation that knows how the
+  fan-out filters the vendored subtree. Verified both ways against a sibling clone at core
+  v6.1.0: `core-verify` reports `pristine`, `core-check` reports `current`.
+
 - **Three tool decisions recorded so the next scout cycle doesn't re-raise them.** All
   three were proposed by [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260)
   and all three were declined, on stated grounds rather than by omission:
