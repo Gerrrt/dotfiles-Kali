@@ -538,28 +538,19 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
-- **The canonical fleet `make` verbs: `check`, `dry-run` and `core-verify`
-  (dotgibson/dotfiles-core#691).** Nine repos had nine dialects — "dry run" was `dry-run`
-  in four repos and `bootstrap-dry` in four, "verify core" had five spellings, and only
-  `help` was common to every Makefile, so a contributor moving between repos re-learned
-  the verbs each time and no gate noticed. `dotfiles-core`'s `scripts/make-vocabulary.txt`
-  now declares the seven names once and its `make fleet-vocabulary` register reports, per
-  repo, which resolve. This repo answered four.
-  - `dry-run` is the canonical name for `bootstrap-dry`; the recipe is unchanged and
-    `bootstrap-dry` remains as a two-line alias.
-  - `check` is new: `lint`, then a hermetic `--links-only` bootstrap into a throwaway
-    `HOME`, asserting the symlink graph Core's loader expects **plus** the role layer this
-    repo adds on top of it (`tmux/role.conf`, `offensive/templates`). Unlike the OS repos'
-    equivalents it runs anywhere — a role bootstrap wires symlinks and needs no package
-    manager, no privileges and no particular distro. It does re-install this clone's
-    core-guard pre-commit hook, because bootstrap wires that against `$PWD` rather than
-    `$HOME`; the recipe says so rather than hiding it.
-  - `core-verify` is new, and it closes a real gap rather than a naming one:
-    `core-integrity.yml` ran the vendored-subtree check in CI and **nothing ran it
-    locally**. It delegates to Core's own `scripts/core-integrity.sh` from a `CORE_REPO`
-    checkout, the same invocation CI uses. It is not `core-check`, which asks the
-    different question of whether a *newer* Core exists — that target's help text now
-    says so.
+- **`core-verify` asks the integrity question again, and `core-check` gets the freshness
+  one back (dotgibson/dotfiles-core#691).** Adopting the fleet vocabulary pointed the
+  canonical `core-verify` at `test/check-core-freshness.sh` and demoted `core-check` to an
+  alias of it. Those are two different questions: freshness is *is there a NEWER Core
+  upstream?*, integrity is *is THIS `core/` the tree `core.lock` pins?* — and Core's
+  `scripts/make-vocabulary.txt` defines the canonical verb as the second. So the register
+  read green on a target answering something else, while this repo still had **no local
+  integrity check at all**: `core-integrity.yml` ran one in CI and nothing ran one here.
+  `core-check` is a real target again, with help text naming its question, and
+  `core-verify` delegates to Core's own `scripts/core-integrity.sh` from a `CORE_REPO`
+  checkout — the same invocation CI uses, and the only implementation that knows how the
+  fan-out filters the vendored subtree. Verified both ways against a sibling clone at core
+  v6.1.0: `core-verify` reports `pristine`, `core-check` reports `current`.
 
 - **Three tool decisions recorded so the next scout cycle doesn't re-raise them.** All
   three were proposed by [#260](https://github.com/dotgibson/dotfiles-Offense/issues/260)

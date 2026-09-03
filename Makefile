@@ -48,6 +48,11 @@ help: ## Show this help
 
 lint: shellcheck markdown trap-guard ## Run every static gate (shellcheck + syntax + markdown + trap discipline)
 
+# `check` is the fleet-canonical verb for the static gate (dotfiles-core#691). This repo
+# has no OS layer to hermetically re-wire (the OS half of the old Kali fusion moved to
+# dotfiles-Debian), so `check` is just `lint` here — matching MacBook's precedent.
+check: lint ## Alias for `lint` (fleet-canonical verb; see dotfiles-core#691)
+
 shellcheck: ## shellcheck + bash -n / zsh -n over repo-owned shell
 	@# ONE recipe line, same reason as `markdown` below: make gives each recipe line its
 	@# own shell, so the `exit 0` ended only ITS line — this printed "not installed" and
@@ -135,70 +140,39 @@ secrets: ## gitleaks over the working tree + full history (needs gitleaks)
 	  gitleaks detect -c core/gitleaks.toml --redact --verbose --exit-code 1; \
 	fi
 
-## ── the canonical fleet verbs (dotgibson/dotfiles-core#691) ──────────────────
-# `dry-run`, `check` and `core-verify` are three of the seven names every repo that vendors
-# Core must answer to (Core's scripts/make-vocabulary.txt; `make fleet-vocabulary` there
-# renders the register that checks it). Before that list, "dry run" was `dry-run` in four
-# repos and `bootstrap-dry` in four, "verify core" had five spellings, and only `help` was
-# common to every Makefile — a contributor re-learned the verbs in each repo and no gate
-# noticed. The requirement is that the CANONICAL name exists, not that a historical one
-# dies, so `bootstrap-dry` stays as an alias.
-
 dry-run: ## Preview the full bootstrap plan, changing nothing
 	@./bootstrap.sh --dry-run
 
-bootstrap-dry: dry-run ## (alias) the pre-#691 spelling of dry-run
-
-check: lint ## lint + a hermetic --links-only run against a throwaway HOME
-	@# `lint` proves the repo-owned shell parses and `test` proves the corpus and the views
-	@# agree; this proves the installer still wires the symlink graph Core's loader expects,
-	@# plus the role layer this repo adds on top of it. Unlike the OS repos' equivalents this
-	@# runs anywhere: a role bootstrap wires symlinks and needs no package manager, no
-	@# privileges and no particular distro.
-	@#
-	@# ONE side effect, deliberately not hidden: bootstrap wires the core-guard pre-commit
-	@# hook against $$PWD rather than $$HOME, so this also (re)installs the same hook `make
-	@# hooks` does, in this clone. It refuses commits that touch the vendored core/, which is
-	@# what you want in a clone you are working in anyway.
-	@#
-	@# tpm is pre-created because blib_link_core clones the tmux plugin manager into it on a
-	@# first run; this asserts symlinks, not network.
-	@tmp=$$(mktemp -d); \
-	mkdir -p "$$tmp/.config/tmux/plugins/tpm"; \
-	echo ":: bootstrap --links-only into $$tmp"; \
-	HOME="$$tmp" ./bootstrap.sh --links-only >/dev/null || { echo "bootstrap failed"; rm -rf "$$tmp"; exit 1; }; \
-	rc=0; \
-	for l in .config/zsh/loader.zsh .config/starship.toml .config/lazygit/config.yml \
-	         .config/nvim .config/tmux/tmux.conf .config/tmux/role.conf \
-	         .config/offensive/templates; do \
-	  test -L "$$tmp/$$l" || { echo "MISSING symlink: $$l"; rc=1; }; \
-	done; \
-	test -e "$$tmp/.config/zsh/loader.zsh" || { echo "loader.zsh is dangling"; rc=1; }; \
-	test -f "$$tmp/.config/sesh/sesh.toml" || { echo "sesh.toml not seeded"; rc=1; }; \
-	test -L "$$tmp/.config/sesh/sesh.toml" && { echo "sesh.toml must be a copy, not a link"; rc=1; }; \
-	grep -q "dotfiles-managed v4" "$$tmp/.zshrc" || { echo "~/.zshrc not managed"; rc=1; }; \
-	grep -q "source .*loader.zsh" "$$tmp/.zshrc" || { echo "~/.zshrc does not source the loader"; rc=1; }; \
-	rm -rf "$$tmp"; \
-	test $$rc -eq 0 && printf '\033[32m✓\033[0m symlink graph OK\n' || exit 1
+# Historical spelling — kept so muscle memory and existing docs still resolve
+# (dotfiles-core#691: the canonical name is what must exist, not what the old one dies).
+bootstrap-dry: dry-run ## Alias for `dry-run`
 
 ## ── vendored core/ (subtree of dotfiles-core) ────────────────────────────────
 
-# TWO DIFFERENT QUESTIONS, and the names have to keep them apart. `core-check` asks
-# whether core/ is BEHIND upstream (freshness — is there a newer Core?). `core-verify`
-# asks whether core/ is the tree core.lock PINS (integrity — has anything drifted or been
-# hand-edited?). Only the second is the fleet's canonical verb, and this repo had no local
-# answer to it at all: core-integrity.yml ran it in CI and nothing ran it here.
+# TWO DIFFERENT QUESTIONS, and the names have to keep them apart — this pair got crossed
+# when the fleet vocabulary landed (dotgibson/dotfiles-core#691). `core-check` asks whether
+# core/ is BEHIND upstream (freshness — is a sync owed?). `core-verify` asks whether core/
+# IS the tree core.lock pins (integrity — has anything drifted or been hand-edited?). The
+# vocabulary defines the canonical verb as the SECOND one, so pointing it at the freshness
+# script made the register read green on a target answering a different question — while
+# this repo still had no local integrity check at all: core-integrity.yml ran one in CI and
+# nothing ran one here.
 core-check: ## Is the vendored core/ behind upstream dotfiles-core? (freshness, not integrity)
 	@./test/check-core-freshness.sh
 
 # It must be driven from a dotfiles-core CHECKOUT, not from the vendored copy under core/:
-# the check resolves the pinned commit's tree in Core's object store, and a filtered
-# subtree materialization brings the tree, not the lineage. Same invocation CI uses:
-#   make core-verify CORE_REPO=/path/to/dotfiles-core
-core-verify: ## Verify the vendored core/ is pristine vs core.lock (needs CORE_REPO)
-	@[ -x "$(CORE_REPO)/scripts/core-integrity.sh" ] || { \
-	  echo "need a dotfiles-core checkout at CORE_REPO=$(CORE_REPO)"; exit 1; }
-	@"$(CORE_REPO)/scripts/core-integrity.sh" --self "$(CURDIR)"
+# the check resolves the pinned commit's tree in Core's object store, and a filtered subtree
+# materialization brings the tree, not the lineage. Same invocation core-integrity-call.yml
+# uses:  make core-verify CORE_REPO=/path/to/dotfiles-core
+core-verify: ## Verify the vendored core/ is pristine vs core.lock (integrity; needs CORE_REPO)
+	@[ -f "$(CORE_REPO)/scripts/core-integrity.sh" ] || { \
+	  echo "need a dotfiles-core checkout at CORE_REPO=$(CORE_REPO)"; \
+	  echo "(the verifier is Core-owned and not vendored into core/; clone it beside this repo,"; \
+	  echo " or pass CORE_REPO=/path — a git worktree always needs the override)"; exit 1; }
+	@bash "$(CORE_REPO)/scripts/core-integrity.sh" --self "$(CURDIR)"
+
+# Historical spelling — kept so muscle memory and existing docs still resolve
+# (dotfiles-core#691: the canonical name is what must exist, not what the old one dies).
 
 # core-sync and core-lock NO LONGER WRITE ANYTHING (dotfiles-core#676). Both report how
 # far core/ is behind and say how Core actually arrives — by fan-out. The local
@@ -210,7 +184,7 @@ core-verify: ## Verify the vendored core/ is pristine vs core.lock (needs CORE_R
 # move Core?", and that question still has an answer. They exit 0 — they are informational,
 # not gates, so there is nothing here for the fleet's make-gate audit to catch.
 
-core-sync: ## Report how far core/ is behind upstream (Core now arrives by fan-out — see core-check)
+core-sync: ## Report how far core/ is behind upstream (Core now arrives by fan-out — see core-verify)
 	@./scripts/sync-core.sh
 
 core-lock: ## core.lock is written by Core's fan-out, not here — explains how

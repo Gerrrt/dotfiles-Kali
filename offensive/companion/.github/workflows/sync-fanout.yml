@@ -39,10 +39,13 @@
 # ── AUTH ────────────────────────────────────────────────────────────────────────
 # The built-in GITHUB_TOKEN is scoped to htpx only — it CANNOT push a branch or open
 # a PR in dotfiles-Offense. This mints a short-lived GitHub App installation token scoped
-# to dotfiles-Offense (`contents:write` + `pull-requests:write`) at run time when the fleet
-# App is configured (the FLEET_APP_ID variable), and otherwise falls back to the legacy
-# FLEET_SYNC_TOKEN PAT — see dotfiles-core's GITHUB-APP-AUTH.md. The preflight fails loudly
-# if neither is available.
+# to dotfiles-Offense (`contents:write` + `pull-requests:write`) at run time from the fleet
+# App — the FLEET_APP_ID variable + FLEET_APP_PRIVATE_KEY secret, see dotfiles-core's
+# GITHUB-APP-AUTH.md. The App is the ONLY auth here: the legacy FLEET_SYNC_TOKEN PAT was
+# deleted when G2 finished (dotfiles-core #683/#819), so there is nothing behind it. If the
+# mint did not happen the preflight fails loudly BEFORE anything touches dotfiles-Offense —
+# note htpx itself is already checked out by then (with the built-in token), so the
+# guarantee is about the first CROSS-REPO clone/push, not the first clone in the job.
 #
 # ── WHY workflow_run, NOT release: published ────────────────────────────────────
 # A Release created by the built-in GITHUB_TOKEN (as auto-tag.yml does) does NOT emit
@@ -121,8 +124,8 @@ jobs:
           # htpx is PRIVATE, so the git clone / ls-remote below would otherwise prompt
           # for a username and die in CI ("could not read Username for github.com").
           # Authenticate reads of THIS repo with the built-in GITHUB_TOKEN (scoped to
-          # htpx, contents:read — see `permissions` above; NOT FLEET_SYNC_TOKEN, which
-          # is reserved for the cross-repo writes to dotfiles-Offense later).
+          # htpx, contents:read — see `permissions` above; NOT the minted App token,
+          # which is reserved for the cross-repo writes to dotfiles-Offense later).
           #
           # The auth is injected as an `url.insteadOf` rewrite via GIT_CONFIG_COUNT/
           # KEY/VALUE rather than `git config --global`, so the token is NEVER written
@@ -192,9 +195,11 @@ jobs:
           path: htpx
 
       # Mint a short-lived token scoped to just dotfiles-Offense IF the fleet GitHub App is
-      # configured (the FLEET_APP_ID variable is set). No App yet → SKIPPED, and the auth
-      # below falls back to the legacy FLEET_SYNC_TOKEN PAT — so this is a no-op until you
-      # set the org var/secret (dotfiles-core GITHUB-APP-AUTH.md, G2). The App does NOT need
+      # fully configured — BOTH the FLEET_APP_ID variable AND the FLEET_APP_PRIVATE_KEY
+      # secret, the latter via the HAS_APP_KEY presence flag (a secret cannot be tested in a
+      # step `if:` directly). Either one missing skips the step. A skipped mint has nothing to fall
+      # back to — the legacy FLEET_SYNC_TOKEN PAT is deleted (dotfiles-core #683/#819) — so
+      # the preflight below turns that into a legible failure. The App does NOT need
       # htpx access (htpx is read with the built-in token via KEY_1 below); the minted token
       # is scoped to the one repo this job writes to, and expires in ~1h.
       - name: Mint a scoped installation token (if the App is configured)
@@ -207,12 +212,12 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: dotfiles-Offense
 
-      # Fail early and legibly if NO cross-repo token is available (neither the App nor the
-      # legacy PAT) — otherwise the first clone/push would fail with an opaque 403.
+      # Fail early and legibly if the App minted no token — otherwise the first CROSS-REPO
+      # clone/push (into dotfiles-Offense, below) would fail with an opaque 403.
       - name: Preflight — a cross-repo write token is available
         if: steps.resolve.outputs.skip != 'true'
         env:
-          FLEET_TOKEN: ${{ steps.app.outputs.token || secrets.FLEET_SYNC_TOKEN }}
+          FLEET_TOKEN: ${{ steps.app.outputs.token }}
         run: |
           set -euo pipefail
           if [ -z "${FLEET_TOKEN:-}" ]; then
@@ -220,20 +225,21 @@ jobs:
             echo "::error::This workflow pushes a sync branch and opens a PR in dotfiles-Offense,"
             echo "::error::which the built-in GITHUB_TOKEN cannot reach. Configure the fleet"
             echo "::error::GitHub App (FLEET_APP_ID variable + FLEET_APP_PRIVATE_KEY secret on"
-            echo "::error::htpx — see dotfiles-core GITHUB-APP-AUTH.md), or set FLEET_SYNC_TOKEN."
+            echo "::error::htpx — see dotfiles-core GITHUB-APP-AUTH.md). There is NO PAT"
+            echo "::error::fallback: FLEET_SYNC_TOKEN was deleted when G2 finished."
             exit 1
           fi
 
       - name: Sync companion into dotfiles-Offense and open a PR
         if: steps.resolve.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token || secrets.FLEET_SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           OWNER: ${{ github.repository_owner }}
           TAG: ${{ steps.resolve.outputs.tag }}
           # Git auth + bot identity injected via STEP-SCOPED GIT_CONFIG_* (not `git
           # config --global`), so no token is ever written to ~/.gitconfig and the
           # scoping dies with this step — same approach as the Resolve step.
-          #   KEY_0: default github.com -> the fleet token (App token, else the PAT) for
+          #   KEY_0: default github.com -> the minted App token for
           #     the Offense clone, sync-branch push, and PR.
           #   KEY_1: a more-specific, .git-ANCHORED rule so htpx is read with the
           #     built-in token (git uses the LONGEST match). Anchored to the full `.git`
@@ -241,7 +247,7 @@ jobs:
           #     => the fleet token never needs htpx access.
           #   KEY_2/3: the bot commit identity for the gen-views regenerate commit.
           GIT_CONFIG_COUNT: "4"
-          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ steps.app.outputs.token || secrets.FLEET_SYNC_TOKEN }}@github.com/.insteadOf"
+          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ steps.app.outputs.token }}@github.com/.insteadOf"
           GIT_CONFIG_VALUE_0: "https://github.com/"
           GIT_CONFIG_KEY_1: "url.https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git.insteadOf"
           GIT_CONFIG_VALUE_1: "https://github.com/${{ github.repository }}.git"

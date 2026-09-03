@@ -18,9 +18,87 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
-## [Unreleased]
+## [v3.2.0] - 2026-09-03
 
 ### Added
+
+- **Azure resource plane (ARM) — the corpus's one cloud asymmetry, now closed.** Every
+  Azure entry so far sat on the Entra/M365 **identity** plane: six pairs deep (`aitm-phish`,
+  `device-code-phish`, `consent-grant`, `sp-cred-backdoor`, `entra-directory-role`,
+  `valid-accounts-cloud`) and zero wide on the resource plane, so the provider read as well
+  covered until you sorted by plane. AWS and GCP both reach the resource plane; Azure did
+  not, which meant the corpus went quiet exactly where post-compromise Azure work lands and
+  where the interesting telemetry (Azure Activity Log, Key Vault `AuditEvent`) lives. Two
+  new pairs:
+
+  - **`azure-vm-runcommand` ↔ `azure-runcommand-activity`** — VM Run Command, control-plane
+    code execution inside the guest as SYSTEM/root (`T1651` Cloud Administration Command,
+    the technique MITRE cites APT29 for and names "Azure RunCommand" in). The detection
+    matches both operation terms (`has_any ("runcommand", "runcommands")`) so it catches the
+    managed `runCommands` write, not just the `runCommand/action` invoke — a query narrowed
+    to one path (or to one term) would miss its own paired red's stealthier half, the mistake
+    `kerberoasting-4769` was fixed for. Activity Log is on by default, so this half needs no
+    telemetry caveat.
+
+  - **`azure-keyvault-secret-dump` ↔ `azure-keyvault-audit`** — bulk secret read, one
+    identity draining the vault (`T1555.006` Cloud Secrets Management Stores, which names Key
+    Vault and cites HAFNIUM and Shai-Hulud). It de-conflicts in-entry against the HashiCorp
+    Vault pair the way the 5145/4662 families do — same idea, different store, `T1555.006`
+    (cloud) vs the parent `T1555`. The blue side pairs honestly rather than shipping
+    `pair: null`: Key Vault `AuditEvent` is off by default, so it carries an explicit
+    `> Caveat:` naming the diagnostic-setting prerequisite and the `AZKVAuditLogs`
+    resource-specific table — the same opt-in-telemetry footing `aws-s3-exfil-cloudtrail`
+    already pairs on.
+
+  Closes [#114](https://github.com/dotgibson/htpx/issues/114). The storage-account `listKeys`
+  candidate the issue floated is left out: its cleanest tag is `T1530`, already carried by
+  `aws-s3-mass-exfil`, so it would add an Azure analogue rather than new technique coverage.
+
+## [v3.1.0] - 2026-09-03
+
+### Fixed
+
+- **`suid-abuse-auditd`'s watch does not load on arm64, and the reason it gives for staying
+  broad was overstated.** The rules block names `chmod` in the `b64` line. That syscall is a
+  legacy one the generic table does not carry, so on **aarch64 it does not exist** — and
+  `auditctl` does not skip an unknown name, it reports `Syscall name unknown: chmod` and
+  treats it as a fatal parse error, so the rules *after* it in the merged `audit.rules` do
+  not load either. An arm64 host following this entry got a failed load, not a narrower
+  watch. The rules are now split into two blocks, x86_64/i386 and arm64, presented as
+  alternatives to install one of rather than as one block to paste whole — the failure mode
+  is a copy-paste one, so a block a reader can copy entire and still break is not a fix.
+  Dropping `chmod` on arm64 costs no coverage: `fchmodat` is the only path-based chmod that
+  architecture has, so every `chmod u+s` there already arrives through it.
+
+  The entry also said auditd "cannot cheaply filter the rule down to only the setuid bit".
+  It can — the catch is that the mode argument sits at a **different index per syscall**:
+  `a1` for `chmod(path, mode)` and `fchmod(fd, mode)`, but `a2` for
+  `fchmodat(dirfd, pathname, mode, flags)`, where `a1` is the pathname pointer. So the
+  narrowed form is four lines, one pair per index, and the obvious single line across all
+  three syscalls silently ANDs a pointer against the bitmask on every `fchmodat`. That is
+  not hypothetical: the paired blue rule in dotfiles-Defense shipped exactly that bug and
+  was split per index in dotgibson/dotfiles-Defense#265. This entry keeps the broad watch —
+  it also catches the bit being *removed*, which the narrowed form discards — but now says
+  so on the real trade-off rather than on a claim that was not true, and records the
+  argument indices so the next author does not write the one-line form.
+
+### Added
+
+- **New pair `aws-snapshot-share-exfil` ↔ `aws-snapshot-share-cloudtrail` — T1537 Transfer
+  Data to Cloud Account (dotgibson/dotfiles-Defense#262).** The corpus had no entry for exfil
+  that never crosses an egress boundary: snapshot a volume, grant restore rights to an
+  attacker-controlled account, and take the copy from there. Bytes move inside AWS's own
+  address space over AWS's own APIs, so egress monitoring, DLP, and the `GetObject`-volume
+  signal in `aws-s3-mass-exfil` all stay quiet — every existing Exfiltration entry here
+  (`slack-external-share`, `snowflake-exfil-stage`) keys on crossing an external boundary,
+  which is exactly the case this one does not.
+  The blue side is the reverse of its two CloudTrail siblings' problem: `ModifySnapshotAttribute`
+  and friends are **management** events, in every trail by default, so it needs no data-event
+  logging where `aws-s3-exfil-cloudtrail` and `cloud-destroy-cloudtrail` both go half-blind.
+  It carries its own blind spot instead, stated in the entry: the attacker's `CopySnapshot`
+  runs in *their* account and never reaches the victim's trail, and a share → copy → un-share
+  sequence leaves a clean permission list — so posture sweeps that inventory currently-shared
+  snapshots see nothing, and the grant event is the only observable there will ever be.
 
 - **`auto-tag.sh` now pre-flights `dotfiles-Offense`'s companion markers, and refuses
   to tag when one is stale (#106).** Nothing in htpx could see those markers, and the
@@ -66,6 +144,42 @@ GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
   have waved through the one thing it exists to catch.
 
   Severity is now sticky, 2 > 1 > 0, and the result no longer depends on target order.
+
+- **`kerberoasting-4769` only detected the roast its own paired red does not perform**
+  (#112). The query gated on `Ticket_Encryption_Type=0x17` as "the invariant", but
+  `impacket-GetUserSPNs -request` and `nxc --kerberoasting` do not force the etype — the
+  TGS is issued under the SPN account's `msDS-SupportedEncryptionTypes`, so an AES-only
+  service account yields a `0x11`/`0x12` ticket the detection never saw. Only Rubeus
+  `/tgtdeleg` and Orpheus force RC4, and those are not what the pair ships.
+
+  The corpus already had this right one entry over: `asrep-roast-4768` says in as many
+  words that "the attacker doesn't force the etype... don't constrain the encryption
+  type, or AES-only domains slip through." Kerberoasting keyed on the cipher anyway,
+  with no AES arm and no caveat. RC4 is now the high-signal fast path rather than the
+  sole filter, with a distinct-SPN fan-out arm that catches the roast at any etype, and
+  the red entry no longer claims the downgrade is "the tell on the blue side".
+
+- **`valid-accounts-cloud` shipped an MSOLSpray invocation that does not exist** (#112).
+  `MSOLSpray --userlist ... --password ...` is neither form of the tool: dafthack's
+  canonical MSOLSpray is PowerShell (`Invoke-MSOLSpray -UserList -Password`), and the
+  GNU-style flags belong to the Python port, which runs as `python3 MSOLSpray.py`. Now
+  the latter, matching the flags that were already written. Same class as the
+  `proxychains` -> `proxychains4` fix; no paired-blue impact, since
+  `valid-accounts-signin` keys on the failure-burst-then-success shape either form
+  produces.
+
+- **The npm 2FA pair targeted the wrong downgrade, and the detection contradicted its own
+  prose** (#112). The red set `mfa=none`, which npm's secure-by-default work has been
+  narrowing out of the documented values — while the actually-interesting downgrade is
+  `publish` -> `automation`, defined by npm as "2FA required, but automation tokens
+  override it". That is precisely the "stolen token publishes unattended" outcome the
+  entry described, it is unambiguously still supported, and it leaves the setting reading
+  as 2FA-protected to anyone skimming. The blue side told operators to "alert on any
+  downgrade" and then filtered on `mfa=none` alone, so it would have missed the red it is
+  paired to; it now matches both values, with `none` as the legacy arm.
+
+- **ATT&CK v19's release date, in the v2.8.0 notes.** Recorded as 14 April 2026; MITRE
+  dates v19 to **28 April 2026**. History-only — no entry was tagged off it.
 
 ## [v3.0.1] - 2026-08-28
 
@@ -635,7 +749,7 @@ it" — the command was run, and both guesses were wrong in the same direction: 
   are history, and were true when written.
 
 - **ATT&CK v19 retag — 10 pairs move off revoked or drifted tags** (#65). The
-  v19 release (14 April 2026) split Defense Evasion into **Stealth** (`TA0005`,
+  v19 release (28 April 2026) split Defense Evasion into **Stealth** (`TA0005`,
   renamed) and **Defense Impairment** (`TA0112`, new), and reorganized "Impair
   Defenses" — promoting `T1562.001` to a parent technique and **formally
   revoking** the sub-techniques this corpus used. Unlike the `T1496` →
