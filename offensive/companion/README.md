@@ -121,7 +121,7 @@ frontmatter fields it needs with `awk`.
 <!-- THE CORPUS -->
 ## The Corpus
 
-102 paired attack/detection concepts (plus one unpaired recon entry), spanning
+103 paired attack/detection concepts (plus one unpaired recon entry), spanning
 Credential Access, Privilege Escalation, Lateral Movement, Persistence, Stealth,
 Defense Impairment, Collection, Exfiltration, and Discovery — across on-prem AD,
 a multi-cloud slice (Entra/M365, AWS, GCP), Kubernetes, Okta, Google Workspace,

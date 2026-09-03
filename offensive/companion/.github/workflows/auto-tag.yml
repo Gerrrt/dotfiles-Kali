@@ -15,7 +15,7 @@
 #
 # AUTH: the built-in GITHUB_TOKEN (contents: write) is enough here — it can push a tag
 # and create a Release IN THIS REPO. The cross-repo fan-out to dotfiles-Offense is a
-# SEPARATE workflow (sync-fanout.yml) that needs a FLEET_SYNC_TOKEN, because the
+# SEPARATE workflow (sync-fanout.yml) that mints a fleet GitHub App token, because the
 # built-in token cannot write to another repo.
 #
 # auto-tag.sh does READ dotfiles-Offense before it tags — the companion marker pre-flight
