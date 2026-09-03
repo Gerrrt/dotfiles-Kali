@@ -45,8 +45,8 @@ on **written authorization and a defined scope**.
 > CI-CD supply chain (Jenkins, GitHub/GitLab runners, npm/PyPI, Terraform Cloud,
 > Vault), plus the Impact tactic and the C2 tradecraft past the one row above, live in
 > the **companion corpus** — `htpx` (`~/companion`), where each attack is paired with
-> its detection. That material is **69 of the 103 red entries (67%) and 76 of the 102
-> blue (75%)** — 145 of 205 overall — and none of it is projected into
+> its detection. That material is **70 of the 104 red entries (67%) and 77 of the 103
+> blue (75%)** — 147 of 207 overall — and none of it is projected into
 > `hacktheplanet` or `PURPLE-TEAM.md`; the corpus is the map for it. (Counts are
 > hand-maintained per `companion-sync`; both files carry the same caveat.)
 > The CLIs those entries invoke are accounted for in

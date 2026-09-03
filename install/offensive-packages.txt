@@ -598,9 +598,14 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # of gap that let `impacket-petitpotam` ship. A few (sccmhunter, pxethiefy) are named by
 # hacktheplanet rather than the corpus, which is the same accounting obligation: this file
 # accounts for every tool the DOCS *and* the corpus name (see the target-dropped block).
-# MSOLSpray         → UPSTREAM (github.com/dafthack/MSOLSpray, PowerShell): the M365/Entra
-#                     password spray in `valid-accounts-cloud`. Operator-side but
-#                     WINDOWS-side, like AADInternals above — nothing to install on Linux.
+# MSOLSpray         → UPSTREAM (github.com/dafthack/MSOLSpray): the M365/Entra password
+#                     spray in `valid-accounts-cloud`. That entry invokes it as
+#                     `python3 MSOLSpray.py`, so unlike AADInternals above it is NOT
+#                     Windows-only — the script has to be present operator-side on Linux,
+#                     and `python3` is classified `base` in install/corpus-commands.lst
+#                     for exactly that line. dafthack's own repo is PowerShell; the .py the
+#                     entry names is a port, and htpx does not say which one — worth
+#                     pinning upstream (dotgibson/htpx) rather than guessing here.
 # tfc-agent         → UPSTREAM (HashiCorp release binary): the Terraform Cloud agent, run
 #                     on infrastructure YOU control so a workspace's runs execute where you
 #                     can read them (`tfc-agent-hijack`). NOT target-dropped, which is why
