@@ -7,7 +7,7 @@
 # and update companion_sha below to the new git-subtree-split commit.
 companion_repo=dotgibson/htpx
 companion_branch=main
-companion_sha=802a3ca65bccd8b6390279a7ed56d122ef585fa4
+companion_sha=7ea71779365c5ca89824e1e4852462eafc111f85
 # Human-readable provenance, mirroring core.lock's core_version/core_tag. Neither is
 # load-bearing — companion_sha is the only field the tooling compares — but without
 # them "which htpx is this?" needed a network round-trip. Refreshed by
@@ -31,5 +31,5 @@ companion_sha=802a3ca65bccd8b6390279a7ed56d122ef585fa4
 # describing different revisions. Do NOT "fix" it by forcing the two to track, which would
 # put Defense's pin on htpx's release cadence instead of on a reviewed decision.
 # dotgibson/dotfiles-Offense#251.
-companion_version=3.0.1
-companion_tag=v3.0.1-1-g802a3ca
+companion_version=3.1.0
+companion_tag=v3.1.0
