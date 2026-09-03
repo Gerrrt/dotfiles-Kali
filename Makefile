@@ -22,9 +22,9 @@
 # Run `make` with no target for the list.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help lint shellcheck markdown trap-guard test corpus-commands view-counts packages-check secrets \
-        core-check core-sync core-lock companion-check companion-sync companion-integrity \
-        bootstrap-dry hooks
+.PHONY: help lint check shellcheck markdown trap-guard test corpus-commands view-counts packages-check secrets \
+        core-verify core-check core-sync core-lock companion-check companion-sync companion-integrity \
+        dry-run bootstrap-dry hooks
 
 # Pinned tool versions come from the vendored Core, so local runs match CI exactly.
 CORE_PINS := core/scripts/tool-versions.env
@@ -42,6 +42,11 @@ help: ## Show this help
 ## ── gates ────────────────────────────────────────────────────────────────────
 
 lint: shellcheck markdown trap-guard ## Run every static gate (shellcheck + syntax + markdown + trap discipline)
+
+# `check` is the fleet-canonical verb for the static gate (dotfiles-core#691). This repo
+# has no OS layer to hermetically re-wire (the OS half of the old Kali fusion moved to
+# dotfiles-Debian), so `check` is just `lint` here — matching MacBook's precedent.
+check: lint ## Alias for `lint` (fleet-canonical verb; see dotfiles-core#691)
 
 shellcheck: ## shellcheck + bash -n / zsh -n over repo-owned shell
 	@# ONE recipe line, same reason as `markdown` below: make gives each recipe line its
@@ -130,13 +135,21 @@ secrets: ## gitleaks over the working tree + full history (needs gitleaks)
 	  gitleaks detect -c core/gitleaks.toml --redact --verbose --exit-code 1; \
 	fi
 
-bootstrap-dry: ## Preview the full bootstrap plan, changing nothing
+dry-run: ## Preview the full bootstrap plan, changing nothing
 	@./bootstrap.sh --dry-run
+
+# Historical spelling — kept so muscle memory and existing docs still resolve
+# (dotfiles-core#691: the canonical name is what must exist, not what the old one dies).
+bootstrap-dry: dry-run ## Alias for `dry-run`
 
 ## ── vendored core/ (subtree of dotfiles-core) ────────────────────────────────
 
-core-check: ## Is the vendored core/ behind upstream dotfiles-core?
+core-verify: ## Is the vendored core/ behind upstream dotfiles-core?
 	@./test/check-core-freshness.sh
+
+# Historical spelling — kept so muscle memory and existing docs still resolve
+# (dotfiles-core#691: the canonical name is what must exist, not what the old one dies).
+core-check: core-verify ## Alias for `core-verify`
 
 # core-sync and core-lock NO LONGER WRITE ANYTHING (dotfiles-core#676). Both report how
 # far core/ is behind and say how Core actually arrives — by fan-out. The local
@@ -148,7 +161,7 @@ core-check: ## Is the vendored core/ behind upstream dotfiles-core?
 # move Core?", and that question still has an answer. They exit 0 — they are informational,
 # not gates, so there is nothing here for the fleet's make-gate audit to catch.
 
-core-sync: ## Report how far core/ is behind upstream (Core now arrives by fan-out — see core-check)
+core-sync: ## Report how far core/ is behind upstream (Core now arrives by fan-out — see core-verify)
 	@./scripts/sync-core.sh
 
 core-lock: ## core.lock is written by Core's fan-out, not here — explains how
