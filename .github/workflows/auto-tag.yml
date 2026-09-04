@@ -41,6 +41,15 @@ on:
       - '!**.md'
       - '!**/*.md'
       - '!LICENSE'
+      # …EXCEPT that this repo INSTALLS markdown, which the blanket exclusions above
+      # would otherwise drop — the same silent-no-release defect this PR is fixing, one
+      # layer down. bootstrap.sh links `offensive/templates/` into
+      # $CONFIG/offensive/templates (via blib_link_role_layer) and `offensive/companion/`
+      # to ~/companion, and the companion's entries/red|blue/*.md ARE the htpx corpus:
+      # 218 installed .md files between them. A positive pattern AFTER a negative one
+      # re-includes, so these win.
+      - 'offensive/templates/**'
+      - 'offensive/companion/**'
       # CI plumbing and the suite — neither is wired into $HOME by bootstrap.sh.
       - '!.github/**'
       - '!test/**'
