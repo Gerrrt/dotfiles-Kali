@@ -73,16 +73,6 @@ esac; shift; done
 # it would do and touches nothing.
 ((DRY)) && export BLIB_DRY=1
 
-# ── PATH prelude ──────────────────────────────────────────────────────────────
-# bootstrap runs in BASH, before any of the zsh layer exists, so the user-local bindirs
-# `--install` writes into are NOT on PATH yet — the OS layer's zsh fragment and Core's
-# 00-tools.zsh only prepend them for the interactive shell. Without this every later
-# `command -v <tool>` is blind to what an earlier step just installed, and the probe
-# reports a tool it watched get installed as missing.
-#   ~/.local/bin — pipx shims, and our GOBIN for the go installs
-#   ~/.cargo/bin — cargo-installed tools an operator may have added
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-
 # ── core/ subtree present? (inline: can't source a lib out of core/ before this) ─
 # Validate the SPECIFIC paths we depend on (zsh modules + the two libs sourced next) so
 # a missing/partial subtree fails HERE with a precise message, not later with a cryptic
@@ -102,6 +92,30 @@ unset _req
 source "$DOTFILES/core/lib/ux.sh"
 # shellcheck source=core/lib/bootstrap-lib.sh
 source "$DOTFILES/core/lib/bootstrap-lib.sh"
+
+# ── PATH prelude ──────────────────────────────────────────────────────────────
+# bootstrap runs in BASH, before any of the zsh layer exists, so the user-local bindirs
+# `--install` writes into are NOT on PATH yet — the OS layer's zsh fragment and Core's
+# 00-tools.zsh only prepend them for the interactive shell. Without this every later
+# `command -v <tool>` is blind to what an earlier step just installed, and the probe
+# reports a tool it watched get installed as missing.
+#   ~/.local/bin — pipx shims, and our GOBIN for the go installs
+#   ~/.cargo/bin — cargo-installed tools an operator may have added
+#
+# Core's helper, NOT the hand-rolled `export PATH=` this used to be — which is also why it
+# now sits BELOW the source line rather than above it. The literal list was a fork of
+# core/lib/bootstrap-lib.sh :: blib_user_bindirs_on_path; the helper resolves CARGO_HOME
+# and GOBIN/GOPATH instead of hard-coding ~/.cargo and ~/.local, so an operator who has
+# moved either stops having their tools reported missing and reinstalled every run.
+#
+# audit-core.sh used to EXEMPT the role repos from this helper, on the reasoning that a
+# role layer installs no packages. That was never true of this one — `--install` does pipx
+# and `go install` into ~/.local/bin, which is exactly why the prelude was hand-rolled here
+# in the first place — and the exemption is gone (dotgibson/dotfiles-core#748).
+#
+# It adds only directories that EXIST, so it is called AGAIN in _install_apt_absent, after
+# pipx may have created ~/.local/bin. Idempotent by construction.
+blib_user_bindirs_on_path
 
 # Apply any --only/--skip module selection now the validator (blib_select) exists;
 # it aborts on a malformed selector or an unknown group.
@@ -313,6 +327,10 @@ _go_install() {
 # best-effort loop that fails quietly, which is worse than the manifest's UPSTREAM note
 # telling an operator to run one documented command. PyPI-clean, or it stays documented.
 _install_apt_absent() {
+  # Re-run the PATH prelude: the helper adds only directories that already EXIST, and on a
+  # fresh box ~/.local/bin is created by the first pipx or go install of this very run.
+  # Without this the guards below are blind to what this script just installed.
+  blib_user_bindirs_on_path
   command -v pipx >/dev/null 2>&1 || {
     blib_warn "pipx not found — skipping the apt-absent tools (install pipx via your OS layer)"
     return 0
