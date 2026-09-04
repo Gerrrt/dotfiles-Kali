@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   test:
-    uses: dotgibson/dotfiles-core/.github/workflows/bootstrap-test.yml@v6
+    uses: dotgibson/dotfiles-core/.github/workflows/bootstrap-test.yml@v7
     with:
       image: kalilinux/kali-rolling
       prep: "apt-get update -qq && apt-get install -y -qq bash zsh"
