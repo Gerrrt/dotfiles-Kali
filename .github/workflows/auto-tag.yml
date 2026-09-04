@@ -1,26 +1,84 @@
 name: auto-tag
 
-# Cut THIS repo's own next vX.Y.Z release tag when a vendored subtree lands new content
-# on main. Delegates to the reusable workflow in dotfiles-core — one definition of the
-# version math + tagging (scripts/auto-tag.sh): PATCH-bump by default, idempotent (a
-# no-op when HEAD is already tagged vX.Y.Z), and it tags in CI so this repo's own tag
-# stops drifting from what it vendors. Pinned @v4.
+# Cut THIS repo's own next vX.Y.Z tag (+ a GitHub Release) when its INSTALLABLE STATE
+# changes on main. Delegates to the reusable workflow in dotfiles-core — one definition
+# of the version math + tagging (scripts/auto-tag.sh): PATCH-bump by default, idempotent
+# (a no-op when HEAD is already tagged vX.Y.Z), and it tags in CI so this repo's own
+# version line stops drifting from the Core it vendors.
 #
-# Kali is the exception in the fleet: it carries TWO vendored lines, not one — the
-# `core/` subtree (from dotfiles-core) AND the `offensive/companion/` subtree (from
-# htpx, provenance in companion.lock, synced by scripts/sync-companion.sh). Both are
-# releasable, so both must cut a tag; watching only `core/**` (the copy-pasted default
-# from the OS repos) silently dropped every companion bump (G6). Watch all three.
+# EVERY PATH THIS FILTER WATCHED WAS A VENDORED SUBTREE, AND THAT WAS THE DEFECT
+# (dotgibson/dotfiles-core#696). Kali is the exception in the fleet: it carries TWO
+# vendored lines, not one — the `core/` subtree (from dotfiles-core) AND the
+# `offensive/companion/` subtree (from htpx, provenance in companion.lock, synced by
+# scripts/sync-companion.sh). The filter listed exactly those two plus companion.lock,
+# which fixed the companion half of an earlier bug (G6) and left the larger half standing:
+# a tag advanced when something Kali CONSUMES moved, and never when Kali itself did. This
+# repo's own offensive tooling, install list and bootstrap released nothing.
+#
+# Fleet-wide the shape was worse — the other eight watched `core/**` alone. Measured on
+# dotfiles-Fedora: seven Core syncs produced seven releases, and six native commits
+# produced none, so `v1.3.68` meant "68 Core syncs received", which core.lock already
+# answers precisely and offline. The release NOTES were never the problem (auto-tag.sh
+# groups Conventional Commits over the whole range since the last tag); the trigger and
+# the granularity were.
+#
+# A DENYLIST, NOT AN ALLOWLIST, on purpose. The default answer is "this changed what gets
+# installed, so cut a tag", and only what demonstrably does NOT ship is carved out. An
+# allowlist fails the way the old filter failed: add a new installable directory, forget
+# to list it, and releases silently stop. The denylist's failure mode is a spurious patch
+# tag — noisy, not wrong. `!` patterns are evaluated in order, so the exclusions below
+# override the `**` above.
 on:
   push:
     branches: [main]
     paths:
-      - 'core/**'
+      - '**'
+      # Docs and licence — never installed. BOTH markdown forms on purpose: GitHub
+      # documents `**.js` as matching "all .js files in the repository", which implies
+      # `**` spans directory separators — but the filter-pattern semantics are not pinned
+      # down explicitly anywhere citable, and this repo carries nested markdown. Listing
+      # both costs nothing and is correct under either reading.
+      - '!**.md'
+      - '!**/*.md'
+      - '!LICENSE'
+      # …EXCEPT that this repo INSTALLS markdown, which the blanket exclusions above
+      # would otherwise drop — the same silent-no-release defect this PR is fixing, one
+      # layer down. bootstrap.sh links `offensive/templates/` into
+      # $CONFIG/offensive/templates (via blib_link_role_layer) and `offensive/companion/`
+      # to ~/companion, and the companion's entries/red|blue/*.md ARE the htpx corpus:
+      # 218 installed .md files between them. A positive pattern AFTER a negative one
+      # re-includes, so these win.
+      - 'offensive/templates/**'
       - 'offensive/companion/**'
-      - 'companion.lock'
+      # CI plumbing and the suite — neither is wired into $HOME by bootstrap.sh.
+      - '!.github/**'
+      - '!test/**'
+      # Author-time environments and this repo's Claude routine rail — not host config.
+      - '!.claude/**'
+      - '!.devcontainer/**'
+      # Author-time tooling config: linters, git and dependency-bot metadata.
+      - '!.editorconfig'
+      - '!.gitattributes'
+      - '!.gitignore'
+      - '!.markdownlint.jsonc'
+      - '!.shellcheckrc'
+      - '!CODEOWNERS'
+      - '!renovate.json'
+  # The third SemVer component, reachable without editing this file. `bump` has been an
+  # input of the reusable from the start and NO caller in the fleet had ever passed one, so
+  # every tag any repo could cut was a patch — a release that adds a file and forces a
+  # re-bootstrap looked identical to a typo fix. Safe to press at any time: the reusable
+  # no-ops when HEAD already carries a vX.Y.Z tag.
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Which SemVer component to advance'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
-  contents: write
+  contents: write # the tag push + GitHub Release needs write
 
 concurrency:
   group: auto-tag-${{ github.ref }}
@@ -29,3 +87,7 @@ concurrency:
 jobs:
   tag:
     uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v6
+    # `inputs` is empty on a push event, so this reads `patch` there and the chosen
+    # component on a dispatch. One caller, both flows.
+    with:
+      bump: ${{ inputs.bump || 'patch' }}
