@@ -113,8 +113,16 @@ source "$DOTFILES/core/lib/bootstrap-lib.sh"
 # and `go install` into ~/.local/bin, which is exactly why the prelude was hand-rolled here
 # in the first place — and the exemption is gone (dotgibson/dotfiles-core#748).
 #
+# `mkdir -p` FIRST, and that line is load-bearing rather than tidy. The helper adds only
+# directories that EXIST — deliberately, so it cannot inject a bogus PATH entry — but the
+# `export PATH=` this replaces added ~/.local/bin unconditionally. On a fresh box it does
+# not exist until the first pipx or `go install` of this very run creates it, so a straight
+# swap would silently DROP it for the whole run and the probe/report phase would go back to
+# reporting a tool it watched get installed as missing — the exact failure the prelude was
+# written for. Creating the directory we install into is a statement of intent, not a guess.
+mkdir -p "$HOME/.local/bin" 2>/dev/null || true
 # It adds only directories that EXIST, so it is called AGAIN in _install_apt_absent, after
-# pipx may have created ~/.local/bin. Idempotent by construction.
+# pipx may have created ~/.cargo/bin or a GOBIN elsewhere. Idempotent by construction.
 blib_user_bindirs_on_path
 
 # Apply any --only/--skip module selection now the validator (blib_select) exists;

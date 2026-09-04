@@ -73,7 +73,7 @@ release line.
   "is the tool present afterwards" can never fail under one. Core has shipped
   `blib_user_bindirs_on_path` for exactly this since dotgibson/dotfiles-core#425 — it resolves
   `CARGO_HOME` and `GOBIN`/`GOPATH` rather than hard-coding them, and adds only directories
-  that **exist**, so it is called again after an installer creates one. `audit-core.sh` used to **exempt** the Role repos from this helper on the reasoning that a role layer installs no packages; that was never true of an `--install` that does `pipx` and `go install` into `~/.local/bin`, which is why the prelude was hand-rolled here in the first place. The exemption is gone.
+  that **exist**, so it is called again after an installer creates one. The directory `--install` writes into is `mkdir -p`'d before the helper runs: the helper adds only directories that already **exist**, so a straight swap for the old unconditional `export` would have dropped `~/.local/bin` for the whole first run and sent the probe/report phase back to reporting a tool it watched get installed as missing. `audit-core.sh` used to **exempt** the Role repos from this helper on the reasoning that a role layer installs no packages; that was never true of an `--install` that does `pipx` and `go install` into `~/.local/bin`, which is why the prelude was hand-rolled here in the first place. The exemption is gone.
 - **`sync-core.sh --help` printed `set -euo pipefail`.** The header is rendered with
   `sed -n '2,35p' "$0"`, and the comment block it means to print ends at line 33 — so
   every `--help` run trailed the closing `───` rule with the first two lines of actual
