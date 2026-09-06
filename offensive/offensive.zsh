@@ -63,8 +63,18 @@ _have hashcat      && HAVE_HASHCAT=1
 _have john         && HAVE_JOHN=1
 # Binary / file inspection
 _have hexyl        && HAVE_HEXYL=1          # hex viewer — own command, no alias (shadows
-                                            # nothing classic). Detect-only, like Core's
-                                            # HAVE_ASTGREP / HAVE_JNV / HAVE_SHELLCHECK.
+                                            # nothing classic), and nothing below guards on
+                                            # HAVE_HEXYL either: the PROBE is the point. It
+                                            # is what earns hexyl a line in
+                                            # install/tools.lst ("a command this file probes
+                                            # with HAVE_* or invokes by bare name"), so
+                                            # bootstrap reports on a box that lacks it.
+                                            # Core reached the same shape from the other
+                                            # side: its unaliased tools carry no flag at all
+                                            # since dotfiles-core#694 — just a `_have` into
+                                            # the _CORE_PROBED ledger. Don't compare to a
+                                            # named Core flag here; there is no longer one
+                                            # to name.
                                             # Kali-only by decision: dotfiles-core#395.
 
 # Delivery / plumbing deps that aren't offensive tools but that helpers here need.
