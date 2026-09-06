@@ -29,7 +29,7 @@ on **written authorization and a defined scope**.
 
 | Phase                      | ATT&CK tactic(s)              | Go-to tools (this layer)                                                                                                        | Workspace dir               |
 | -------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| **Recon**                  | Reconnaissance (TA0043)       | amass, subfinder, dnsx, bbot, theharvester, masscan                                                                             | `recon/`                    |
+| **Recon**                  | Reconnaissance (TA0043)       | amass, subfinder, dnsx, bbot (`pipx`, not apt), theharvester, masscan                                                           | `recon/`                    |
 | **Scanning / enum**        | Discovery (TA0007)            | `nmapsweep`, nxc (smb/ldap/winrm), enum4linux-ng, ldapdomaindump (apt: python3-ldapdomaindump)                                  | `scans/`                    |
 | **Initial access**         | Initial Access (TA0001)       | nuclei/httpx-toolkit/katana (katana: `go install`, not apt), ffuf/feroxbuster, sqlmap, Burp, responder                          | `web/`, `exploit/`          |
 | **Cred access**            | Credential Access (TA0006)    | nxc, impacket (secretsdump), responder, hashcat/john, certipy-ad, sccmhunter (SCCM/MECM NAA + site takeover; upstream, not apt) | `loot/creds`, `loot/hashes` |
@@ -97,14 +97,14 @@ now owns the compose file under an XDG config dir.
 - No payloads, implants, shellcode, or exploit code. Those are generated
   per-engagement, live in `exploit/` under `~/engagements`, and never sync.
 - No target lists, creds, or loot. Same reason.
-- No C2 server is vendored. Sliver and AdaptixC2 are now apt packages (so `up`
-  carries them); Caldera stays an install *pointer* — it carries its own update
-  cadence, and it moved from MITRE to the **Apache Incubator** (donated 2025-12-19,
-  with the in-tree rebrand following Jul 2026; now `apache/caldera`, and
-  `mitre/caldera` redirects), so the slower release rhythm is that transition
-  rather than EOL. Configuring any of them is per-engagement work, and
-  AdaptixC2's shipped defaults are fingerprinted, so treat "installed" as the
-  starting line.
+- No C2 server is vendored. Sliver, AdaptixC2 and Caldera are all apt packages now
+  (so `up` carries them) — Caldera is no longer an install pointer, though it is in
+  `kali-linux-large` and **not** `kali-linux-default`, so a default or slim box still
+  needs its manifest line. Its slower release rhythm is not EOL: it moved from MITRE
+  to the **Apache Incubator** (donated 2025-12-19, with the in-tree rebrand following
+  Jul 2026; now `apache/caldera`, and `mitre/caldera` redirects), and that transition
+  is the cadence. Configuring any of them is per-engagement work, and AdaptixC2's
+  shipped defaults are fingerprinted, so treat "installed" as the starting line.
 
 The dotfiles job is to make the **toolset and workspace** reproducible across
 boxes. The tradecraft stays in your head and in the (private, out-of-repo)
