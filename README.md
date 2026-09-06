@@ -133,7 +133,7 @@ cd ~/dotfiles-Offense
 ./bootstrap.sh --install       # opt-in: the offensive tool stack
 ```
 
-`core/` is a vendored subtree and is **already present** in a clone — there is no
+`core/` is a vendored copy and is **already present** in a clone — there is no
 submodule step. Flags: `--install` (the opt-in tool install — apt from
 `install/offensive-packages.txt` on Kali, a pipx/go subset elsewhere), `--links-only`
 (just re-create symlinks), `--no-check` (skip the host-tool report), `--dry-run`.
