@@ -27,6 +27,12 @@
 zsh                     # the shell this layer runs in — not optional
 python3                 # backs hethttp's `python3 -m http.server`
 tmux                    # the `prefix + e` engagement popup and tmux-eng.sh
+# Bare-name invocation, no HAVE_* guard, in BOTH halves of the engagement switcher:
+# offensive/offensive.zsh's eng() and offensive/tmux/tmux-eng.sh. Same membership basis as
+# tmux above. It is NOT in offensive-packages.txt — fzf is the OS/Core layer's package
+# (dotfiles-Debian) — but the probe belongs here, or a box without it reports all-clear
+# while `eng` dies "command not found" and the popup exits 127.
+fzf                     # backs eng() and the `prefix + e` popup's picker
 
 # ── Network / Active Directory ────────────────────────────────────────────────
 nxc                     # NetExec (apt: netexec) — backs the smb/ldap/winrm aliases and bhce

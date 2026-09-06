@@ -63,8 +63,18 @@ _have hashcat      && HAVE_HASHCAT=1
 _have john         && HAVE_JOHN=1
 # Binary / file inspection
 _have hexyl        && HAVE_HEXYL=1          # hex viewer — own command, no alias (shadows
-                                            # nothing classic). Detect-only, like Core's
-                                            # HAVE_ASTGREP / HAVE_JNV / HAVE_SHELLCHECK.
+                                            # nothing classic), and nothing below guards on
+                                            # HAVE_HEXYL either: the PROBE is the point. It
+                                            # is what earns hexyl a line in
+                                            # install/tools.lst ("a command this file probes
+                                            # with HAVE_* or invokes by bare name"), so
+                                            # bootstrap reports on a box that lacks it.
+                                            # Core reached the same shape from the other
+                                            # side: its unaliased tools carry no flag at all
+                                            # since dotfiles-core#694 — just a `_have` into
+                                            # the _CORE_PROBED ledger. Don't compare to a
+                                            # named Core flag here; there is no longer one
+                                            # to name.
                                             # Kali-only by decision: dotfiles-core#395.
 
 # Delivery / plumbing deps that aren't offensive tools but that helpers here need.
@@ -454,8 +464,10 @@ rocks() {
 # that carry their OWN updater and rot between apt syncs — nuclei's TEMPLATES (they move
 # daily) plus its engine ONLY where that build has `-update`: Kali patches the engine
 # self-updater out because apt owns the binary, so there redup refreshes templates alone
-# and neither runs nor tallies the engine step. Then katana's crawler engine — probed the
-# same way and for the same reason, see its own note below — and searchsploit's exploit-DB,
+# and neither runs nor tallies the engine step. Then katana's crawler engine — same reason,
+# but katana needs a SECOND probe, because Kali does not patch its updater out and apt can
+# own a binary whose `-update` is still live; see its own note below — and searchsploit's
+# exploit-DB,
 # plus any go-installed fast-movers registered in go_fast_movers below — an empty array
 # today, see the note there. Run it DELIBERATELY on your attacker box — NEVER on a
 # client/engagement host mid-op, where updating a tool under a working chain is exactly
@@ -471,7 +483,9 @@ redup() {
     print -- "redup — manually refresh the fast-moving offensive tools (opt-in, attacker box only,"
     print -- "        never mid-engagement): nuclei templates always, its engine only where that"
     print -- "        build carries -update (Kali's packaged nuclei does not — apt owns it),"
-    print -- "        katana on the same terms, and searchsploit's exploit-DB."
+    print -- "        katana on the same terms PLUS a writable-binary check (its updater is"
+    print -- "        not patched out, so the flag alone does not prove apt is hands-off),"
+    print -- "        and searchsploit's exploit-DB."
     print -- "        apt-packaged tools update via 'up'."
     return 0
   fi
@@ -585,16 +599,39 @@ redup() {
   # exists on precisely the patched build the probe is meant to catch. The leading
   # `(^|[[:space:],])` is what kills that hit (the preceding char is `e`). `2>&1` is kept
   # because goflags routes `-h` through stderr on some builds.
+  #
+  # THE FLAG PROBE IS NOT ENOUGH ON ITS OWN, and katana is where that breaks (#299). The
+  # nuclei step above can stop at the flag because Kali PATCHES nuclei's self-updater out
+  # (`Disable-update.patch`), so an apt-owned nuclei fails the probe and skips. Kali's
+  # katana carries no such patch: apt can own the binary while `-update` is still present
+  # and advertised. The probe passes, the update then tries to replace a dpkg-owned
+  # /usr/bin/katana as a normal user, gologger.Fatal()s, and this step prints
+  # `✗ katana update failed` on EVERY run of a completely healthy box — the exact miscount
+  # the nuclei comment above exists to prevent, arriving through the branch that comment
+  # does not cover. So the second question is: can this process actually write the binary?
+  #
+  # AND THE ANSWER TO "not writable" IS TO SKIP, NOT TO SUDO — the one place this does NOT
+  # mirror searchsploit's `-w` probe above, which escalates. Escalating here would overwrite
+  # a dpkg-owned file that the next `apt upgrade` reverts, leaving redup and apt fighting
+  # over /usr/bin/katana. Not writable means apt owns it, and apt-owned tools are `up`'s
+  # job, not this list's — the same ownership rule already applied to ffuf/gobuster/
+  # azurehound/kubectl/wpscan/nikto below. So it is a neutral skip line, not a red tally:
+  # nothing was refreshed, and nothing failed either.
+  #
+  # BOTH the file and its directory are tested because katana's updater may write in place
+  # or write-then-rename, and a rename needs the DIRECTORY bit. Testing both means this
+  # guard does not depend on knowing which one ProjectDiscovery's updateutils uses today.
   if command -v katana >/dev/null 2>&1; then
     print -P "%F{cyan}» katana — crawler engine (where the build supports it)%f"
-    if katana -h 2>&1 | grep -qE '(^|[[:space:],])-(up|update)([[:space:],]|$)'; then
-      if katana -update -silent 2>/dev/null || katana -update 2>/dev/null; then
-        ((updated++))
-      else
-        print -P "  %F{red}✗ katana update failed%f"; ((failed++))
-      fi
-    else
+    local kt_bin; kt_bin=${commands[katana]}
+    if ! katana -h 2>&1 | grep -qE '(^|[[:space:],])-(up|update)([[:space:],]|$)'; then
       print -- "  – self-update not in this build (apt owns it) — nothing to refresh"
+    elif [[ ! -w "$kt_bin" || ! -w "${kt_bin:h}" ]]; then
+      print -- "  – $kt_bin is not writable (apt owns it) — leave it to \`up\`"
+    elif katana -update -silent 2>/dev/null || katana -update 2>/dev/null; then
+      ((updated++))
+    else
+      print -P "  %F{red}✗ katana update failed%f"; ((failed++))
     fi
   else
     print -- "  – katana not installed — skipping"
