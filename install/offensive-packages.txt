@@ -415,18 +415,21 @@ sliver               # Go C2, the open-source standard — APT-PACKAGED, and lon
 #                    # ⚠ CURRENCY: apt runs SEVERAL RELEASES behind and the gap keeps widening.
 #                    # Kali froze at 1.7.1-0kali4 in Mar 2026 and has not moved since; upstream had
 #                    # already cut 1.7.2 and 1.7.3 when that migration landed, so it shipped a build
-#                    # that was stale on arrival, and has kept releasing (through 1.7.6, 2026-08-28)
-#                    # with implant and stability fixes each time — 1.7.6 IS the head, so the
-#                    # "past 1.7.6" this line used to say ran one notch ahead of the facts.
-#                    # WHAT 1.7.6 CONTAINS sharpens the warning rather than repeating it: it bounds
-#                    # mTLS/WireGuard envelope and pivot-frame allocation from the length prefix, and
-#                    # fixes DNS varint boundary handling. Those are memory-exhaustion bounds on the
-#                    # paths that FACE THE NETWORK, not cosmetic stability. Deliberately NOT written
-#                    # as a
-#                    # patch COUNT: this note used to say "TWO patches behind" and that number was
-#                    # wrong within five months. Check `sliver-server version` against upstream's
-#                    # releases page before an op instead. Fine for a C2 you re-profile anyway —
-#                    # but it is not "~a patch", and the implant is the half that ages.
+#                    # that was stale on arrival, and upstream has kept releasing with implant and
+#                    # stability fixes each time.
+#                    # NO UPSTREAM HEAD IS NAMED HERE, deliberately, and this is the THIRD wording
+#                    # of that lesson. The note first said "TWO patches behind" (wrong within five
+#                    # months), then "past 1.7.6" (one notch ahead of the facts), then "1.7.6 IS the
+#                    # head" — which held for six days. A head written into prose is stale before
+#                    # the next sync; a patch COUNT is stale faster. Check `sliver-server version`
+#                    # against upstream's releases page before an op instead.
+#                    # WHAT THE RECENT RELEASES CONTAIN sharpens the warning rather than repeating
+#                    # it: 1.7.6 bounds mTLS/WireGuard envelope and pivot-frame allocation from the
+#                    # length prefix and fixes DNS varint boundary handling. Those are
+#                    # memory-exhaustion bounds on the paths that FACE THE NETWORK, not cosmetic
+#                    # stability — and kali's 1.7.1 runs them unhardened. Fine for a C2 you
+#                    # re-profile anyway — but it is not "~a patch", and the implant is the half
+#                    # that ages.
 adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver + Qt client, and
 #                    # the actively-developed slot now that havoc below is frozen. In kali apt.
 #                    # ⚠ its DEFAULT server profiles are heavily fingerprinted — publicly
