@@ -5,8 +5,8 @@
 #
 # `offensive/hacktheplanet`, `PURPLE-TEAM.md` and `OFFENSIVE-METHODOLOGY.md` each open
 # with a paragraph explaining how much of the companion corpus they project and how much
-# they deliberately do not. Those paragraphs quote NUMBERS — 103 red, 102 blue, 19
-# projected, 24 projected, 205 overall — and every one is hand-typed. Two of the three
+# they deliberately do not. Those paragraphs quote NUMBERS — 106 red, 105 blue, 19
+# projected, 24 projected, 211 overall — and every one is hand-typed. Two of the three
 # files say so about themselves: "These counts are hand-maintained and go stale on every
 # companion-sync. If they disagree with `ls offensive/companion/entries/blue | wc -l`,
 # this file is wrong, not the corpus." This gate is that sentence, executed.
@@ -33,12 +33,13 @@
 #
 # WHAT IT CANNOT CHECK — deliberately, and this is not a backlog. Every remaining figure in
 # those paragraphs is a SEMANTIC CLASSIFICATION of an entry's content, not a property of
-# the tree: 56 cloud/SaaS/CI-CD red, 13 C2-egress/Impact, 7 Linux post-ex, 69 blue entries
-# with no Windows event ID, 69 red corpus-only, 76 blue corpus-only, 145 combined, and the
-# 67%/75% shares. Nothing in entries/*.md marks an entry "cloud"; a human read the corpus
+# the tree: 59 cloud/SaaS/CI-CD red, 13 C2-egress/Impact, 7 Linux post-ex, 71 blue entries
+# with no Windows event ID, 72 red corpus-only, 79 blue corpus-only, 151 combined, and the
+# 68%/75% shares. Nothing in entries/*.md marks an entry "cloud"; a human read the corpus
 # and assigned those buckets. Re-implementing that judgement in grep would be wrong more
 # often than the prose is. Percentages are ungated for a second reason: which way to round
-# 76/102 = 74.5 is an editorial call, and a gate that overrules it is a nuisance. Those
+# a share that lands on .5 is an editorial call, and a gate that overrules it is a
+# nuisance. Those
 # slots appear as `-` in the claim table below, so the blind spots are reviewable source
 # rather than an omission. The ONE exact relation that IS free — the combined numerator
 # must equal the sum of the two stated numerators — is checked as tier 2.
@@ -187,7 +188,7 @@ check() {
 }
 
 # 1 — hacktheplanet's projection paragraph.
-#     "…19 of its 103 red entries are (24 of 102 blue in PURPLE-TEAM.md)."
+#     "…19 of its 106 red entries are (24 of 105 blue in PURPLE-TEAM.md)."
 check "$HTP" "hacktheplanet projection paragraph" \
   '[0-9]+ of its [0-9]+ red entries are \([0-9]+ of [0-9]+ blue in PURPLE-TEAM\.md\)' \
   "${red_projected}:generated blocks in ${HTP} (grep -c '^# companion:gen ')" \
@@ -196,7 +197,7 @@ check "$HTP" "hacktheplanet projection paragraph" \
   "${blue_total}:git ls-files ${BLUE_DIR}/*.md"
 
 # 2 — PURPLE-TEAM.md's scope note.
-#     "…only 24 of the companion's 102 blue entries project here. The other 78 mostly…"
+#     "…only 24 of the companion's 105 blue entries project here. The other 81 mostly…"
 check "$PT" "PURPLE-TEAM scope note" \
   "only [0-9]+ of the companion's [0-9]+ blue entries project here\. The other [0-9]+ mostly" \
   "${blue_projected}:generated blocks in ${PT} (grep -c '^<!-- companion:gen ')" \
@@ -204,14 +205,14 @@ check "$PT" "PURPLE-TEAM scope note" \
   "${blue_unprojected}:blue_total - blue_projected = ${blue_total} - ${blue_projected}"
 
 # 3 — the same unprojected figure, restated one paragraph later. It can drift on its own,
-#     so it gets its own claim. The 69 beside it is semantic (see the header) — slot `-`.
+#     so it gets its own claim. The 71 beside it is semantic (see the header) — slot `-`.
 check "$PT" "PURPLE-TEAM no-event-ID breakdown" \
   'Of those [0-9]+, \*\*[0-9]+\*\* genuinely carry no Windows event ID' \
   "${blue_unprojected}:blue_total - blue_projected = ${blue_total} - ${blue_projected}" \
   -
 
 # 4 — OFFENSIVE-METHODOLOGY.md's corpus-share sentence. Only the two DENOMINATORS are
-#     derivable; the numerators (69, 76) and the percentages are semantic.
+#     derivable; the numerators (72, 79) and the percentages are semantic.
 om_shares=()
 check "$OM" "OFFENSIVE-METHODOLOGY corpus share" \
   '\*\*[0-9]+ of the [0-9]+ red entries \([0-9]+%\) and [0-9]+ of the [0-9]+ blue \([0-9]+%\)\*\*' \
@@ -223,7 +224,7 @@ check "$OM" "OFFENSIVE-METHODOLOGY corpus share" \
   -
 om_shares=("${VC_LAST[@]}")
 
-# 5 — "…145 of 205 overall…". The numerator is the sum of the two semantic numerators
+# 5 — "…151 of 211 overall…". The numerator is the sum of the two semantic numerators
 #     above (tier 2); the denominator is the whole corpus and is derivable.
 om_overall=()
 check "$OM" "OFFENSIVE-METHODOLOGY overall total" \
@@ -233,7 +234,7 @@ check "$OM" "OFFENSIVE-METHODOLOGY overall total" \
 om_overall=("${VC_LAST[@]}")
 
 # ── tier 2: internal consistency ─────────────────────────────────────────────
-# The gate does not know whether 69, 76 and 145 are RIGHT — they are editorial buckets.
+# The gate does not know whether 72, 79 and 151 are RIGHT — they are editorial buckets.
 # It does know they must SUM, so a half-update (76 corrected, 145 forgotten) is caught.
 # No rounding is involved, which is exactly why the percentages next to them are not here.
 if ((${#om_shares[@]} == 6 && ${#om_overall[@]} == 2)); then
@@ -263,8 +264,8 @@ if ((drift)); then
   bad "  dotgibson/htpx, overwritten on the next sync)."
   bad ""
   bad "  Cross-check the SEMANTIC figures by hand while you are in there — the gate does"
-  bad "  not know them: 56 cloud/SaaS/CI-CD, 13 C2-egress/Impact, 7 Linux, 69 no-event-ID,"
-  bad "  76 blue corpus-only, and the 67%/75% shares."
+  bad "  not know them: 59 cloud/SaaS/CI-CD, 13 C2-egress/Impact, 7 Linux, 71 no-event-ID,"
+  bad "  79 blue corpus-only, and the 68%/75% shares."
   bad ""
   bad "  The ${red_projected} entries currently projected into ${HTP}:"
   grep -oE '^# companion:gen .*' "$HTP" | sed 's/^# companion:gen /      /' >&2

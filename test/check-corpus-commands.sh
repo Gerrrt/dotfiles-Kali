@@ -8,8 +8,8 @@
 # script; DFSCoerce is a git clone with no binary on PATH. A human found them by reading
 # the file, because NO GATE ON EITHER SIDE COULD:
 #
-#   gen-views.sh --check     byte-compares the 18 PROJECTED red blocks against their
-#                            entries. 85 of 103 red entries are unprojected — invisible.
+#   gen-views.sh --check     byte-compares the 19 PROJECTED red blocks against their
+#                            entries. 87 of 106 red entries are unprojected — invisible.
 #   check-packages.sh        resolves names in install/offensive-packages.txt. It reads the
 #                            MANIFEST, and has never looked at the corpus.
 #   companion integrity      compares the vendored tree to companion.lock. Provenance, not

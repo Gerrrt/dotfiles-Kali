@@ -63,8 +63,8 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > beside the attack that trips it. That split is deliberate, not a backlog: a
 > cloud-audit query has nothing to do with a Sysmon feed in `index=main`.
 >
-> Of those 81, **72** genuinely carry no Windows event ID. Seven of the remaining
-> nine are the C2-egress and Impact detections named above. The last two —
+> Of those 81, **71** genuinely carry no Windows event ID. Eight of the remaining
+> ten are the C2-egress and Impact detections named above. The last two —
 > `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662**, which is
 > this file's own criterion for projecting, and yet project nowhere. That pair is a
 > real gap rather than part of the split, and it mirrors exactly the two unprojected
