@@ -27,11 +27,24 @@ blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest g
   2. The corpus is a deliberate SUPERSET: 59 red entries are cloud / SaaS / CI-CD
      (AWS, Entra, GCP, Okta, Snowflake, k8s, Jenkins, GitHub/GitLab, npm/PyPI, Vault,
      Terraform Cloud, Cloudflare, Harbor, Google Workspace, Slack) and 13 more are
-     C2-egress / Impact. Those have NO counterpart here and never will — this file is
-     organized per-service / per-port, and cloud has no port. Read that half with
-     `htpx` (~/companion), which pairs each attack beside its detection. Same on the
-     blue side: PURPLE-TEAM.md is the Windows Security / Sysmon mirror, so the
+     C2-egress / Impact. Those have NO counterpart here — this file is organized
+     per-service / per-port, and cloud has no port. Read that half with `htpx`
+     (~/companion), which pairs each attack beside its detection. Same on the blue
+     side: PURPLE-TEAM.md is the Windows Security / Sysmon mirror, so the
      cloud-audit-log detections live only in the corpus too.
+
+     HOW 59 AND 13 ARE BINNED — write it down, because raw `section:` counts give
+     60 cloud + 13 C2/Impact = 73, one MORE than the 72 this pair of buckets claims,
+     and an undocumented binning is re-derived wrong on the next sync. Two entries
+     move, in opposite directions:
+       - cloud-snapshot-destroy (`section: AWS / cloud impact`) is counted under
+         Impact, not cloud: the TACTIC decides the bucket, not the service prefix.
+         60 - 1 = 59.
+       - reverse-tunnel-chisel (`section: Command & Control`) is NOT in the 13 —
+         reason 1 already claims it, and the chisel / ligolo-ng block further down
+         covers it. 8 C2 + 5 Impact + cloud-snapshot-destroy - chisel = 13.
+     So "no counterpart here" is a claim about the 13 AS BINNED, not about every
+     entry whose section says Command & Control.
   3. 7 red entries are Linux persistence / privesc / credential-access. This file's
      Linux material is organized around getting a shell and stabilizing it, not
      around post-exploitation on a Linux host, so those live in the corpus as well.
